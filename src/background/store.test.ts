@@ -52,11 +52,26 @@ test("the removed 10 and 20 second clipboard delays become 30 seconds", async ()
   assert.equal((await getSettings()).clearClipboardDelay, "oneMinute");
 });
 
-test("overlapping settings writes keep every change", async () => {
+test("overlapping settings writes keep every change, and never store the never-save list", async () => {
   const { updateSettings } = await import("./store.ts");
   local.settings = {};
   await Promise.all([updateSettings(() => ({ favicons: false })), updateSettings(() => ({ autosubmit: true }))]);
   const saved = local.settings as Record<string, unknown>;
   assert.equal(saved.favicons, false);
   assert.equal(saved.autosubmit, true);
+  assert.equal("neverSave" in saved, false);
+});
+
+test("with 'log out' as timeout action the refresh token is kept in memory only, and moves back", async () => {
+  (globalThis as any).chrome.offscreen = { hasDocument: async () => true };
+  const { relocateRefreshToken } = await import("./account.ts");
+  local.account = { email: "a@b.c", refreshToken: "rt" };
+  local.settings = { timeoutAction: "logout" };
+  await relocateRefreshToken();
+  assert.equal((local.account as Record<string, unknown>).refreshToken, undefined);
+  assert.equal((session.session as Record<string, unknown>).refreshToken, "rt");
+  local.settings = { timeoutAction: "lock" };
+  await relocateRefreshToken();
+  assert.equal((local.account as Record<string, unknown>).refreshToken, "rt");
+  assert.equal((session.session as Record<string, unknown>).refreshToken, undefined);
 });

@@ -1,6 +1,7 @@
 // Typed chrome.storage access. The service worker keeps no state in globals; every handler reads
 // what it needs from here.
-//   local   (disk):   device id, server, settings, account (encrypted keys + refresh token), 2FA remember tokens
+//   local   (disk):   device id, server, settings, account (encrypted keys + refresh token), 2FA remember tokens,
+//                     and encrypted blobs: vault cache, generator history, alias settings, usage data (private.ts)
 //   session (memory): unlock flag, access token, pending 2FA login. Cleared on browser restart.
 import { DEFAULT_AUTO_LOCK_MINUTES } from "../shared/constants.ts";
 import type { HistoryEntry, KdfParams, Settings, TwoFactorChallenge } from "../shared/messages.ts";
@@ -40,6 +41,8 @@ interface Session {
   unlockedUntil?: number;
   accessToken?: string;
   accessExpiresAt?: number;
+  /** With "log out" as the timeout action the refresh token lives here only (memory), never on disk. */
+  refreshToken?: string;
   pending?: PendingLogin;
   /** SSO login in progress: PKCE verifier and the state we sent. */
   sso?: { state: string; verifier: string; expiresAt: number };
@@ -120,8 +123,10 @@ interface LocalSchema {
   genHistory: HistoryEntry[];
   /** Forwarded email alias settings per service (API tokens), as JSON encrypted with the user key. */
   aliasSettings: string;
-  /** cipher id -> epoch ms of the last user-gesture fill (page-load autofill prefers it, like the clients). */
-  lastUsed: Record<string, number>;
+  /** Usage data (never-save hosts, last fills and opens, generator address), encrypted: see private.ts. */
+  private: string;
+  /** The custom passphrase word list, newline-separated, encrypted with the user key. */
+  wordlist: string;
   /** Biometric unlock, when set up (removed on logout). */
   biometric: Biometric;
 }
@@ -174,7 +179,6 @@ export async function getSettings(): Promise<Settings> {
     lockOnSystemLock: true,
     inlineMenu: true,
     savePrompt: true,
-    neverSave: [],
     defaultManager: false,
     favicons: true,
     autoCopyTotp: true,
@@ -189,6 +193,8 @@ export async function getSettings(): Promise<Settings> {
     showCardsOnTab: true,
     showIdentitiesOnTab: true,
     ...(settings as Partial<Settings>),
+    // Kept encrypted (private.ts); getState fills it in while the vault is unlocked.
+    neverSave: [],
   };
 }
 
@@ -198,7 +204,8 @@ let settingsWrites: Promise<unknown> = Promise.resolve();
 export function updateSettings(change: (s: Settings) => Partial<Settings>): Promise<void> {
   const write = async () => {
     const current = await getSettings();
-    await setLocal("settings", { ...current, ...change(current) });
+    const { neverSave: _, ...next } = { ...current, ...change(current) };
+    await setLocal("settings", next as Settings);
   };
   const result = settingsWrites.then(write, write);
   settingsWrites = result.catch(() => undefined);

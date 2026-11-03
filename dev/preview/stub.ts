@@ -158,6 +158,10 @@ function respond(req: Request): Response<unknown> {
     case "setAliasSettings":
     case "generateAlias":
       return { ok: true, data: req.type === "generateAlias" ? "ada.shop@example.com" : null };
+    case "generatorPrefs":
+    case "setGeneratorPrefs":
+    case "setWordlist":
+      return { ok: true, data: { options: {}, email: "", domain: "", wordlist: 0 } };
     case "generatorHistory":
       return { ok: true, data: [{ date: Date.now() - 60_000, value: "k7#Vm2qT!pR9zLd4Xw8b" }] };
     case "sendList":

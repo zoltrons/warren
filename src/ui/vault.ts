@@ -11,7 +11,7 @@ import { MAX_QR_BYTES } from "../shared/qr.ts";
 import { type Clause, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
 import { passwordLevel } from "../shared/strength.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
-import type { PageMatches, Settings, VaultItem, VaultList } from "../shared/messages.ts";
+import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
 import { type Child, h, inPanel, send, t, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
@@ -64,27 +64,40 @@ const SORTS: { id: Sort; label: string }[] = [
   { id: "opened", label: "sortOpened" },
 ];
 
-// How often and when each item was opened: a device habit like the sort order, never synced.
-const OPENED_KEY = "vaultOpened";
+// How often and when each item was opened: kept encrypted by the service worker (background/private.ts) and
+// handed over with the list, never synced.
 type Opened = Record<string, { n: number; at: number }>;
-
-function loadOpened(): Opened {
-  try {
-    return JSON.parse(localStorage.getItem(OPENED_KEY) ?? "{}") as Opened;
-  } catch {
-    return {};
-  }
+const loadOpened = (): Opened => st.list?.opened ?? {};
+try {
+  localStorage.removeItem("vaultOpened"); // clear-text copy kept by older builds
+} catch {
+  /* framed pages have no storage */
 }
 
-function noteOpened(id: string) {
+/** The list's "Recently opened" section, a device setting; the history itself is kept for the "opened" sort. */
+const RECENT_KEY = "vaultRecentHidden";
+export function recentShown(): boolean {
   try {
-    const all = loadOpened();
-    all[id] = { n: (all[id]?.n ?? 0) + 1, at: Date.now() };
-    const keep = Object.entries(all).sort((a, b) => b[1].at - a[1].at).slice(0, 200); // bounded
-    localStorage.setItem(OPENED_KEY, JSON.stringify(Object.fromEntries(keep)));
+    return localStorage.getItem(RECENT_KEY) !== "1";
   } catch {
-    /* no storage */
+    return false;
   }
+}
+export function setRecentShown(on: boolean) {
+  if (on) localStorage.removeItem(RECENT_KEY);
+  else localStorage.setItem(RECENT_KEY, "1");
+}
+export async function clearOpened(): Promise<Reply<unknown>> {
+  const r = await send({ type: "clearOpened" });
+  if (r.ok && st.list) st.list.opened = {};
+  return r;
+}
+/** Unknown until the list has loaded: then the clear button stays usable. */
+export const hasOpened = () => !st.list || Object.keys(loadOpened()).length > 0;
+
+function noteOpened(id: string) {
+  if (st.list) st.list.opened = { ...loadOpened(), [id]: { n: (loadOpened()[id]?.n ?? 0) + 1, at: Date.now() } };
+  void send({ type: "itemOpened", id });
 }
 
 function savedSort(): Sort {
@@ -515,11 +528,18 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
     nodes.push(emptyState(ctx, q));
   } else {
     // Recently opened items come first while browsing a vault big enough to need them.
-    if (!q && !st.folder && items.length > 8) {
+    if (!q && !st.folder && items.length > 8 && recentShown()) {
       const opened = loadOpened();
       const recent = items.filter((i) => opened[i.id]).sort((a, b) => opened[b.id]!.at - opened[a.id]!.at).slice(0, 3);
       if (recent.length) {
-        nodes.push(sectionTitle(t("recentlyOpened")));
+        nodes.push(
+          h(
+            "div",
+            { class: "section-head" },
+            sectionTitle(t("recentlyOpened")),
+            h("button", { type: "button", class: "btn text small", onclick: () => void clearOpened().then(() => ctx.rerender()) }, t("clear")),
+          ),
+        );
         pushGroup(recent);
       }
     }

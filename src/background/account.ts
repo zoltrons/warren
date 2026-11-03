@@ -19,12 +19,15 @@ import { ApiError } from "../transport/http.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
 import { lockNow, touchAutoLock } from "./lock.ts";
+import { migratePrivate } from "./private.ts";
 import { grantReprompt } from "./reprompt.ts";
+import { BLOCK, resealLegacy, seal, unseal } from "./seal.ts";
 import {
   type Account,
   getDeviceId,
   getLocal,
   getSession,
+  getSettings,
   removeLocal,
   setLocal,
   updateSession,
@@ -89,9 +92,9 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, h
     kdf: kdfFromToken(t, kdf),
     protectedUserKey: t.Key,
     encryptedPrivateKey: t.PrivateKey,
-    refreshToken: tokens.refreshToken,
   };
   await setLocal("account", account);
+  await storeRefreshToken(tokens.refreshToken);
   if (t.TwoFactorToken) {
     const remember = (await getLocal("rememberTokens")) ?? {};
     await setLocal("rememberTokens", { ...remember, [rememberKey(serverUrl, email)]: t.TwoFactorToken });
@@ -231,9 +234,12 @@ async function afterUnlock(account: Account): Promise<void> {
   // After a browser restart the PIN-wrapped key is gone: re-arm it from the stored PIN.
   const { pin } = await getSession();
   if (account.protectedPin && !account.pinKey && pin?.email !== account.email) {
-    const [plain] = await coreCall<string[]>({ op: "decryptText", values: [account.protectedPin] });
+    const [plain] = await unseal([account.protectedPin]);
     if (plain) await armPin(account, plain);
   } else if (pin?.attempts) await updateSession({ pin: { ...pin, attempts: 0 } });
+  // Older builds kept never-save hosts and fill stamps in clear text; a failed move is retried next unlock.
+  await migratePrivate().catch(() => undefined);
+  await resealLegacy().catch(() => undefined);
 }
 
 // ---------- Biometrics (WebAuthn PRF) ----------
@@ -315,7 +321,7 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
     await updateSession({ pin: undefined });
     return;
   }
-  const [protectedPin] = await coreCall<string[]>({ op: "encryptText", values: [pin] });
+  const [protectedPin] = await seal([pin], BLOCK.secret);
   const key = await armPin(account, pin);
   // shortcut: PIN-only keeps the wrapped key on disk, so the attempt cap is per browser run, not global.
   const { pinKey: _, ...rest } = account;
@@ -344,9 +350,30 @@ export async function unlockWithPin(pin: string): Promise<void> {
 
 export async function logout(): Promise<void> {
   await lockNow();
-  await removeLocal("account", "vault", "genHistory", "aliasSettings", "biometric");
-  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, pin: undefined });
+  await removeLocal("account", "vault", "genHistory", "aliasSettings", "biometric", "private", "wordlist");
+  await chrome.storage.local.remove("lastUsed"); // clear-text stamps of older builds
+  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined });
 }
+
+const currentRefreshToken = async (): Promise<string | undefined> => (await getSession()).refreshToken ?? (await getLocal("account"))?.refreshToken;
+
+/**
+ * Like the official clients: with "log out" as the timeout action the refresh token is kept in memory only
+ * (storage.session), so a copied profile holds none and the session ends with the browser. Otherwise it is on
+ * disk, where it lets a locked vault sync after a restart without a new login and 2FA.
+ */
+async function storeRefreshToken(token: string | undefined): Promise<void> {
+  const inMemory = (await getSettings()).timeoutAction === "logout";
+  const account = await getLocal("account");
+  if (account) {
+    const { refreshToken: _, ...rest } = account;
+    await setLocal("account", token && !inMemory ? { ...rest, refreshToken: token } : rest);
+  }
+  await updateSession({ refreshToken: token && inMemory ? token : undefined });
+}
+
+/** After the timeout action changed: moves the token to where that action keeps it. */
+export const relocateRefreshToken = async (): Promise<void> => storeRefreshToken(await currentRefreshToken());
 
 /** The refresh in flight, if any. The server may rotate the refresh token, so a second concurrent
  * refresh would be sent a spent one and fail (and end in a logout). Rebuildable: a restart just starts over. */
@@ -362,11 +389,15 @@ export async function accessToken(): Promise<string> {
 
 async function refreshAccessToken(): Promise<string> {
   const base = await requireServer();
-  const account = await getLocal("account");
-  if (!account?.refreshToken) throw new UserError("sessionExpired", "Please log in again");
+  const current = await currentRefreshToken();
+  if (!current) {
+    // Kept in memory only ("log out" timeout action) and gone with an extension update: the session is over.
+    if (await getLocal("account")) await logout();
+    throw new UserError("sessionExpired", "Please log in again");
+  }
   let t: TokenResponse;
   try {
-    t = await refreshToken(base, account.refreshToken);
+    t = await refreshToken(base, current);
   } catch (e) {
     if (e instanceof ApiError && (e.status === 400 || e.status === 401)) {
       await logout();
@@ -375,8 +406,7 @@ async function refreshAccessToken(): Promise<string> {
     throw e;
   }
   const tokens = toTokens(t);
-  if (tokens.refreshToken && tokens.refreshToken !== account.refreshToken)
-    await setLocal("account", { ...account, refreshToken: tokens.refreshToken });
+  if (tokens.refreshToken && tokens.refreshToken !== current) await storeRefreshToken(tokens.refreshToken);
   await updateSession({ accessToken: tokens.accessToken, accessExpiresAt: tokens.expiresAt });
   return tokens.accessToken;
 }
@@ -446,8 +476,8 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
       kdf: kdfFromToken(t, await prelogin(base, email)),
       protectedUserKey: t.Key,
       encryptedPrivateKey: t.PrivateKey,
-      refreshToken: tokens.refreshToken,
     });
+    await storeRefreshToken(tokens.refreshToken);
     await updateSession({ sso: undefined, pin: undefined, accessToken: tokens.accessToken, accessExpiresAt: tokens.expiresAt });
   } catch (e) {
     await updateSession({ sso: undefined, ssoError: e instanceof Error ? e.message : String(e) });

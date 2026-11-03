@@ -9,9 +9,10 @@ import { touchAutoLock } from "./lock.ts";
 import { pageLoadFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional } from "./passkey.ts";
-import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession, updateSettings } from "./store.ts";
+import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save } from "./vault.ts";
+import { readPrivate, updatePrivate } from "./private.ts";
 
 export interface InlineContext {
   frameId: number;
@@ -109,7 +110,7 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
 async function loginSubmitted(tabId: number, url: string, username: string, password: string) {
   const settings = await getSettings();
   const host = new URL(url).host;
-  if (!settings.savePrompt || settings.neverSave.includes(host) || !(await isUnlocked())) return;
+  if (!settings.savePrompt || !(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
   await ensureLoaded();
   const matches = await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch });
   // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com").
@@ -178,7 +179,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     if (req.type === "barInfo") return { kind: p.kind, host: new URL(p.url).host, username: p.username } satisfies BarInfo;
     if (req.action === "never") {
       const host = new URL(p.url).host;
-      await updateSettings((s) => ({ neverSave: [...s.neverSave.filter((h) => h !== host), host] }));
+      await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
     } else if (req.action === "save") {
       if (p.kind === "update" && p.itemId) {
         const item = await coreCall<Record<string, any>>({ op: "getCipher", id: p.itemId });

@@ -495,6 +495,7 @@ a.row { text-decoration: none; color: var(--text); }
 .row.field-row:not(.totp-row) > .field-actions { margin-top: 2px; }
 /* Trailing value actions stay a tight pair instead of inheriting the row gap. */
 .field-actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.row > .trailing { display: flex; align-items: center; gap: 8px; flex: none; }
 /* Inline-editable text inside a row (folder names, the new-folder field). */
 .row-input {
   flex: 1; min-width: 0;

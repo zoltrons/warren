@@ -8,7 +8,7 @@ import { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvaila
 import { passkeyRequestId, passkeyScreen } from "./passkey.ts";
 import { resetSend, sendScreen, startTextSend } from "./send.ts";
 import { generatorScreen } from "./generator.ts";
-import { type Ctx, iconButton, refreshPageMatches, resetVault, setIconBase, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
+import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
 
 // ---------- state ----------
 
@@ -708,6 +708,16 @@ function settingsTab(s: State): HTMLElement {
         t("syncNow"),
         s.syncedAt ? t("lastSync", when(s.syncedAt)) : t("never"),
         h("button", { type: "button", class: "btn text small", disabled: ui.busy, onclick: () => void syncNow() }, icon("refresh"), t("syncNow")),
+      ),
+      row(
+        t("showRecent"),
+        t("showRecentHint"),
+        h(
+          "span",
+          { class: "trailing" },
+          h("button", { type: "button", class: "btn text small", disabled: !hasOpened(), onclick: () => void clearOpened().then((r) => ((r.ok ? (ui.info = t("recentCleared")) : (ui.error = r.error)), render())) }, t("clear")),
+          toggle(t("showRecent"), recentShown(), (b) => (setRecentShown(b.checked), render())),
+        ),
       ),
       row(t("exportVault"), t("exportHint"), null, { type: "button", disabled: ui.busy, onclick: () => ((ui.exporting = !ui.exporting), render()) }, "button"),
       ui.exporting

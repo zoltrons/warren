@@ -25,7 +25,9 @@ import {
 import { ApiError } from "../transport/http.ts";
 import { accessToken, UserError, verifyMasterPassword } from "./account.ts";
 import { coreAlive, coreCall } from "./core.ts";
+import { readPrivate, updatePrivate } from "./private.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
+import { BLOCK, seal, unseal } from "./seal.ts";
 import { getLocal, getSession, getSettings, removeLocal, setLocal, type VaultCache } from "./store.ts";
 
 export const CLIPBOARD_ALARM = "clipboard";
@@ -62,10 +64,10 @@ export async function sync(force: boolean): Promise<boolean> {
   const next: VaultCache = { revision, syncedAt: Date.now(), ciphers: r.ciphers, folders: r.folders, sends: r.sends ?? [], orgKeys, collections: r.collections ?? [], orgs };
   await setLocal("vault", next);
   await load(next);
-  // Forget last-used stamps of items that no longer exist.
+  // Forget fill and open stamps of items that no longer exist. Sync also runs locked (no key): skip then.
   const ids = new Set(r.ciphers.map((c) => (c as { id?: unknown }).id));
-  const lastUsed = await getLocal("lastUsed");
-  if (lastUsed) await setLocal("lastUsed", Object.fromEntries(Object.entries(lastUsed).filter(([id]) => ids.has(id))));
+  const keep = <T>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => ids.has(id)));
+  if (await isUnlocked()) await updatePrivate((d) => ((d.lastUsed = keep(d.lastUsed)), (d.opened = keep(d.opened)))).catch(() => undefined);
   return true;
 }
 
@@ -80,7 +82,8 @@ export async function ensureLoaded(): Promise<void> {
 export async function list(): Promise<VaultList> {
   await ensureLoaded();
   const l = await coreCall<VaultList>({ op: "listVault" });
-  return { ...l, syncedAt: (await getLocal("vault"))?.syncedAt };
+  // Usage data that cannot be read is not worth failing the list over.
+  return { ...l, syncedAt: (await getLocal("vault"))?.syncedAt, opened: await readPrivate().then((d) => d.opened, () => ({})) };
 }
 
 export async function save(item: Record<string, unknown>): Promise<VaultList> {
@@ -133,8 +136,8 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 
 /** Records a user-gesture fill; page-load autofill prefers the login last used for the site. */
 export async function markUsed(id: string): Promise<void> {
-  const lastUsed = (await getLocal("lastUsed")) ?? {};
-  await setLocal("lastUsed", { ...lastUsed, [id]: Date.now() });
+  // Best effort: a stamp that cannot be written must not turn a done fill into an error.
+  await updatePrivate((d) => (d.lastUsed[id] = Date.now())).catch(() => undefined);
 }
 
 /** The full decrypted send (for the edit form). */
@@ -194,12 +197,12 @@ const HISTORY_MAX = 100;
 
 export async function generatorHistory(): Promise<HistoryEntry[]> {
   const h = (await getLocal("genHistory")) ?? [];
-  const values = await coreCall<string[]>({ op: "decryptText", values: h.map((e) => e.value) });
+  const values = await unseal(h.map((e) => e.value));
   return h.map((e, i) => ({ date: e.date, value: values[i] ?? "" }));
 }
 
 export async function addGeneratorHistory(value: string): Promise<null> {
-  const [enc] = await coreCall<string[]>({ op: "encryptText", values: [value] });
+  const [enc] = await seal([value], BLOCK.secret);
   await setLocal("genHistory", [{ date: Date.now(), value: enc! }, ...((await getLocal("genHistory")) ?? [])].slice(0, HISTORY_MAX));
   return null;
 }

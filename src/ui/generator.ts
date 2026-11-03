@@ -22,26 +22,64 @@ const GEN_DEFAULTS: Json = {
   numWords: 5, wordSeparator: "-", capitalize: true, includeNumber: true, pinLength: 4,
   usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin",
 };
-const GEN_KEY = "genOptions";
 const SEPARATORS = [["-", "sepHyphen"], [" ", "sepSpace"], [".", "sepPeriod"], [",", "sepComma"], ["_", "sepUnderscore"], ["", "sepNone"]] as const;
-const WORDLIST_KEY = "genWordlist";
+// Clear-text keys of older builds, moved into the encrypted store once (loadPrefs).
+const LEGACY_OPTIONS = "genOptions";
+const LEGACY_WORDLIST = "genWordlist";
 
-/** The generator's last options (a device preference, like the sort order). */
-function savedGen(): Json {
+interface GeneratorPrefs {
+  options: Json;
+  email: string;
+  domain: string;
+  /** Words in the custom passphrase list (0: the built-in list). The list itself stays in the service worker. */
+  wordlist: number;
+}
+
+function legacy(key: string): string | null {
   try {
-    const v = JSON.parse(localStorage.getItem(GEN_KEY) ?? "null");
-    return { ...GEN_DEFAULTS, ...(v && typeof v === "object" && !Array.isArray(v) ? v : {}) };
+    return localStorage.getItem(key);
   } catch {
-    return { ...GEN_DEFAULTS }; // no storage in framed pages, or damaged JSON
+    return null; // no storage in framed pages
   }
 }
 
-function savedWordlist(): string[] {
-  try {
-    return (localStorage.getItem(WORDLIST_KEY) ?? "").split("\n").filter(Boolean);
-  } catch {
-    return [];
+/**
+ * The generator's options, address and word list are kept encrypted by the service worker (they tell how the
+ * user's passwords are built), so they are read once per visit; what an older build left in localStorage moves over.
+ */
+async function loadPrefs(ctx: Ctx) {
+  gst.prefs = "loading";
+  const r = await send<GeneratorPrefs>({ type: "generatorPrefs" });
+  if (!r.ok || !r.data) return ((gst.prefs = undefined), (gst.error = r.ok ? undefined : r.error), ctx.rerender());
+  let prefs = r.data;
+  const oldOptions = legacy(LEGACY_OPTIONS);
+  const oldWords = legacy(LEGACY_WORDLIST);
+  if (oldOptions !== null || oldWords !== null) {
+    let old: Json = {};
+    try {
+      const v = JSON.parse(oldOptions ?? "null");
+      if (v && typeof v === "object" && !Array.isArray(v)) old = v as Json;
+    } catch {
+      /* damaged: dropped */
+    }
+    const { email, domain, ...options } = old;
+    const moved = await send<GeneratorPrefs>({ type: "setGeneratorPrefs", options: { ...options, ...prefs.options }, email: prefs.email || str(email), domain: prefs.domain || str(domain) });
+    const words = oldWords && !prefs.wordlist ? await send<GeneratorPrefs>({ type: "setWordlist", text: oldWords }) : undefined;
+    // The clear-text copies go only once the encrypted ones are written.
+    if (moved.ok && (!words || words.ok)) {
+      prefs = (words?.ok ? words.data : moved.data) ?? prefs;
+      try {
+        localStorage.removeItem(LEGACY_OPTIONS);
+        localStorage.removeItem(LEGACY_WORDLIST);
+      } catch {
+        /* no storage */
+      }
+    }
   }
+  gst.gen = { ...GEN_DEFAULTS, ...prefs.options, email: prefs.email, domain: prefs.domain };
+  gst.wordlist = prefs.wordlist;
+  gst.prefs = "loaded";
+  void regenerate(ctx);
 }
 
 /** One word per line; empty lines and lines starting with # ; - / are comments. */
@@ -54,20 +92,20 @@ function parseWordlist(text: string): string[] {
   return [...words].slice(0, 100_000);
 }
 
-/** What the worker gets: the saved options, plus the custom list for a passphrase. */
+/** What the worker gets; the service worker adds the custom word list for a passphrase. */
 function genOptions(): Json {
-  const o: Json = { ...gst.gen };
+  const { email: _email, domain: _domain, ...o } = gst.gen;
   if (o.type === "pin") o.length = o.pinLength;
-  if (o.type === "passphrase") {
-    const words = savedWordlist();
-    if (words.length >= 100) o.wordlist = words;
-  }
+  if (o.type === "username") Object.assign(o, { email: gst.gen.email, domain: gst.gen.domain });
   return o;
 }
 
-
 const gst = {
-  gen: savedGen(),
+  gen: { ...GEN_DEFAULTS } as Json,
+  /** The encrypted options: being read, or read for this visit. Nothing is generated before. */
+  prefs: undefined as "loading" | "loaded" | undefined,
+  /** Words in the custom passphrase list (0: built-in). */
+  wordlist: 0,
   generated: "",
   /** Forwarded email alias settings for the service selected in the generator (kept by the worker). */
   alias: undefined as AliasSettings | undefined,
@@ -87,7 +125,7 @@ const gst = {
 };
 
 export function resetGenerator(): void {
-  Object.assign(gst, { gen: savedGen(), generated: "", suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false });
+  Object.assign(gst, { gen: { ...GEN_DEFAULTS }, prefs: undefined, wordlist: 0, generated: "", suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false });
 }
 
 /** The edit form's generator: which field it fills, and how the value gets back to the form. */
@@ -109,6 +147,7 @@ const errorBox = (): Child => (gst.error ? h("div", { class: "error", role: "ale
 
 
 async function regenerate(ctx: Ctx) {
+  if (gst.prefs !== "loaded") return; // the saved options are not here yet
   if (gst.gen.type === "alias") {
     // Any option change or chip click lands here. It must not call the forwarding service: that
     // creates a real alias in the user's account. Only the generate / refresh buttons do (generateAliasNow).
@@ -168,11 +207,9 @@ async function importWordlist(ctx: Ctx, file: File | undefined) {
   if (!file) return;
   const words = parseWordlist(await file.slice(0, 2 * 1024 * 1024).text());
   if (words.length < 100) return ((gst.error = t("wordlistTooShort")), ctx.rerender());
-  try {
-    localStorage.setItem(WORDLIST_KEY, words.join("\n"));
-  } catch {
-    return ((gst.error = t("wordlistNotSaved")), ctx.rerender());
-  }
+  const r = await send<GeneratorPrefs>({ type: "setWordlist", text: words.join("\n") });
+  if (!r.ok) return ((gst.error = r.error), ctx.rerender());
+  gst.wordlist = r.data.wordlist;
   gst.error = undefined;
   void regenerate(ctx);
 }
@@ -221,15 +258,16 @@ function historyScreen(ctx: Ctx, list: HistoryEntry[]): HTMLElement {
 
 export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   if (gst.history) return historyScreen(ctx, gst.history);
-  if (gst.gen.type !== "alias" && !gst.generated && !gst.error) void regenerate(ctx);
+  if (gst.prefs === undefined && !gst.error) void loadPrefs(ctx);
+  if (gst.prefs === "loaded" && gst.gen.type !== "alias" && !gst.generated && !gst.error) void regenerate(ctx);
   const g = gst.gen;
   const set = (k: string, v: unknown) => {
     g[k] = v;
-    try {
-      localStorage.setItem(GEN_KEY, JSON.stringify(g));
-    } catch {
-      /* no storage */
-    }
+    const { email, domain, ...options } = g;
+    const change = k === "email" || k === "domain" ? { email: str(email), domain: str(domain) } : { options };
+    void send({ type: "setGeneratorPrefs", ...change }).then((r) => {
+      if (!r.ok) ((gst.error = r.error), ctx.rerender());
+    });
     void regenerate(ctx);
   };
   const toggle = (k: string, label: string) =>
@@ -283,7 +321,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       h("div", { class: "body" }, h("span", { class: "title" }, label)),
       h("input", { ...props, value: str(g[k]), "aria-label": label, spellcheck: false, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).value) }),
     );
-  const custom = g.type === "passphrase" && savedWordlist().length >= 100;
+  const custom = g.type === "passphrase" && gst.wordlist >= 100;
   // Common separators to pick from; typing one is the last resort.
   const sepCustom = gst.customSeparator || !SEPARATORS.some(([v]) => v === g.wordSeparator);
   const separatorRow = () =>
@@ -348,14 +386,12 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       h(
         "div",
         { class: "row" },
-        h("div", { class: "body" }, h("span", { class: "title" }, t("wordlist")), h("span", { class: "sub" }, custom ? t("wordlistCustom", String(savedWordlist().length)) : t("wordlistDefault"))),
+        h("div", { class: "body" }, h("span", { class: "title" }, t("wordlist")), h("span", { class: "sub" }, custom ? t("wordlistCustom", String(gst.wordlist)) : t("wordlistDefault"))),
         custom
-          ? iconButton("close", t("wordlistReset"), () => {
-              try {
-                localStorage.removeItem(WORDLIST_KEY);
-              } catch {
-                /* no storage */
-              }
+          ? iconButton("close", t("wordlistReset"), async () => {
+              const r = await send({ type: "setWordlist", text: "" });
+              if (r.ok) gst.wordlist = 0;
+              else gst.error = r.error;
               void regenerate(ctx);
             })
           : null,
@@ -443,9 +479,9 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         "div",
         { class: "group" },
         ...(g.usernameType === "plus" || g.usernameType === "subdomain"
-          ? [text("email", t("email"), { type: "email" })]
+          ? [text("email", t("email"), { type: "email", disabled: gst.prefs !== "loaded" })]
           : g.usernameType === "catchall"
-            ? [text("domain", t("domain"), { placeholder: "example.com" })]
+            ? [text("domain", t("domain"), { placeholder: "example.com", disabled: gst.prefs !== "loaded" })]
             : [toggle("capitalize", t("capitalize")), toggle("includeNumber", t("includeNumber"))]),
       ),
     );

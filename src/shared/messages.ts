@@ -101,6 +101,13 @@ export type Request =
   | { type: "generatorHistory" }
   | { type: "generatorHistoryAdd"; value: string }
   | { type: "generatorHistoryClear" }
+  /** Usage data kept encrypted (background/private.ts): an item was opened, forget the opens, the generator address. */
+  | { type: "itemOpened"; id: string }
+  | { type: "clearOpened" }
+  | { type: "generatorPrefs" }
+  | { type: "setGeneratorPrefs"; options?: Record<string, unknown>; email?: string; domain?: string }
+  /** The custom passphrase list, one word per line ("" removes it); it never comes back to the popup. */
+  | { type: "setWordlist"; text: string }
   | { type: "clipboardCopied" }
   // Send
   | { type: "sendList" }
@@ -206,6 +213,11 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   generatorHistory: obj({ type: literal("generatorHistory") }),
   generatorHistoryAdd: obj({ type: literal("generatorHistoryAdd"), value: str }),
   generatorHistoryClear: obj({ type: literal("generatorHistoryClear") }),
+  itemOpened: obj({ type: literal("itemOpened"), id: capped(64) }),
+  clearOpened: obj({ type: literal("clearOpened") }),
+  generatorPrefs: obj({ type: literal("generatorPrefs") }),
+  setGeneratorPrefs: obj({ type: literal("setGeneratorPrefs"), options: opt(record), email: opt(capped(320)), domain: opt(capped(253)) }),
+  setWordlist: obj({ type: literal("setWordlist"), text: capped(2 * 1024 * 1024) }),
   clipboardCopied: obj({ type: literal("clipboardCopied") }),
   sendList: obj({ type: literal("sendList") }),
   getSend: obj({ type: literal("getSend"), id: str }),
@@ -345,6 +357,8 @@ export interface VaultList {
   organizations?: Folder[];
   collections?: Folder[];
   syncedAt?: number;
+  /** cipher id -> opens on this device ("Recently opened", "Most opened" sort); stored encrypted. */
+  opened?: Record<string, { n: number; at: number }>;
 }
 
 /** A copied generator value, newest first. */

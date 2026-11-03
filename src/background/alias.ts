@@ -23,6 +23,7 @@ import { ci } from "../shared/validate.ts";
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { getLocal, setLocal } from "./store.ts";
+import { BLOCK, seal, unseal } from "./seal.ts";
 
 /** An alias is a small JSON body; a broken or hostile service must not fill the worker's memory. */
 const MAX_ALIAS_BYTES = 64 * 1024;
@@ -36,7 +37,7 @@ type AliasStore = Partial<Record<AliasVendor, AliasSettings>>;
 async function readAliasStore(): Promise<AliasStore> {
   const enc = await getLocal("aliasSettings");
   if (!enc) return {};
-  const [json] = await coreCall<string[]>({ op: "decryptText", values: [enc] });
+  const [json] = await unseal([enc]);
   try {
     return JSON.parse(json ?? "") as AliasStore;
   } catch {
@@ -60,7 +61,7 @@ export async function saveAliasSettings(settings: AliasSettings): Promise<void> 
       throw new UserError("invalid", (e as Error).message);
     }
   }
-  const [enc] = await coreCall<string[]>({ op: "encryptText", values: [JSON.stringify({ ...(await readAliasStore()), [settings.vendor]: settings })] });
+  const [enc] = await seal([JSON.stringify({ ...(await readAliasStore()), [settings.vendor]: settings })], BLOCK.record);
   await setLocal("aliasSettings", enc!);
 }
 

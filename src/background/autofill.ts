@@ -9,6 +9,7 @@ import { touchAutoLock } from "./lock.ts";
 import { getLocal, getSettings } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed } from "./vault.ts";
+import { readPrivate } from "./private.ts";
 
 const CONTEXT_MENU_ID = "warren-autofill";
 export const AUTOFILL_COMMAND = "autofill-login";
@@ -57,7 +58,7 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   if (!settings.autofillOnPageLoad || tabId === undefined || frameId === undefined || !url) return { filled: false, reason: "noFields" };
   if (!(await isUnlocked())) return { filled: false, reason: "locked" };
   // Items flagged for a master-password re-prompt never fill on page load (no user to ask).
-  const pick = pickPageLoadLogin((await matches(url)).filter((i) => !i.reprompt), settings.autofillOnPageLoadDefault, (await getLocal("lastUsed")) ?? {});
+  const pick = pickPageLoadLogin((await matches(url)).filter((i) => !i.reprompt), settings.autofillOnPageLoadDefault, (await readPrivate()).lastUsed);
   if (!pick) return { filled: false, reason: "noMatch" };
   const { username, password, totp } = await coreCall<{ username: string; password: string; totp?: string }>({ op: "fillData", id: pick.id });
   const customFields = await customFieldsOf(pick.id);

@@ -1381,9 +1381,6 @@
   "wordlistTooShort": {
     "message": "The list needs at least 100 words, one per line."
   },
-  "wordlistNotSaved": {
-    "message": "The list is too large to keep on this device."
-  },
   "typePin": {
     "message": "PIN"
   },
@@ -1551,6 +1548,15 @@
   },
   "recentlyOpened": {
     "message": "Recently opened"
+  },
+  "showRecent": {
+    "message": "Show recently opened"
+  },
+  "showRecentHint": {
+    "message": "The last items you opened, at the top of the vault list. Kept on this device only."
+  },
+  "recentCleared": {
+    "message": "Recently opened items cleared"
   },
   "minUppercase": {
     "message": "Minimum uppercase letters"

@@ -77,6 +77,19 @@ freed rather than zeroed in place.
    vault lives in the crypto worker. Both stores are set to `TRUSTED_CONTEXTS` on *every* worker start, so
    content scripts cannot read them.
 
+6a. **What the user does is encrypted too.** Never-save hosts, last-fill and last-open stamps, generator options,
+    the username generator's address and domain sit in one EncString (`storage.local` "private",
+    `src/background/private.ts`); a custom passphrase list in another ("wordlist"), which never goes back to the
+    popup. They are read and written only while unlocked, writes are serialized, a record that does not decrypt
+    is never written over, and logout removes both. Everything we encrypt ourselves (these, generator history,
+    alias settings, the stored PIN) is padded to fixed blocks first (`src/background/seal.ts`), like the
+    official clients' padded packer, so a ciphertext's length does not give away a password's or PIN's length
+    or a record's size; values from older builds are re-padded on the next unlock. Clear text left by older builds moves in on the next unlock
+    and is deleted only after the encrypted copy is written. Clear text that stays, because it is needed while
+    locked or before the first render and says nothing about the vault: `settings` (lock, autofill and UI
+    switches), server URL, account email, device id, and in the extension's `localStorage` only the theme, the
+    list's sort order, the notes formatting switch and whether "Recently opened" is shown.
+
 7. **The server is not trusted with URLs.** `http://` is refused except for loopback
    (`src/shared/url.ts`), the API client sends `credentials: "omit"`, `redirect: "error"`, and an
    attachment download URL must be on the configured server (`src/transport/vault.ts`). Response bodies
@@ -122,7 +135,10 @@ freed rather than zeroed in place.
 
 - **The refresh token and 2FA remember tokens are on disk in clear text** (`storage.local`), because they must
   survive a browser restart without the master password. Anyone who can copy the browser profile can use them to
-  fetch the still-encrypted vault and to change or delete items on the server, but not to read anything.
+  fetch the still-encrypted vault and to change or delete items on the server, but not to read anything. Like the
+  official clients, choosing "Log out" as the timeout action keeps the refresh token in `storage.session` only
+  (`storeRefreshToken` in `src/background/account.ts`): nothing on disk, and the session ends with the browser
+  or an extension update.
 - **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code, the
   full item for the popup and for a save-bar update go through the service worker in transit; it does not keep
   them. The popup holds an opened item, including a passkey's private key, because editing sends the whole item

@@ -16,6 +16,7 @@ import {
   setPin,
   startSso,
   logout,
+  relocateRefreshToken,
   sendTwoFactorEmail,
   submitTwoFactor,
   unlock,
@@ -37,6 +38,7 @@ import {
   updateSession,
   updateSettings,
 } from "./store.ts";
+import { generatorPrefs, readPrivate, setGeneratorPrefs, setWordlist, updatePrivate, withWordlist } from "./private.ts";
 import { handleFrame, handlePage, showBar } from "./inline.ts";
 import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, passkeyPrompt } from "./passkey.ts";
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
@@ -69,6 +71,8 @@ async function getState(): Promise<State> {
   }
   const pin = { pinSet: !!account.protectedPin, pinUnlock: !!account.protectedPin && (!!account.pinKey || session.pin?.email === account.email) };
   const biometric = bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
+  // The never-save list is encrypted: it is only there to show (and edit) while the vault is open.
+  if (unlocked) base.settings.neverSave = await readPrivate().then((d) => d.neverSave, () => []);
   return { phase: unlocked ? "unlocked" : "locked", ...base, ...pin, ...(biometric ? { biometric } : {}), email: account.email };
 }
 
@@ -111,6 +115,11 @@ async function handle(req: Request): Promise<unknown> {
     case "generatorHistory":
     case "generatorHistoryAdd":
     case "generatorHistoryClear":
+    case "itemOpened":
+    case "clearOpened":
+    case "generatorPrefs":
+    case "setGeneratorPrefs":
+    case "setWordlist":
     case "sendList":
     case "getSend":
     case "saveSend":
@@ -141,12 +150,18 @@ async function handle(req: Request): Promise<unknown> {
       if (req.type === "generatorHistory") return generatorHistory();
       if (req.type === "generatorHistoryAdd") return addGeneratorHistory(req.value);
       if (req.type === "generatorHistoryClear") return clearGeneratorHistory();
+      if (req.type === "itemOpened")
+        return updatePrivate((d) => (d.opened[req.id] = { n: (d.opened[req.id]?.n ?? 0) + 1, at: Date.now() })).then(() => null);
+      if (req.type === "clearOpened") return updatePrivate((d) => (d.opened = {})).then(() => null);
+      if (req.type === "generatorPrefs") return generatorPrefs();
+      if (req.type === "setGeneratorPrefs") return setGeneratorPrefs(req);
+      if (req.type === "setWordlist") return setWordlist(req.text);
       if (req.type === "sendList") return sendList();
       if (req.type === "getSend") return getSend(req.id);
       if (req.type === "saveSend") return saveSend(req.send, req.file);
       if (req.type === "deleteSend") return deleteSend(req.id);
       if (req.type === "removeSendPassword") return removeSendPassword(req.id);
-      return coreCall({ op: "generate", options: req.options });
+      return coreCall({ op: "generate", options: await withWordlist(req.options) });
     }
     case "totp": {
       // No touchAutoLock: an open item refreshes its code on a timer, which must not keep the vault unlocked.
@@ -255,8 +270,12 @@ async function handle(req: Request): Promise<unknown> {
         contextMenu: req.contextMenu ?? current.contextMenu,
         showCardsOnTab: req.showCardsOnTab ?? current.showCardsOnTab,
         showIdentitiesOnTab: req.showIdentitiesOnTab ?? current.showIdentitiesOnTab,
-        neverSave: req.clearNeverSave ? [] : req.removeNeverSave ? current.neverSave.filter((h) => h !== req.removeNeverSave) : current.neverSave,
       }));
+      if (req.timeoutAction) await relocateRefreshToken();
+      if (req.clearNeverSave || req.removeNeverSave) {
+        await requireUnlocked(); // the list is encrypted
+        await updatePrivate((d) => (d.neverSave = req.clearNeverSave ? [] : d.neverSave.filter((h) => h !== req.removeNeverSave)));
+      }
       break;
     }
     case "setDefaultManager":
