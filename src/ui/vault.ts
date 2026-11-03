@@ -1072,7 +1072,7 @@ function moreButton(ctx: Ctx, value: string, extra: MenuItem[] = []): HTMLElemen
   const items: MenuItem[] = [
     ...extra,
     { label: t("largeType"), icon: "search", onClick: () => ((st.large = value), ctx.rerender()) },
-    ...(new TextEncoder().encode(value).length <= MAX_QR_BYTES ? [{ label: t("showQr"), onClick: () => ((st.qr = { text: value }), ctx.rerender()) }] : []),
+    ...(new TextEncoder().encode(value).length <= MAX_QR_BYTES ? [{ label: t("showQr"), icon: "qr" as const, onClick: () => ((st.qr = { text: value }), ctx.rerender()) }] : []),
     { label: t("shareAsSend"), icon: "send", onClick: () => ctx.shareAsSend(value) },
   ];
   const b: HTMLElement = iconButton("more", t("moreActions"), () => menu(b, t("moreActions"), items), { "aria-haspopup": "menu" });
@@ -1167,7 +1167,7 @@ function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElemen
       moreButton(ctx, code, [
         ...(next ? [{ label: t("copyNextCode"), icon: "copy" as const, onClick: () => void copy(ctx, next) }] : []),
         { label: t("copyAuthKey"), icon: "copy", onClick: () => void copy(ctx, secret) },
-        { label: t("showAuthQr"), onClick: () => ((st.qr = { text: otpauthUri(secret, name), note: t("authQrNote") }), ctx.rerender()) },
+        { label: t("showAuthQr"), icon: "qr", onClick: () => ((st.qr = { text: otpauthUri(secret, name), note: t("authQrNote") }), ctx.rerender()) },
       ]),
     ),
   );
