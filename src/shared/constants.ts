@@ -6,7 +6,6 @@ export const CLIENT_VERSION = "2026.10.1";
 export const DEVICE_TYPE = 2;
 export const DEVICE_NAME = "chrome";
 
-export const KDF_PBKDF2 = 0;
 export const KDF_ARGON2ID = 1;
 
 /** Bitwarden TwoFactorProviderType values we handle. */

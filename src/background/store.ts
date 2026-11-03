@@ -25,7 +25,7 @@ export interface Account {
   pinKey?: string;
 }
 
-export interface PendingLogin {
+interface PendingLogin {
   email: string;
   kdf: KdfParams;
   handle: number;
@@ -34,7 +34,7 @@ export interface PendingLogin {
   expiresAt: number;
 }
 
-export interface Session {
+interface Session {
   unlocked: boolean;
   /** epoch ms the auto-lock alarm is due; a late alarm (system sleep) must not extend the unlock. */
   unlockedUntil?: number;

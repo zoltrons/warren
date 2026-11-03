@@ -4,7 +4,7 @@ import { call } from "./http.ts";
 
 const configResponse = obj({ version: str, server: opt(obj({ name: opt(str) })) });
 
-export interface ServerInfo {
+interface ServerInfo {
   /** Bitwarden-server compatibility level, e.g. "2026.6.0" on Vaultwarden 1.37.4. */
   version: string;
   name: string;

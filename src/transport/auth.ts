@@ -66,7 +66,7 @@ export function parseTwoFactorChallenge(body: unknown): TwoFactorChallenge | und
   };
 }
 
-export interface PasswordGrant {
+interface PasswordGrant {
   email: string;
   authHash: string;
   deviceId: string;

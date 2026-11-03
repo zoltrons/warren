@@ -283,7 +283,7 @@ export function exportJson(): string {
   return JSON.stringify({ encrypted: false, folders, items }, null, 2);
 }
 
-export interface ImportRequest {
+interface ImportRequest {
   ciphers: Json[];
   folders: { name: string }[];
   folderRelationships: { key: number; value: number }[];
@@ -332,7 +332,7 @@ export function encryptAttachment(cipherId: string, fileName: string, data: stri
 
 // ---------- Send ----------
 
-export type SendEntry = Omit<SendItem, "link"> & { accessId: string; urlKey: string };
+type SendEntry = Omit<SendItem, "link"> & { accessId: string; urlKey: string };
 
 /** List entries without the text/file content. The service worker turns accessId + urlKey into the link. */
 export function listSends(): SendEntry[] {

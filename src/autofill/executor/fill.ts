@@ -5,7 +5,7 @@ import { deepFields, type Field, idOf, up } from "../collector/shadow-dom.ts";
 import type { ExecuteFill, FillResult, ValueFormat } from "../types.ts";
 
 /** Writes through the prototype setter, so framework-controlled inputs see the change. */
-export function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   for (let p: object | null = Object.getPrototypeOf(el); p; p = Object.getPrototypeOf(p)) {
     const d = Object.getOwnPropertyDescriptor(p, "value");
     if (d?.set) return void d.set.call(el, value);
@@ -14,7 +14,7 @@ export function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value
 }
 
 /** Marks a filled field, in a colour that shows on its background, until the user edits it. */
-export function applyAutofillHighlight(el: Field): void {
+function applyAutofillHighlight(el: Field): void {
   let dark = false;
   for (let p: Element | null = el; p; p = up(p)) {
     const c = getComputedStyle(p).backgroundColor.match(/^rgba?\((.+)\)$/)?.[1];
@@ -44,7 +44,7 @@ const isToggle = (el: Field): el is HTMLInputElement => el instanceof HTMLInputE
 const TRUE_VALUES = ["true", "y", "1", "yes", "✓"];
 
 /** Fills the way typing looks to a page: click, focus, key events, value, input, change. */
-export function fillFieldWithEvents(el: Field, value: string): void {
+function fillFieldWithEvents(el: Field, value: string): void {
   if (isToggle(el)) {
     // A click, so that the page sees the change as it would a user's. A radio button cannot be cleared.
     const want = TRUE_VALUES.includes(value.toLowerCase());
@@ -70,7 +70,7 @@ export function fillFieldWithEvents(el: Field, value: string): void {
 }
 
 /** Enter in `el`, then the submit a real one would cause: synthetic keys do not submit a form by themselves. */
-export function simulateEnterSubmit(el: Field): void {
+function simulateEnterSubmit(el: Field): void {
   el.focus();
   const init: KeyboardEventInit = { code: "Enter", key: "Enter", keyCode: 13, bubbles: true, cancelable: true, composed: true, view: window } as KeyboardEventInit;
   const handled = !el.dispatchEvent(new KeyboardEvent("keydown", init));

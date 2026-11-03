@@ -12,7 +12,7 @@ import { ci } from "../shared/validate.ts";
 type Json = Record<string, unknown>;
 
 export const b64u = (b: Uint8Array): string => b.toBase64({ alphabet: "base64url", omitPadding: true });
-export const fromB64u = (s: string): Uint8Array => Uint8Array.fromBase64(s, { alphabet: "base64url" });
+const fromB64u = (s: string): Uint8Array => Uint8Array.fromBase64(s, { alphabet: "base64url" });
 const s = (v: unknown): string => (typeof v === "string" ? v : "");
 
 /** Bitwarden stores 16-byte ids as GUID strings, anything else as "b64.<base64url>". */
@@ -38,7 +38,7 @@ export function checkRpId(rpId: string, origin: string, isPublicSuffix: (d: stri
 }
 
 // Minimal CBOR encoder: unsigned/negative ints, text, bytes, maps. Enough for attestation objects and COSE keys.
-export function cbor(v: unknown): number[] {
+function cbor(v: unknown): number[] {
   const head = (major: number, n: number) =>
     n < 24 ? [(major << 5) | n] : n < 256 ? [(major << 5) | 24, n] : [(major << 5) | 25, n >> 8, n & 255];
   if (typeof v === "number") return v >= 0 ? head(0, v) : head(1, -1 - v);
@@ -52,7 +52,7 @@ export function cbor(v: unknown): number[] {
 }
 
 /** ECDSA raw r||s (WebCrypto) to the DER encoding WebAuthn signatures use. */
-export function derSignature(raw: Uint8Array): Uint8Array {
+function derSignature(raw: Uint8Array): Uint8Array {
   const int = (b: Uint8Array) => {
     let i = 0;
     while (i < b.length - 1 && b[i] === 0) i++;

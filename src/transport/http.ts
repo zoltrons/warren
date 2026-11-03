@@ -17,7 +17,7 @@ export class NetworkError extends Error {
   override name = "NetworkError";
 }
 
-export interface CallOptions {
+interface CallOptions {
   json?: unknown;
   form?: Record<string, string>;
   /** multipart/form-data (file uploads); the browser sets the boundary header. */

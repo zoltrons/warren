@@ -35,7 +35,7 @@ function normalizeType(el: Field): string {
   return el.type;
 }
 
-export function populateFieldLabels(el: Field, target: FieldDetails): void {
+function populateFieldLabels(el: Field, target: FieldDetails): void {
   target.label = cap(extractExplicitLabels(el));
   target.labelAria = cap(extractAriaLabel(el));
   target.labelData = cap(el.getAttribute("data-label"));
@@ -49,7 +49,7 @@ function dataAttributes(el: Field): Record<string, string> {
   return out;
 }
 
-export function extractFieldDetails(el: Field, isActive: boolean, mode: CollectMode): FieldDetails {
+function extractFieldDetails(el: Field, isActive: boolean, mode: CollectMode): FieldDetails {
   const input = el instanceof HTMLInputElement ? el : undefined;
   const text = el instanceof HTMLSelectElement ? undefined : el;
   const details: FieldDetails = {

@@ -466,7 +466,7 @@ export type CoreResult = { ok: true; value: unknown } | { ok: false; error: stri
 
 export const OFFSCREEN_TARGET = "warren-offscreen";
 
-export const kdfParams: Validator<KdfParams> = obj({ type: num, iterations: num, memory: num, parallelism: num });
+const kdfParams: Validator<KdfParams> = obj({ type: num, iterations: num, memory: num, parallelism: num });
 
 /** WebAuthn bounds: a challenge is a short random value and names/ids are small by spec. */
 const rpIdField = capped(253);
@@ -548,7 +548,7 @@ export function parseCoreRequest(v: unknown): CoreRequest {
 
 export const PASSKEY_PORT = "warren-passkey";
 
-export interface PasskeyCreateInput {
+interface PasskeyCreateInput {
   origin: string;
   rpId: string;
   rpName: string;

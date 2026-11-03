@@ -15,7 +15,7 @@ export interface PickedField {
   autofillType?: string;
 }
 
-export interface FieldPick {
+interface FieldPick {
   draft: string;
   field?: PickedField;
 }

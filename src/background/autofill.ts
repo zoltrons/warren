@@ -10,7 +10,7 @@ import { getLocal, getSettings } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed } from "./vault.ts";
 
-export const CONTEXT_MENU_ID = "warren-autofill";
+const CONTEXT_MENU_ID = "warren-autofill";
 export const AUTOFILL_COMMAND = "autofill-login";
 const COPY_FIELD_NAME_ID = "warren-copy-field-name";
 
@@ -100,7 +100,7 @@ function closeInlineMenu(tabId: number, frameId?: number) {
 }
 
 /** Fills `id` (or the first match) into the tab. Only items saved for this site are filled. */
-export async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string): Promise<FillResult> {
+async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string): Promise<FillResult> {
   const url = httpUrl(tab);
   if (!url || tab?.id === undefined) throw new UserError("invalid", "This page cannot be filled");
   let item: VaultItem | undefined;

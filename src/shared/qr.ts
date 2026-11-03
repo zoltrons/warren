@@ -64,7 +64,7 @@ function encodeData(bytes: Uint8Array, ver: number): number[] {
 }
 
 /** Splits into blocks, appends each block's error correction and interleaves them. */
-export function addEcc(data: number[], ver: number): number[] {
+function addEcc(data: number[], ver: number): number[] {
   const n = BLOCKS[ver]!;
   const ecc = ECC_PER_BLOCK[ver]!;
   const raw = rawCodewords(ver);

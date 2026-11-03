@@ -24,7 +24,7 @@ export interface AliasSettings {
   prefix: boolean;
 }
 
-export interface AliasVendorInfo {
+interface AliasVendorInfo {
   name: string;
   /** Public API base; upstream `baseUrl` in the integration definition. */
   baseUrl: string;
@@ -92,7 +92,7 @@ export const ALIAS_INFO: Record<AliasVendor, AliasVendorInfo> = {
   },
 };
 
-export type AliasErrorCode = "noToken" | "noDomain" | "badBaseUrl" | "noAccount" | "badResponse" | "service";
+type AliasErrorCode = "noToken" | "noDomain" | "badBaseUrl" | "noAccount" | "badResponse" | "service";
 
 export class AliasError extends Error {
   override name = "AliasError";
@@ -173,7 +173,7 @@ export function aliasGeneratedBy(target: string, plain: string, withWebsite: (ta
   return target ? withWebsite(target) : plain;
 }
 
-export interface AliasRequest {
+interface AliasRequest {
   method: "GET" | "POST";
   url: string;
   headers: Record<string, string>;

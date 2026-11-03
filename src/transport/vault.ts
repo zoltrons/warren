@@ -9,7 +9,7 @@ const syncResponse = obj({
   collections: opt(arr(unknownValue)),
   profile: obj({ organizations: opt(arr(obj({ id: str, key: opt(str), name: opt(str) }))) }),
 });
-export type SyncResponse = ReturnType<typeof syncResponse>;
+type SyncResponse = ReturnType<typeof syncResponse>;
 
 export async function fullSync(base: string, token: string): Promise<SyncResponse> {
   return parse(syncResponse, await call(base, "GET", "/api/sync?excludeDomains=true", { token }));
