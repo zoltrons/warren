@@ -46,6 +46,8 @@ const fixtures = {
   signupButton: `<form onsubmit="return false"><input id="u" name="email"><input id="p" type="password"><button>Kayıt ol</button></form>`,
   loginLink: `<form onsubmit="return false"><input id="u" name="email"><input id="p" type="password"><a href="/x">Sign up</a><button>Sign in</button></form>`,
   newsletter: `<form onsubmit="return false"><input id="u" type="email"><button>Sign up</button></form>`,
+  // The first step of a two-step sign-in (claude.ai): one email box, "Continue with email".
+  emailFirst: `<form onsubmit="return false"><input id="u" autocomplete="email" aria-label="Email"><button type="submit">Continue with email</button></form>`,
   // A component library: every input in a shadow root of its own, no form.
   splitShadow: `<div id="login"><x-a></x-a><x-b></x-b></div><script>
     document.querySelector("x-a").attachShadow({ mode: "open" }).innerHTML = '<input id="u" type="email">';
@@ -418,6 +420,13 @@ await scenario("a login form that links to sign up is not a registration form", 
 
 await scenario("a newsletter box is not a registration form", "newsletter", async (page) => {
   assert.equal(await isSignup(page), false);
+});
+
+await scenario("a lone email box that continues is a login step, and takes the username", "emailFirst", async (page) => {
+  assert.equal((await analyzed(page, "u")).menu, "login");
+  await focusOn(page, "u");
+  assert.deepEqual(await fill(page), { filled: true });
+  assert.equal((await values(page)).u, "user@example.com");
 });
 
 await scenario("new-password marks registration, current-password a login or change form", "signup", async (page) => {

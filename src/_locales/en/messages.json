@@ -503,6 +503,12 @@
   "passkeySave": {
     "message": "Save passkey"
   },
+  "passkeySaveNew": {
+    "message": "Save as a new login"
+  },
+  "passkeySaveTo": {
+    "message": "Or add it to a login you already have:"
+  },
   "passkeyNone": {
     "message": "No passkey for this site in your vault"
   },

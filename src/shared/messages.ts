@@ -321,6 +321,8 @@ export interface VaultItem {
   favorite: boolean;
   readOnly: boolean;
   hasTotp: boolean;
+  /** Login only: holds a passkey (present only when true). */
+  hasPasskey?: boolean;
   /** Login only, in the main list only: how many items share this password (absent: unique). */
   reused?: number;
   /** Login only, in the main list only: the password scores "weak". */
@@ -372,7 +374,7 @@ export interface PasskeyCandidate {
   itemId: string;
   name: string;
   userName: string;
-  /** base64url */
+  /** base64url; empty for a create, where candidates are the logins a new passkey can join. */
   credentialId: string;
 }
 

@@ -1,6 +1,6 @@
 // Approval window for a website's passkey request. The service worker opens popup.html?passkey=<id>;
 // after unlocking (if needed) the user picks a passkey, saves a new one, or hands the call back to the browser.
-import type { PasskeyPrompt } from "../shared/messages.ts";
+import type { PasskeyCandidate, PasskeyPrompt } from "../shared/messages.ts";
 import { h, send, t } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type Ctx, tile } from "./vault.ts";
@@ -28,6 +28,22 @@ async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, cre
   ctx.rerender();
 }
 
+/** One login to pick: a stored passkey to sign in with, or (create) the item a new passkey joins. */
+const list = (ctx: Ctx, candidates: PasskeyCandidate[]) =>
+  h(
+    "div",
+    { class: "group", role: "list" },
+    ...candidates.map((c) =>
+      h(
+        "button",
+        { type: "button", class: "row", role: "listitem", disabled: pk.busy, onclick: () => void decide(ctx, "use", c.itemId, c.credentialId) },
+        tile(c.name, 1),
+        h("div", { class: "body" }, h("span", { class: "title" }, c.name), h("span", { class: "sub" }, c.userName)),
+        icon("chevron"),
+      ),
+    ),
+  );
+
 export function passkeyScreen(ctx: Ctx): HTMLElement {
   if (!pk.prompt && !pk.loading && !pk.error) void load(ctx);
   const p = pk.prompt;
@@ -44,22 +60,12 @@ export function passkeyScreen(ctx: Ctx): HTMLElement {
             "div",
             { class: "actions" },
             h("p", { class: "note" }, t("passkeySaveFor", p.userName ?? "", p.rpName || p.rpId)),
-            h("button", { type: "button", class: "btn filled wide", disabled: pk.busy, onclick: () => void decide(ctx, "use") }, t("passkeySave")),
+            h("button", { type: "button", class: "btn filled wide", disabled: pk.busy, onclick: () => void decide(ctx, "use") }, t(p.candidates.length ? "passkeySaveNew" : "passkeySave")),
+            p.candidates.length ? h("p", { class: "note" }, t("passkeySaveTo")) : null,
+            p.candidates.length ? list(ctx, p.candidates) : null,
           )
         : p.candidates.length
-          ? h(
-              "div",
-              { class: "group", role: "list" },
-              ...p.candidates.map((c) =>
-                h(
-                  "button",
-                  { type: "button", class: "row", role: "listitem", disabled: pk.busy, onclick: () => void decide(ctx, "use", c.itemId, c.credentialId) },
-                  tile(c.name, 1),
-                  h("div", { class: "body" }, h("span", { class: "title" }, c.name), h("span", { class: "sub" }, c.userName)),
-                  icon("chevron"),
-                ),
-              ),
-            )
+          ? list(ctx, p.candidates)
           : h("div", { class: "empty" }, icon("key"), h("strong", {}, t("passkeyNone"))),
     pk.busy ? h("div", { class: "progress" }) : null,
     h("button", { type: "button", class: "btn text", disabled: pk.busy, onclick: () => void decide(ctx, "fallback") }, t("passkeyUseBrowser")),

@@ -17,7 +17,7 @@ import {
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
-import { getLocal } from "./store.ts";
+import { getLocal, getSettings } from "./store.ts";
 import { ensureLoaded, isUnlocked, requireUnlocked, save } from "./vault.ts";
 
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
@@ -212,6 +212,18 @@ async function candidates(p: Pending, ids: string[]): Promise<PasskeyCandidate[]
   return coreCall<PasskeyCandidate[]>({ op: "passkeyCandidates", rpId: p.rpId, origin: p.origin, ids });
 }
 
+/**
+ * A new passkey can join one of the site's own logins (by item id, empty credentialId). Read-only items
+ * and items that hold a passkey already are not offered: the official apps keep one passkey per login,
+ * and an existing one is never overwritten from here.
+ */
+async function joinable(p: Pending): Promise<PasskeyCandidate[]> {
+  await ensureLoaded();
+  const { defaultUriMatch } = await getSettings();
+  const items = await coreCall<VaultItem[]>({ op: "matchUri", url: p.origin, defaultMatch: defaultUriMatch });
+  return items.filter((i) => !i.readOnly && !i.hasPasskey && !i.failed).map((i) => ({ itemId: i.id, name: i.name, userName: i.sub, credentialId: "" }));
+}
+
 /** Inline menu: is there a stored passkey for the conditional request waiting in this frame? */
 export async function conditionalReady(tabId: number, frameId: number): Promise<boolean> {
   const p = conditionalFor(tabId, frameId);
@@ -248,7 +260,7 @@ export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   const p = get(id);
   const base = { origin: p.origin, rpId: p.rpId };
   if (p.call.kind === "get") return { kind: "get", ...base, candidates: await candidates(p, p.call.options.allow) };
-  return { kind: "create", ...base, rpName: p.call.options.rpName, userName: p.call.options.user.name, candidates: [] };
+  return { kind: "create", ...base, rpName: p.call.options.rpName, userName: p.call.options.user.name, candidates: await joinable(p) };
 }
 
 export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string): Promise<null> {
@@ -267,12 +279,22 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       const o = p.call.options;
       if (o.exclude.length && (await candidates(p, o.exclude)).length)
         return (p.done(error("InvalidStateError", "A passkey for this account already exists in Warren")), null);
+      // Joining an existing login: only one offered for this site, and a flagged one is confirmed in the popup first.
+      let item: Record<string, any> | undefined;
+      if (itemId) {
+        if (!(await joinable(p)).some((c) => c.itemId === itemId)) throw new UserError("invalid", "Choose one of the logins for this site");
+        item = await coreCall<Record<string, any>>({ op: "getCipher", id: itemId });
+        if (repromptPending(item)) throw new UserError("reprompt", REPROMPT_MESSAGE);
+      }
       const r = await coreCall<{ fido2Credential: Record<string, unknown>; response: Record<string, unknown> }>({
         op: "passkeyCreate",
         input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable },
       });
-      // shortcut: always a new Login item; choosing an existing item to attach the passkey to is not offered.
-      await save({ type: 1, name: o.rpName || p.rpId, login: { username: o.user.name, uris: [{ uri: p.origin, match: null }], fido2Credentials: [r.fido2Credential] } });
+      await save(
+        item
+          ? { ...item, login: { ...item.login, fido2Credentials: [r.fido2Credential] } }
+          : { type: 1, name: o.rpName || p.rpId, login: { username: o.user.name, uris: [{ uri: p.origin, match: null }], fido2Credentials: [r.fido2Credential] } },
+      );
       p.done({ credential: r.response });
     }
   } catch (e) {

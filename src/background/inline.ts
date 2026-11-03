@@ -57,19 +57,22 @@ async function items(kind: FieldKind, url: string): Promise<MenuItem[]> {
 
 /**
  * Page-originated work is cheap for a page to request and expensive to run (vault scan, PSL). One focus
- * at a time per tab. (Submitted logins are coalesced per tab before the queue, in index.ts.)
+ * at a time per tab; while it runs, only the newest focus waits, older ones get `superseded`. (Dropping
+ * the newest instead closed the menu when the user clicked two fields quickly.) Submitted logins are
+ * coalesced per tab before the queue, in index.ts.
  */
-const inFlight = new Set<string>();
+const queues = new Map<string, { running: Promise<unknown>; newest: number }>();
 
-const oncePerTab = async <T>(key: string, tabId: number, fn: () => Promise<T>, busy: T): Promise<T> => {
+const latestPerTab = <T>(key: string, tabId: number, fn: () => Promise<T>, superseded: T): Promise<T> => {
   const k = `${key}:${tabId}`;
-  if (inFlight.has(k)) return busy;
-  inFlight.add(k);
-  try {
-    return await fn();
-  } finally {
-    inFlight.delete(k);
-  }
+  const q = queues.get(k);
+  const ticket = (q?.newest ?? 0) + 1;
+  const running = (q?.running ?? Promise.resolve()).then(() => (queues.get(k)?.newest === ticket ? fn() : superseded));
+  const settled = running.catch(() => undefined).finally(() => {
+    if (queues.get(k)?.running === settled) queues.delete(k);
+  });
+  queues.set(k, { running: settled, newest: ticket });
+  return running;
 };
 
 /** Content script: `rows` tells it how tall the menu is, 0 = do not show one; `kind` what the field is. */
@@ -80,7 +83,7 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
   if (!url || tabId === undefined || sender.frameId === undefined) return { rows: 0 };
   if (req.type === "fieldPicked") return finishFieldPicker(tabId, req).then(() => null);
   if (req.type === "inlineFocus")
-    return oncePerTab(
+    return latestPerTab(
       "focus",
       tabId,
       async () => {

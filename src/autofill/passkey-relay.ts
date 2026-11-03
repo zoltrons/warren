@@ -21,10 +21,11 @@ addEventListener("message", (ev: MessageEvent) => {
   }
   if (d?.warren !== "req") return;
   const id = String(d.id);
-  // Any page script can forge this message: without a real click or key press (and with a flood of open
-  // ports) the browser handles the call itself. Only a conditional get opens nothing on its own; the
-  // service worker ignores `conditional` on a create, so it must not skip the check here either.
-  if ((!(d.kind === "get" && d.conditional === true) && !navigator.userActivation.isActive) || ports.size >= 8) {
+  // Any page script can forge this message: a create without a real click or key press (and any call
+  // with a flood of open ports) is handled by the browser itself. A get needs no gesture, like the
+  // browser's own: sign-in pages (Google's "Verify it's you") ask on load, and the service worker allows
+  // one window per tab.
+  if ((d.kind !== "get" && !navigator.userActivation.isActive) || ports.size >= 8) {
     postMessage({ warren: "res", id: d.id, result: { fallback: true } }, "*");
     return;
   }

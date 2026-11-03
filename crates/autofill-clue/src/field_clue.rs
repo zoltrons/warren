@@ -86,6 +86,10 @@ rule!(
 );
 rule!(NEWSLETTER, r"newsletter|subscribe|bülten");
 rule!(
+    LOGIN_STEP,
+    r"log.?in|log.?on|sign.?in|continue|next|giri[sş]|devam|ileri"
+);
+rule!(
     CHANGE_EMAIL,
     r"change.?e-?mail|new.?e-?mail|update.?e-?mail"
 );

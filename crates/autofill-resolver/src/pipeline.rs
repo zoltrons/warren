@@ -6,7 +6,8 @@ use crate::pass::{
 };
 use autofill_autocomplete_off::correct_autocomplete_off;
 use autofill_clue::LoginKind;
-use autofill_clue::field_clue::{MENU_CARD, MENU_LOGIN, is_avoided};
+use autofill_clue::dynamic::is_textlike;
+use autofill_clue::field_clue::{LOGIN_STEP, MENU_CARD, MENU_LOGIN, SIGNUP_ATTRS, is_avoided};
 use autofill_cpd::{CollectedPageDetails, FieldDetails};
 use autofill_designation::{AutofillType, FormDesignation};
 use serde::Serialize;
@@ -166,6 +167,32 @@ pub fn is_standalone_otp(state: &State, f: &Scored) -> bool {
         )
 }
 
+/// The first step of a two-step sign-in (claude.ai, Microsoft): the only box of its form, asking for an
+/// account or email, submitted by a button that says "sign in", "continue" or "next". A newsletter box
+/// says "subscribe" or "sign up" instead.
+fn is_login_first_step(state: &State, f: &Scored) -> bool {
+    let d = f.details;
+    let Some(form) = d.form_id else { return false };
+    let page = state.page;
+    (d.field_type == "email" || d.has_autocomplete("email") || MENU_LOGIN.test(&d.hint()))
+        && !is_avoided(d)
+        && state.forms.get(&Some(form)) == Some(&FormDesignation::None)
+        && page
+            .fields
+            .iter()
+            .filter(|o| o.form_id == Some(form) && o.is_fillable() && is_textlike(o))
+            .count()
+            == 1
+        && page.buttons.iter().any(|b| {
+            let text = b.text.as_deref().unwrap_or("").to_lowercase();
+            b.form_id == Some(form)
+                && b.is_submit
+                && !b.is_hidden
+                && LOGIN_STEP.test(&text)
+                && !SIGNUP_ATTRS.test(&text)
+        })
+}
+
 fn menu_kind(state: &State, f: &Scored) -> Option<MenuKind> {
     let d = f.details;
     if d.is_disabled || d.is_read_only {
@@ -191,7 +218,7 @@ fn menu_kind(state: &State, f: &Scored) -> Option<MenuKind> {
     if ac.starts_with("cc-") || MENU_CARD.test(&hint) {
         return Some(MenuKind::Card);
     }
-    if ac == "username" || ac == "webauthn" {
+    if ac == "username" || ac == "webauthn" || (!has_password && is_login_first_step(state, f)) {
         return Some(MenuKind::Login);
     }
     let identity = !ac.starts_with("cc-")
@@ -556,6 +583,26 @@ mod tests {
         assert_eq!(result.fields[1].menu, Some(MenuKind::Identity));
         card.is_read_only = true;
         assert_eq!(analyze(&page(&[1], vec![card])).fields[0].menu, None);
+    }
+
+    #[test]
+    fn a_lone_email_box_that_continues_is_a_login_step() {
+        let mut email = input(1, Some(1), "email", "x");
+        email.autocomplete_type = Some("email".into());
+        let with_button = |text: &str| {
+            let mut p = page(&[1], vec![email.clone()]);
+            p.buttons.push(ButtonDetails {
+                field_id: 2,
+                form_id: Some(1),
+                text: Some(text.into()),
+                is_submit: true,
+                ..Default::default()
+            });
+            analyze(&p).fields[0].menu
+        };
+        assert_eq!(with_button("Continue with email"), Some(MenuKind::Login));
+        assert_eq!(with_button("Sign up"), Some(MenuKind::Identity));
+        assert_eq!(with_button("Subscribe"), Some(MenuKind::Identity));
     }
 
     #[test]

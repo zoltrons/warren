@@ -1686,7 +1686,9 @@ try {
     }, [...challenge]);
     await approve(async (w) => {
       await w.getByText("Save a passkey for pk-user on Local app?").waitFor();
-      await w.getByRole("button", { name: "Save passkey" }).click();
+      // The site's own login (no passkey yet) is offered to join; this one is saved on its own.
+      await w.getByRole("listitem").filter({ hasText: "local-user" }).waitFor();
+      await w.getByRole("button", { name: "Save as a new login" }).click();
     });
     const c = await created;
     assert.ok(c.proto, "not a PublicKeyCredential");
@@ -1752,6 +1754,34 @@ try {
     const key = createPublicKey({ key: Buffer.from(spki, "base64"), format: "der", type: "spki" });
     assert.ok(verify("sha256", signed, key, Buffer.from(g.sig, "base64")), "assertion signature");
     assert.deepEqual([...Buffer.from(g.user, "base64")], [1, 2, 3, 4]);
+  });
+
+  await step("passkeys: a new passkey can join a login the site already has", async () => {
+    await loginPage.locator("#u").click(); // the shim leaves an unfocused document to the browser; the menu frame that held the focus is gone
+    const created = loginPage.evaluate(async (ch) => {
+      const c = await navigator.credentials.create({
+        publicKey: {
+          rp: { name: "Local app" }, user: { id: new Uint8Array([5, 6, 7, 8]), name: "pk-two", displayName: "PK Two" },
+          challenge: Uint8Array.from(ch), pubKeyCredParams: [{ type: "public-key", alg: -7 }], authenticatorSelection: { residentKey: "required" },
+        },
+      });
+      return c?.type;
+    }, [...challenge]);
+    await approve(async (w) => {
+      // The item made by the first create holds a passkey already: never offered, so never overwritten.
+      await w.getByRole("listitem").filter({ hasText: "local-user" }).waitFor();
+      assert.equal(await w.getByRole("listitem").filter({ hasText: "pk-user" }).count(), 0);
+      await w.getByRole("listitem").filter({ hasText: "local-user" }).click();
+    });
+    assert.equal(await created, "public-key");
+    const s = await apiSession(vaultUser);
+    const all = (await s.ciphers()).filter((x) => !x.deletedDate);
+    s.done();
+    const local = all.filter((x) => x.name === "Local app" && x.login?.username === "local-user");
+    assert.equal(local.length, 1, "joined login duplicated");
+    assert.equal(local[0]!.login.password, "local-pass-2", "joined login lost its password");
+    assert.equal(local[0]!.login.fido2Credentials?.length, 1);
+    assert.equal(all.filter((x) => x.login?.fido2Credentials?.length).length, 2);
   });
 
   await step("passkeys: closing the window hands the call back to the browser", async () => {
