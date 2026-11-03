@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_appName__",
+  "description": "__MSG_appDesc__",
+  "version": "0.2.7.0",
+  "default_locale": "en",
+  "minimum_chrome_version": "156",
+  "update_url": "https://github.com/zoltrons/warren/releases/latest/download/updates.xml",
+  "background": { "service_worker": "background.js", "type": "module" },
+  "icons": { "16": "icons/warren-16.png", "32": "icons/warren-32.png", "48": "icons/warren-48.png", "128": "icons/warren-128.png" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "__MSG_appName__",
+    "default_icon": { "16": "icons/locked-16.png", "19": "icons/locked-19.png", "32": "icons/locked-32.png", "38": "icons/locked-38.png" }
+  },
+  "permissions": ["storage", "alarms", "idle", "offscreen", "clipboardWrite", "scripting", "contextMenus", "sidePanel"],
+  "side_panel": { "default_path": "sidepanel.html" },
+  "host_permissions": ["https://*/*", "http://*/*"],
+  "optional_permissions": ["privacy"],
+  "content_scripts": [
+    { "matches": ["https://*/*", "http://*/*"], "js": ["page.js", "content.js"], "all_frames": true, "run_at": "document_start" }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["menu.html", "bar.html"],
+      "matches": ["https://*/*", "http://*/*"],
+      "use_dynamic_url": true
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "commands": {
+    "autofill-login": {
+      "suggested_key": { "default": "Ctrl+Shift+L", "mac": "Command+Shift+L" },
+      "description": "__MSG_cmdAutofill__"
+    }
+  },
+  "incognito": "not_allowed"
+}

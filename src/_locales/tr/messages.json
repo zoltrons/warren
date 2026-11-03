@@ -1,0 +1,14 @@
+{
+  "appName": {
+    "message": "Warren"
+  },
+  "extName": {
+    "message": "Warren: Vaultwarden Client"
+  },
+  "appDesc": {
+    "message": "Vaultwarden için yapıldı. Tarayıcında yaşayan, yalnızca kendi sunucunla konuşan küçük ve hızlı bir parola yöneticisi."
+  },
+  "disclaimer": {
+    "message": "Warren resmi bir ürün değildir; Bitwarden, Inc. veya Vaultwarden projesiyle bağlantılı değildir."
+  }
+}

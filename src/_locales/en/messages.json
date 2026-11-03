@@ -1,0 +1,1626 @@
+{
+  "appName": {
+    "message": "Warren"
+  },
+  "extName": {
+    "message": "Warren: Vaultwarden Client"
+  },
+  "appDesc": {
+    "message": "Made for Vaultwarden. A small, quick password manager that lives in your browser and talks only to your own server."
+  },
+  "disclaimer": {
+    "message": "Warren is an unofficial client and is not affiliated with Bitwarden, Inc. or the Vaultwarden project."
+  },
+  "errNoReply": {
+    "message": "The extension did not answer. Try again."
+  },
+  "showPassword": {
+    "message": "Show password"
+  },
+  "hidePassword": {
+    "message": "Hide password"
+  },
+  "masterPassword": {
+    "message": "Master password"
+  },
+  "setupSubtitle": {
+    "message": "Connect to your Vaultwarden server"
+  },
+  "serverUrl": {
+    "message": "Server URL"
+  },
+  "continue": {
+    "message": "Continue"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "back": {
+    "message": "Back"
+  },
+  "setupHint": {
+    "message": "Warren only asks for access to this one server"
+  },
+  "busyCheckingServer": {
+    "message": "Checking server…"
+  },
+  "changeServer": {
+    "message": "Change server"
+  },
+  "loginTitle": {
+    "message": "Log in"
+  },
+  "email": {
+    "message": "Email"
+  },
+  "logIn": {
+    "message": "Log in"
+  },
+  "busyLoggingIn": {
+    "message": "Deriving key and logging in…"
+  },
+  "twoFactorTitle": {
+    "message": "Two-step login"
+  },
+  "twoFactorSubtitle": {
+    "message": "Confirm it's you, $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "twoFactorMethod": {
+    "message": "Verification method"
+  },
+  "providerAuthenticator": {
+    "message": "Authenticator app"
+  },
+  "providerEmail": {
+    "message": "Email"
+  },
+  "twoFactorUnsupported": {
+    "message": "This account only offers two-step methods Warren does not support yet."
+  },
+  "busySendingEmail": {
+    "message": "Sending code…"
+  },
+  "sendEmailCode": {
+    "message": "Send code to $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emailSent": {
+    "message": "Code sent to $P1$.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "verificationCode": {
+    "message": "Verification code"
+  },
+  "rememberDevice": {
+    "message": "Remember this device"
+  },
+  "busyVerifying": {
+    "message": "Verifying…"
+  },
+  "lockedTitle": {
+    "message": "Vault locked"
+  },
+  "unlock": {
+    "message": "Unlock"
+  },
+  "busyUnlocking": {
+    "message": "Unlocking…"
+  },
+  "logOut": {
+    "message": "Log out"
+  },
+  "searchVault": {
+    "message": "Search vault"
+  },
+  "vault": {
+    "message": "Vault"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "navigation": {
+    "message": "Navigation"
+  },
+  "account": {
+    "message": "Account"
+  },
+  "loggedIn": {
+    "message": "Logged in"
+  },
+  "serverVersion": {
+    "message": "Server version $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "security": {
+    "message": "Security"
+  },
+  "autoLock": {
+    "message": "Auto-lock"
+  },
+  "autoLockRestart": {
+    "message": "On browser restart"
+  },
+  "minutes": {
+    "message": "$P1$ min",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hours": {
+    "message": "$P1$ h",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lockOnSystemLock": {
+    "message": "Lock when the computer locks"
+  },
+  "lockNow": {
+    "message": "Lock now"
+  },
+  "decryptFailed": {
+    "message": "Could not decrypt this item"
+  },
+  "untitled": {
+    "message": "(no name)"
+  },
+  "favorite": {
+    "message": "Favorite"
+  },
+  "noMatches": {
+    "message": "No matching items"
+  },
+  "vaultEmpty": {
+    "message": "Your vault is empty"
+  },
+  "syncNow": {
+    "message": "Sync now"
+  },
+  "folders": {
+    "message": "Folders"
+  },
+  "allItems": {
+    "message": "All"
+  },
+  "noFolder": {
+    "message": "No folder"
+  },
+  "newItem": {
+    "message": "New item"
+  },
+  "editItem": {
+    "message": "Edit item"
+  },
+  "copied": {
+    "message": "Copied — clears in 30 s"
+  },
+  "copyField": {
+    "message": "Copy $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "oneTimeCode": {
+    "message": "One-time code"
+  },
+  "secondsLeft": {
+    "message": "$P1$ seconds left",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "movedToTrash": {
+    "message": "Moved to trash"
+  },
+  "confirmTrash": {
+    "message": "Tap again to move to trash"
+  },
+  "moveToTrash": {
+    "message": "Move to trash"
+  },
+  "edit": {
+    "message": "Edit"
+  },
+  "readOnlyItem": {
+    "message": "You only have view access to this item."
+  },
+  "websites": {
+    "message": "Websites"
+  },
+  "customFields": {
+    "message": "Custom fields"
+  },
+  "notes": {
+    "message": "Notes"
+  },
+  "details": {
+    "message": "Details"
+  },
+  "folder": {
+    "message": "Folder"
+  },
+  "username": {
+    "message": "Username"
+  },
+  "password": {
+    "message": "Password"
+  },
+  "nameRequired": {
+    "message": "Enter a name"
+  },
+  "saved": {
+    "message": "Saved"
+  },
+  "itemType": {
+    "message": "Item type"
+  },
+  "typeLogin": {
+    "message": "Login"
+  },
+  "typeNote": {
+    "message": "Note"
+  },
+  "name": {
+    "message": "Name"
+  },
+  "usePassword": {
+    "message": "Use this password"
+  },
+  "useUsername": {
+    "message": "Use this username"
+  },
+  "generateUsername": {
+    "message": "Generate username"
+  },
+  "generatePassword": {
+    "message": "Generate password"
+  },
+  "totpSecret": {
+    "message": "Authenticator key (TOTP)"
+  },
+  "websitesOnePerLine": {
+    "message": "Websites (one per line)"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "generator": {
+    "message": "Generator"
+  },
+  "generatedValue": {
+    "message": "Generated value"
+  },
+  "regenerate": {
+    "message": "Regenerate"
+  },
+  "typePassword": {
+    "message": "Password"
+  },
+  "typePassphrase": {
+    "message": "Passphrase"
+  },
+  "length": {
+    "message": "Length"
+  },
+  "avoidAmbiguous": {
+    "message": "Avoid ambiguous characters"
+  },
+  "words": {
+    "message": "Words"
+  },
+  "separator": {
+    "message": "Separator"
+  },
+  "capitalize": {
+    "message": "Capitalize"
+  },
+  "includeNumber": {
+    "message": "Include number"
+  },
+  "copyCustomFieldName": {
+    "message": "Copy custom field name"
+  },
+  "ctxAutofill": {
+    "message": "Fill with Warren"
+  },
+  "cmdAutofill": {
+    "message": "Fill the login for this page"
+  },
+  "onThisSite": {
+    "message": "On $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill": {
+    "message": "Fill"
+  },
+  "saveFromPage": {
+    "message": "Save login from this page"
+  },
+  "noLoginOnPage": {
+    "message": "No filled-in login form found on this page"
+  },
+  "fillFailed": {
+    "message": "Could not find a login form to fill"
+  },
+  "openSidePanel": {
+    "message": "Open in side panel"
+  },
+  "providerWebAuthn": {
+    "message": "Security key"
+  },
+  "useSecurityKey": {
+    "message": "Use security key"
+  },
+  "openInTab": {
+    "message": "Open in a new tab"
+  },
+  "send": {
+    "message": "Send"
+  },
+  "newSend": {
+    "message": "New Send"
+  },
+  "noSends": {
+    "message": "No Sends yet"
+  },
+  "sendDeleted": {
+    "message": "Send deleted"
+  },
+  "sendDeletes": {
+    "message": "Deletes $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sendDisabled": {
+    "message": "Disabled"
+  },
+  "copyLink": {
+    "message": "Copy link"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "tapAgainToDelete": {
+    "message": "Tap again to delete"
+  },
+  "chooseFile": {
+    "message": "Choose a file"
+  },
+  "fileTooLarge": {
+    "message": "The file is too large (max 25 MB)"
+  },
+  "sendType": {
+    "message": "Send type"
+  },
+  "sendText": {
+    "message": "Text"
+  },
+  "sendFile": {
+    "message": "File"
+  },
+  "hideText": {
+    "message": "Hide text by default"
+  },
+  "deleteAfter": {
+    "message": "Delete after"
+  },
+  "days": {
+    "message": "$P1$ days",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sendPasswordOptional": {
+    "message": "Password (optional)"
+  },
+  "maxAccessOptional": {
+    "message": "Maximum access count (optional)"
+  },
+  "createSendCopyLink": {
+    "message": "Create and copy link"
+  },
+  "passkeySaveTitle": {
+    "message": "Save passkey"
+  },
+  "passkeySignInTitle": {
+    "message": "Sign in with passkey"
+  },
+  "passkeySaveFor": {
+    "message": "Save a passkey for $P1$ on $P2$?",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "passkeySave": {
+    "message": "Save passkey"
+  },
+  "passkeyNone": {
+    "message": "No passkey for this site in your vault"
+  },
+  "passkeyUseBrowser": {
+    "message": "Use another device or browser"
+  },
+  "logInSso": {
+    "message": "Log in with SSO"
+  },
+  "busyOpeningSso": {
+    "message": "Opening your identity provider…"
+  },
+  "ssoHint": {
+    "message": "SSO signs you in; you still unlock the vault with your master password."
+  },
+  "createAccount": {
+    "message": "Create account"
+  },
+  "unlockToFill": {
+    "message": "Unlock to fill"
+  },
+  "close": {
+    "message": "Close"
+  },
+  "barSaveTitle": {
+    "message": "Save this login in Warren?"
+  },
+  "barUpdateTitle": {
+    "message": "Update the saved password?"
+  },
+  "barNever": {
+    "message": "Never for this site"
+  },
+  "barUpdate": {
+    "message": "Update"
+  },
+  "autofill": {
+    "message": "Autofill"
+  },
+  "inlineMenu": {
+    "message": "Autofill menu in fields"
+  },
+  "inlineMenuHint": {
+    "message": "Show matching items under login, card and identity fields"
+  },
+  "savePrompt": {
+    "message": "Offer to save logins"
+  },
+  "savePromptHint": {
+    "message": "Ask to save new logins and update changed passwords"
+  },
+  "neverSaveSites": {
+    "message": "Never save on $P1$ sites",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clear": {
+    "message": "Clear"
+  },
+  "defaultManager": {
+    "message": "Use as default password manager"
+  },
+  "defaultManagerHint": {
+    "message": "Turns off Chrome's own password saving and address/card autofill"
+  },
+  "typeCard": {
+    "message": "Card"
+  },
+  "typeIdentity": {
+    "message": "Identity"
+  },
+  "typeCards": {
+    "message": "Cards"
+  },
+  "typeIdentities": {
+    "message": "Identities"
+  },
+  "typeSshKey": {
+    "message": "SSH key"
+  },
+  "field_username": {
+    "message": "Username"
+  },
+  "field_password": {
+    "message": "Password"
+  },
+  "field_totp": {
+    "message": "Authenticator key (TOTP)"
+  },
+  "field_cardholderName": {
+    "message": "Cardholder name"
+  },
+  "field_brand": {
+    "message": "Brand"
+  },
+  "field_number": {
+    "message": "Number"
+  },
+  "field_expMonth": {
+    "message": "Expiration month"
+  },
+  "field_expYear": {
+    "message": "Expiration year"
+  },
+  "field_code": {
+    "message": "Security code"
+  },
+  "field_title": {
+    "message": "Title"
+  },
+  "field_firstName": {
+    "message": "First name"
+  },
+  "field_middleName": {
+    "message": "Middle name"
+  },
+  "field_lastName": {
+    "message": "Last name"
+  },
+  "field_company": {
+    "message": "Company"
+  },
+  "field_email": {
+    "message": "Email"
+  },
+  "field_phone": {
+    "message": "Phone"
+  },
+  "field_ssn": {
+    "message": "Social security number"
+  },
+  "field_passportNumber": {
+    "message": "Passport number"
+  },
+  "field_licenseNumber": {
+    "message": "License number"
+  },
+  "field_address1": {
+    "message": "Address 1"
+  },
+  "field_address2": {
+    "message": "Address 2"
+  },
+  "field_address3": {
+    "message": "Address 3"
+  },
+  "field_city": {
+    "message": "City / Town"
+  },
+  "field_state": {
+    "message": "State / Province"
+  },
+  "field_postalCode": {
+    "message": "Postal code"
+  },
+  "field_country": {
+    "message": "Country"
+  },
+  "field_privateKey": {
+    "message": "Private key"
+  },
+  "field_publicKey": {
+    "message": "Public key"
+  },
+  "field_keyFingerprint": {
+    "message": "Fingerprint"
+  },
+  "strengthWeak": {
+    "message": "Weak"
+  },
+  "strengthFair": {
+    "message": "Fair"
+  },
+  "strengthStrong": {
+    "message": "Strong"
+  },
+  "strengthVeryStrong": {
+    "message": "Very strong"
+  },
+  "unfavorite": {
+    "message": "Remove from favorites"
+  },
+  "inTrash": {
+    "message": "This item is in the trash"
+  },
+  "passwordChanged": {
+    "message": "Password last changed $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyAvailable": {
+    "message": "Passkey available"
+  },
+  "yes": {
+    "message": "Yes"
+  },
+  "no": {
+    "message": "No"
+  },
+  "passwordHistory": {
+    "message": "Password history"
+  },
+  "showPasswordHistory": {
+    "message": "Show $P1$ previous passwords",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lastEdited": {
+    "message": "Last edited"
+  },
+  "restore": {
+    "message": "Restore"
+  },
+  "restored": {
+    "message": "Restored"
+  },
+  "clone": {
+    "message": "Clone"
+  },
+  "copySuffix": {
+    "message": "(copy)"
+  },
+  "confirmPurge": {
+    "message": "Tap again to delete forever"
+  },
+  "deleteForever": {
+    "message": "Delete forever"
+  },
+  "deleted": {
+    "message": "Deleted"
+  },
+  "fieldName": {
+    "message": "Field on the page"
+  },
+  "fieldValue": {
+    "message": "Value to fill"
+  },
+  "fieldText": {
+    "message": "Text"
+  },
+  "fieldHidden": {
+    "message": "Hidden"
+  },
+  "fieldLinked": {
+    "message": "Linked"
+  },
+  "field_fullName": {
+    "message": "Full name"
+  },
+  "fieldBoolean": {
+    "message": "Checkbox"
+  },
+  "removeField": {
+    "message": "Remove field"
+  },
+  "fieldLinkedTo": {
+    "message": "Comes from this item's"
+  },
+  "fieldChecked": {
+    "message": "Tick the box"
+  },
+  "fieldKind": {
+    "message": "Type"
+  },
+  "fieldHintEmpty": {
+    "message": "Say which field on the page this fills: type its name, or use Pick from page"
+  },
+  "fieldHintText": {
+    "message": "Fills “$P1$” with this text",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintHidden": {
+    "message": "Fills “$P1$” with this text, kept hidden on screen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintChecked": {
+    "message": "Ticks “$P1$” on the page",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintUnchecked": {
+    "message": "Clears “$P1$” on the page",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintLinked": {
+    "message": "Fills “$P1$” with this item's $P2$, and follows it when that changes",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "pickField": {
+    "message": "Pick from page"
+  },
+  "pickFieldBanner": {
+    "message": "Warren: click the field to add. Esc cancels."
+  },
+  "pickFieldNoPage": {
+    "message": "Open the website first: this tab has no fields to pick from."
+  },
+  "addField": {
+    "message": "Add field"
+  },
+  "folderName": {
+    "message": "Folder name"
+  },
+  "rename": {
+    "message": "Rename"
+  },
+  "deleteFolder": {
+    "message": "Delete folder"
+  },
+  "newFolder": {
+    "message": "New folder"
+  },
+  "add": {
+    "message": "Add"
+  },
+  "filters": {
+    "message": "Filters"
+  },
+  "trashCount": {
+    "message": "Trash ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "theme": {
+    "message": "Theme"
+  },
+  "theme_system": {
+    "message": "System"
+  },
+  "theme_light": {
+    "message": "Light"
+  },
+  "theme_dark": {
+    "message": "Dark"
+  },
+  "timeoutAction": {
+    "message": "Timeout action"
+  },
+  "lock": {
+    "message": "Lock"
+  },
+  "providerYubiKey": {
+    "message": "YubiKey"
+  },
+  "yubiKeyHint": {
+    "message": "Touch your YubiKey (it types the code)"
+  },
+  "favicons": {
+    "message": "Show website icons"
+  },
+  "faviconsHint": {
+    "message": "Loaded through your server's icon service"
+  },
+  "autoCopyTotp": {
+    "message": "Copy one-time code after filling"
+  },
+  "autoCopyTotpHint": {
+    "message": "For logins with a TOTP key"
+  },
+  "editSend": {
+    "message": "Edit Send"
+  },
+  "disableSend": {
+    "message": "Disable this Send"
+  },
+  "newPasswordOptional": {
+    "message": "New password (optional)"
+  },
+  "usernameType": {
+    "message": "Username type"
+  },
+  "usernameWord": {
+    "message": "Random word"
+  },
+  "usernamePlus": {
+    "message": "Plus-addressed email"
+  },
+  "usernameCatchAll": {
+    "message": "Catch-all email"
+  },
+  "domain": {
+    "message": "Domain"
+  },
+  "generatorHistory": {
+    "message": "Generator history"
+  },
+  "generatorHistoryEmpty": {
+    "message": "Copied values show up here"
+  },
+  "pin": {
+    "message": "PIN"
+  },
+  "unlockWithPin": {
+    "message": "Unlock with PIN"
+  },
+  "unlockWithPinHint": {
+    "message": "Unlock with a short PIN instead of the master password"
+  },
+  "pinLockOnRestart": {
+    "message": "Lock with master password on browser restart"
+  },
+  "setPin": {
+    "message": "Set PIN"
+  },
+  "useMasterPassword": {
+    "message": "Use master password"
+  },
+  "usePin": {
+    "message": "Use PIN"
+  },
+  "attachments": {
+    "message": "Attachments"
+  },
+  "download": {
+    "message": "Download"
+  },
+  "addAttachment": {
+    "message": "Add attachment"
+  },
+  "organization": {
+    "message": "Organization"
+  },
+  "collections": {
+    "message": "Collections"
+  },
+  "exportVault": {
+    "message": "Export vault"
+  },
+  "exportHint": {
+    "message": "Unencrypted Bitwarden JSON: keep the file safe"
+  },
+  "exportConfirm": {
+    "message": "Export"
+  },
+  "importVault": {
+    "message": "Import items"
+  },
+  "importHint": {
+    "message": "From a Bitwarden JSON export (unencrypted)"
+  },
+  "imported": {
+    "message": "Imported $P1$ item(s).",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "importSkipped": {
+    "message": "Skipped $P1$ unsupported item(s).",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "favorites": {
+    "message": "Favorites"
+  },
+  "sort": {
+    "message": "Sort"
+  },
+  "sortNameAsc": {
+    "message": "Name (A–Z)"
+  },
+  "sortNameDesc": {
+    "message": "Name (Z–A)"
+  },
+  "sortUpdated": {
+    "message": "Recently edited"
+  },
+  "sortCreated": {
+    "message": "Recently created"
+  },
+  "clearSearch": {
+    "message": "Clear search"
+  },
+  "openWebsite": {
+    "message": "Open website"
+  },
+  "fillThisSite": {
+    "message": "Fill this site"
+  },
+  "copyUserNameShort": {
+    "message": "Copy user"
+  },
+  "passwordStrength": {
+    "message": "Password strength"
+  },
+  "itemActions": {
+    "message": "Item actions"
+  },
+  "unsavedChanges": {
+    "message": "Unsaved changes — save to keep them"
+  },
+  "discardChanges": {
+    "message": "Discard changes"
+  },
+  "keepEditing": {
+    "message": "Keep editing"
+  },
+  "selectFolder": {
+    "message": "Folder"
+  },
+  "noFolderHint": {
+    "message": "No folder"
+  },
+  "itemTypeHint": {
+    "message": "Pick a type"
+  },
+  "searchHint": {
+    "message": "Search names, usernames and websites. Use \"quotes\", -exclude, or title: username: domain: url: folder: type: is:"
+  },
+  "showItem": {
+    "message": "Open $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "moreActions": {
+    "message": "More actions"
+  },
+  "dismiss": {
+    "message": "Dismiss"
+  },
+  "trashEmpty": {
+    "message": "Trash is empty"
+  },
+  "favoritesEmpty": {
+    "message": "No favorites yet — tap the star on an item"
+  },
+  "clearFilters": {
+    "message": "Clear filters"
+  },
+  "copiedShort": {
+    "message": "Copied"
+  },
+  "totpNow": {
+    "message": "One-time code, $P1$ seconds left",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sidebarTheme": {
+    "message": "Appearance"
+  },
+  "about": {
+    "message": "About"
+  },
+  "sectionAll": {
+    "message": "All items"
+  },
+  "syncHint": {
+    "message": "Last sync $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "loading": {
+    "message": "Loading…"
+  },
+  "strengthShort": {
+    "message": "Strength"
+  },
+  "autofillOptions": {
+    "message": "Autofill options"
+  },
+  "uriMatchBaseDomain": {
+    "message": "Base domain (recommended)"
+  },
+  "uriMatchHost": {
+    "message": "Host"
+  },
+  "uriMatchExact": {
+    "message": "Exact"
+  },
+  "uriMatchNever": {
+    "message": "Never"
+  },
+  "uriMatchAdvanced": {
+    "message": "— Advanced —"
+  },
+  "uriMatchStartsWith": {
+    "message": "Starts with"
+  },
+  "uriMatchRegex": {
+    "message": "Regular expression"
+  },
+  "uriMatchHint": {
+    "message": "How the saved website is matched against a page's address"
+  },
+  "uriMatchStartsWithHint": {
+    "message": "Starts with can match unintended websites. Check the saved address."
+  },
+  "uriMatchRegExHint": {
+    "message": "Regular expressions are powerful and can match unintended websites. Check the expression."
+  },
+  "uriMatchDefaultHint": {
+    "message": "Applied to saved websites that are set to Default"
+  },
+  "uriMatchDefaultAdvancedHint": {
+    "message": "An advanced default applies to every saved website set to Default. Check it carefully."
+  },
+  "uriLabel": {
+    "message": "Website $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "matchDetection": {
+    "message": "Match detection"
+  },
+  "addWebsite": {
+    "message": "Add website"
+  },
+  "removeWebsite": {
+    "message": "Remove website"
+  },
+  "autosubmit": {
+    "message": "Submit after filling"
+  },
+  "autosubmitHint": {
+    "message": "Log in right after you fill a login. Not used for autofill on page load. A form you have not looked at gets submitted, so use with care."
+  },
+  "autofillOnPageLoad": {
+    "message": "Autofill on page load"
+  },
+  "autofillOnPageLoadHint": {
+    "message": "Fill the login for a page when it opens. Experimental: use with care."
+  },
+  "autofillOnPageLoadDefault": {
+    "message": "Default autofill on page load"
+  },
+  "autofillOnPageLoadDefaultHint": {
+    "message": "Used for logins whose own setting is Default"
+  },
+  "on": {
+    "message": "On"
+  },
+  "off": {
+    "message": "Off"
+  },
+  "defaultLabelWithValue": {
+    "message": "Default ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "inlineMenuCards": {
+    "message": "Show cards in the inline menu"
+  },
+  "inlineMenuIdentities": {
+    "message": "Show identities in the inline menu"
+  },
+  "showCardsOnTab": {
+    "message": "Show cards in the tab view"
+  },
+  "showIdentitiesOnTab": {
+    "message": "Show identities in the tab view"
+  },
+  "clearClipboard": {
+    "message": "Clear clipboard"
+  },
+  "clearClipboardDesc": {
+    "message": "How long copied values stay on the clipboard"
+  },
+  "never": {
+    "message": "Never"
+  },
+  "thirtySeconds": {
+    "message": "30 seconds"
+  },
+  "oneMinute": {
+    "message": "1 minute"
+  },
+  "twoMinutes": {
+    "message": "2 minutes"
+  },
+  "fiveMinutes": {
+    "message": "5 minutes"
+  },
+  "defaultUriMatchDetection": {
+    "message": "Default URI match detection"
+  },
+  "syncComplete": {
+    "message": "Syncing complete"
+  },
+  "syncing": {
+    "message": "Syncing…"
+  },
+  "lastSync": {
+    "message": "Last sync: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "helpCenter": {
+    "message": "Help center"
+  },
+  "webVault": {
+    "message": "Web vault"
+  },
+  "removePassword": {
+    "message": "Remove password"
+  },
+  "removeSendPasswordHint": {
+    "message": "The link stays the same and anyone with it can open the send"
+  },
+  "additionalOptions": {
+    "message": "Additional options"
+  },
+  "uriMatchBaseDomainShort": {
+    "message": "Base domain"
+  },
+  "enableContextMenu": {
+    "message": "Show the context menu entry"
+  },
+  "removeNeverSave": {
+    "message": "Never save on $P1$ again",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "biometricUnlock": {
+    "message": "Unlock with biometrics"
+  },
+  "biometricUnlockHint": {
+    "message": "Use this device's Touch ID, Windows Hello or screen lock. Requires a platform authenticator that supports WebAuthn PRF."
+  },
+  "unlockWithBiometrics": {
+    "message": "Unlock with biometrics"
+  },
+  "biometricEnabled": {
+    "message": "Biometric unlock is on"
+  },
+  "biometricRemoved": {
+    "message": "Biometric unlock is off"
+  },
+  "biometricUnavailable": {
+    "message": "Biometric unlock is not available on this device."
+  },
+  "biometricCancelled": {
+    "message": "Biometric verification was cancelled."
+  },
+  "biometricAlreadySetUp": {
+    "message": "This device already has a biometric credential for Warren."
+  },
+  "biometricPrfUnsupported": {
+    "message": "This authenticator cannot derive a key (no WebAuthn PRF support), so biometric unlock is not available. Use the master password or PIN."
+  },
+  "busyBiometric": {
+    "message": "Waiting for biometric verification…"
+  },
+  "openInTabHint": {
+    "message": "Biometric prompts can close this popup; a tab stays open"
+  },
+  "repromptTitle": {
+    "message": "Master password required"
+  },
+  "repromptHint": {
+    "message": "This item is marked for a check of your master password"
+  },
+  "repromptConfirm": {
+    "message": "Confirm"
+  },
+  "minDigits": {
+    "message": "Minimum digits"
+  },
+  "minSymbols": {
+    "message": "Minimum symbols"
+  },
+  "wordlist": {
+    "message": "Wordlist"
+  },
+  "wordlistCustom": {
+    "message": "Custom list ($P1$ words)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "wordlistDefault": {
+    "message": "EFF long list"
+  },
+  "wordlistReset": {
+    "message": "Use the default list"
+  },
+  "wordlistImport": {
+    "message": "Import"
+  },
+  "wordlistTooShort": {
+    "message": "The list needs at least 100 words, one per line."
+  },
+  "wordlistNotSaved": {
+    "message": "The list is too large to keep on this device."
+  },
+  "typePin": {
+    "message": "PIN"
+  },
+  "usernameSubdomain": {
+    "message": "Subdomain email"
+  },
+  "suggestions": {
+    "message": "Suggestions"
+  },
+  "characters": {
+    "message": "$P1$ characters",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "createLoginWithPassword": {
+    "message": "Create a login with this value"
+  },
+  "createLoginWithUsername": {
+    "message": "Create a login with this username"
+  },
+  "largeType": {
+    "message": "Large Type"
+  },
+  "shareAsSend": {
+    "message": "Share as a Send"
+  },
+  "checkBreaches": {
+    "message": "Check for data breaches"
+  },
+  "checking": {
+    "message": "Checking…"
+  },
+  "pwnedFound": {
+    "message": "Found in $P1$ known data breaches. Change this password.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "pwnedClean": {
+    "message": "Not found in known data breaches"
+  },
+  "pwnedFailed": {
+    "message": "Could not reach the breach service. Try again later."
+  },
+  "memoryTest": {
+    "message": "Test your memory"
+  },
+  "memoryHint": {
+    "message": "Type the password from memory. It is compared with the saved one on this device."
+  },
+  "check": {
+    "message": "Check"
+  },
+  "memoryMatch": {
+    "message": "Password matches"
+  },
+  "memoryMismatch": {
+    "message": "Password does not match"
+  },
+  "expiry": {
+    "message": "Expires"
+  },
+  "copyMonth": {
+    "message": "Copy month"
+  },
+  "copyYear": {
+    "message": "Copy year"
+  },
+  "expired": {
+    "message": "Expired"
+  },
+  "expiringSoon": {
+    "message": "Expires soon"
+  },
+  "sendEmail": {
+    "message": "Send an email"
+  },
+  "callPhone": {
+    "message": "Call"
+  },
+  "textPhone": {
+    "message": "Send a text"
+  },
+  "showOnMap": {
+    "message": "Show on map"
+  },
+  "openMainPage": {
+    "message": "Open the main page"
+  },
+  "switchToHttps": {
+    "message": "Switch to https"
+  },
+  "insecureUri": {
+    "message": "Not secure (http)"
+  },
+  "reusedNotice": {
+    "message": "This password is used by $P1$ items.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "showReused": {
+    "message": "Show them"
+  },
+  "filterReused": {
+    "message": "Reused"
+  },
+  "filterWeak": {
+    "message": "Weak"
+  },
+  "copyAuthKey": {
+    "message": "Copy authenticator key"
+  },
+  "formatNotes": {
+    "message": "Format"
+  },
+  "showQr": {
+    "message": "Show as QR code"
+  },
+  "qrCode": {
+    "message": "QR code"
+  },
+  "showAuthQr": {
+    "message": "Show authenticator QR code"
+  },
+  "authQrNote": {
+    "message": "Scan this with another authenticator app to copy the key"
+  },
+  "invalidCardNumber": {
+    "message": "This number does not pass the card checksum. Check for a typo."
+  },
+  "scanQrImage": {
+    "message": "Read the key from a QR image"
+  },
+  "qrNotFound": {
+    "message": "No QR code was found in that image."
+  },
+  "qrNotAuthenticator": {
+    "message": "That QR code is not an authenticator key."
+  },
+  "moveUp": {
+    "message": "Move up"
+  },
+  "moveDown": {
+    "message": "Move down"
+  },
+  "previewNotes": {
+    "message": "Preview"
+  },
+  "repromptToggle": {
+    "message": "Ask for the master password"
+  },
+  "repromptToggleHint": {
+    "message": "Before this item is shown, copied or filled"
+  },
+  "sortOpened": {
+    "message": "Most opened"
+  },
+  "recentlyOpened": {
+    "message": "Recently opened"
+  },
+  "minUppercase": {
+    "message": "Minimum uppercase letters"
+  },
+  "minLowercase": {
+    "message": "Minimum lowercase letters"
+  },
+  "forwardedEmailShort": {
+    "message": "Alias"
+  },
+  "aliasService": {
+    "message": "Service"
+  },
+  "aliasServiceHint": {
+    "message": "Your account there"
+  },
+  "aliasApiKey": {
+    "message": "API key"
+  },
+  "aliasApiKeyHint": {
+    "message": "Stored encrypted with your vault key"
+  },
+  "aliasDomain": {
+    "message": "Email domain"
+  },
+  "aliasDomainHint": {
+    "message": "Verified in your account"
+  },
+  "aliasBaseUrl": {
+    "message": "Self-host server URL"
+  },
+  "aliasBaseUrlHint": {
+    "message": "Empty for the public API"
+  },
+  "aliasWebsitePrefix": {
+    "message": "Add website prefix"
+  },
+  "aliasWebsitePrefixHint": {
+    "message": "Put the website's domain in front of the new address"
+  },
+  "aliasGetToken": {
+    "message": "Get an API key for $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasNotConfigured": {
+    "message": "Add your API key to create an alias"
+  },
+  "createLoginWithEmail": {
+    "message": "Create a login with this email"
+  },
+  "generateEmail": {
+    "message": "Generate email"
+  },
+  "aliasGeneratedBy": {
+    "message": "Generated by Warren."
+  },
+  "aliasGeneratedByWithWebsite": {
+    "message": "Website: $P1$. Generated by Warren.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasUnreachable": {
+    "message": "Cannot reach $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasInvalidToken": {
+    "message": "$P1$ did not accept the API key",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasRefused": {
+    "message": "$P1$ refused the request: $P2$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "aliasHttpError": {
+    "message": "$P1$ error: $P2$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "aliasNoToken": {
+    "message": "Enter your $P1$ API key first",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasNoDomain": {
+    "message": "Enter your $P1$ email domain first",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasNoAccount": {
+    "message": "This $P1$ account has no masked email account",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasBadResponse": {
+    "message": "$P1$ did not return an email address",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  }
+}

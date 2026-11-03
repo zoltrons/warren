@@ -1,0 +1,94 @@
+name: release
+# Push a tag v<manifest version> to build the extension and attach a signed .crx, a .zip and the
+# updates.xml that installed copies poll (manifest `update_url`) to a GitHub release.
+# Needs the CRX_KEY secret: a PEM private key, which fixes the extension id, so keep it
+# and never regenerate it:  openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -out warren.pem
+on:
+  push:
+    tags: ["v*"]
+
+# Least privilege by default; only the signing job can write a release.
+permissions: {}
+
+jobs:
+  # Installed copies update themselves, so a tag must never ship a commit whose CI is not green. CI runs
+  # for pushes to main: a tag on any other commit never gets a result here and fails closed.
+  ci-passed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { checks: read }
+    steps:
+      - name: wait for the ci check of this commit
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          while :; do
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?check_name=ci" --jq '.check_runs[0].conclusion // "pending"')"
+            case "$conclusion" in
+              success) exit 0 ;;
+              pending) sleep 30 ;;
+              *) echo "::error::ci finished as '$conclusion' on $GITHUB_SHA"; exit 1 ;;
+            esac
+          done
+
+  # Runs third-party install and build scripts, so it never sees CRX_KEY.
+  build:
+    needs: ci-passed
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version-file: .nvmrc }
+      - run: rustup toolchain install # from rust-toolchain.toml
+      - run: cargo install wasm-bindgen-cli --version "$(sed -n 's/^wasm-bindgen = "\(.*\)".*/\1/p' upstream.lock)" --locked
+      - run: npm ci
+      - run: npm i -g binaryen@132.0.0 && bash tools/build-wasm.sh --simd
+      - run: node tools/fetch-psl.mjs && npm run typecheck && npm test && npm run build && npm run size
+      - name: tag matches the manifest version
+        run: test "v$(node -p "require('./dist/ext/manifest.json').version")" = "$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: extension, path: dist/ext, if-no-files-found: error }
+
+  # Holds CRX_KEY: installs no build tooling and runs no package install scripts.
+  sign:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version-file: .nvmrc }
+      # Chromium 156 from Playwright: the runner's Chrome may be older than minimum_chrome_version.
+      - run: npm ci --ignore-scripts && npx playwright-core install --with-deps chromium
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { name: extension, path: dist/ext }
+      - name: pack .crx and .zip
+        env:
+          CRX_KEY: ${{ secrets.CRX_KEY }}
+        run: |
+          test -n "$CRX_KEY" || { echo "::error::CRX_KEY secret is not set"; exit 1; }
+          printf '%s\n' "$CRX_KEY" > "$RUNNER_TEMP/key.pem"
+          chrome="$(node -p "require('playwright-core').chromium.executablePath()")"
+          # Ubuntu runners block the user namespaces Chromium's sandbox needs; packing loads no web content.
+          xvfb-run -a "$chrome" --no-sandbox --pack-extension="$PWD/dist/ext" --pack-extension-key="$RUNNER_TEMP/key.pem" --no-message-box
+          # The extension id is the first 128 bits of the SHA-256 of the public key, written with a-p.
+          id="$(openssl pkey -in "$RUNNER_TEMP/key.pem" -pubout -outform DER | sha256sum | head -c 32 | tr '0-9a-f' 'a-p')"
+          rm "$RUNNER_TEMP/key.pem"
+          mv dist/ext.crx "warren-$GITHUB_REF_NAME.crx"
+          (cd dist/ext && zip -qr "../../warren-$GITHUB_REF_NAME.zip" .)
+          # The update manifest the extension's `update_url` points at (releases/latest/download/updates.xml).
+          cat > updates.xml <<XML
+          <?xml version="1.0" encoding="UTF-8"?>
+          <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+            <app appid="$id">
+              <updatecheck codebase="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/warren-$GITHUB_REF_NAME.crx" version="${GITHUB_REF_NAME#v}" />
+            </app>
+          </gupdate>
+          XML
+      - run: gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip updates.xml --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
