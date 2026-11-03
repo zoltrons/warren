@@ -158,11 +158,10 @@ freed rather than zeroed in place.
 
 - **Master password re-prompt (`reprompt`) is enforced, with one exception.** Items flagged in the web
   vault are gated in the service worker for the item view (and therefore editing), copy, TOTP, filling
-  (popup, inline menu and "fill the first match") and attachment downloads — see
-  `src/background/reprompt.ts`. Page-load autofill skips flagged items entirely. **Not** covered: a
-  passkey assertion from a flagged item still goes through the approval window (the user has already
-  unlocked the vault and picked the item there), and an org policy that forces the flag is only honored
-  as far as Vaultwarden reports it on each cipher.
+  (popup, inline menu and "fill the first match"), passkey assertions (`passkeyDecision` in
+  `src/background/passkey.ts`) and attachment downloads — see `src/background/reprompt.ts`. Page-load
+  autofill skips flagged items entirely. **Not** covered: an org policy that forces the flag is only
+  honored as far as Vaultwarden reports it on each cipher.
 - **The extension holds broad host permissions** (`https://*/*`, `http://*/*`) because autofill needs to
   inject into arbitrary sites. It is the largest standing privilege we have; do not add more without a
   written reason.
