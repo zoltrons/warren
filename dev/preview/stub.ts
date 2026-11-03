@@ -70,7 +70,7 @@ const items: VaultItem[] = [
   item({ id: "3", name: "Work Amex", type: 3, sub: "Ada Lovelace", brand: "Amex" }),
   item({ id: "11", name: "Personal Visa", type: 3, sub: "Ada Lovelace", brand: "Visa" }),
   item({ id: "12", name: "Travel card", type: 3, sub: "Ada Lovelace", brand: "Mastercard" }),
-  item({ id: "4", name: "Office Wi-Fi", type: 2, sub: "SSID: office" }),
+  item({ id: "4", name: "Office Wi-Fi", type: 2 }),
   item({ id: "5", name: "PayPal", sub: "ada@example.com", uris: ["https://www.paypal.com"], reused: 2 }),
   item({ id: "6", name: "Amazon", sub: "ada@example.com", uris: ["https://www.amazon.com"], weak: true }),
   item({ id: "7", name: "Ada Lovelace", type: 4, sub: "Ada Lovelace" }),

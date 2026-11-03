@@ -298,7 +298,7 @@ export interface State {
   settings: Settings;
 }
 
-/** Decrypted list entry. No passwords, TOTP secrets or notes beyond a one-line preview. */
+/** Decrypted list entry. No passwords, TOTP secrets, notes or card numbers. */
 export interface VaultItem {
   id: string;
   type: number;

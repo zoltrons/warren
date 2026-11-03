@@ -67,7 +67,6 @@ function summary(c: Json): VaultItem {
   const login = o(ci(c, "login"));
   const sub =
     type === 1 ? s(ci(login, "username"))
-    : type === 2 ? s(ci(c, "notes")).split("\n", 1)[0]!.slice(0, 80)
     : type === 3 ? s(ci(o(ci(c, "card")), "cardholderName"))
     : type === 4 ? [ci(o(ci(c, "identity")), "firstName"), ci(o(ci(c, "identity")), "lastName")].map(s).join(" ").trim()
     : type === 5 ? s(ci(o(ci(c, "sshKey")), "keyFingerprint"))
