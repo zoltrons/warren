@@ -2186,6 +2186,14 @@ export function vaultScreen(ctx: Ctx): HTMLElement {
         if (field === "password") st.reveal.add("edit-password");
         back();
       },
+      ...(field === "username"
+        ? {
+            addField: (name: string, value: string) => {
+              d.fields.push({ name, value, type: 0 });
+              back();
+            },
+          }
+        : {}),
     });
   }
   if (r.kind === "edit" && st.draft) return editView(ctx, r.isNew);

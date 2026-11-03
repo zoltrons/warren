@@ -853,6 +853,7 @@ a.row { text-decoration: none; color: var(--text); }
   border-top: 1px solid var(--outline-weak);
 }
 .editor-footer .btn { height: 36px; }
+.editor-footer .btn + .btn { margin-top: 8px; }
 
 /* ---------- generator ---------- */
 

@@ -319,6 +319,14 @@
   "useUsername": {
     "message": "Use this username"
   },
+  "addAsCustomField": {
+    "message": "Add as a custom field ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "generateUsername": {
     "message": "Generate username"
   },

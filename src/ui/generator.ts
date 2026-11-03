@@ -80,6 +80,8 @@ async function loadPrefs(ctx: Ctx) {
     }
   }
   gst.gen = { ...GEN_DEFAULTS, ...prefs.options, email: prefs.email, domain: prefs.domain };
+  if (gst.pickType) gst.gen.type = gst.pickType;
+  gst.pickType = undefined;
   // Saved minimums below what the length calls for (older builds kept 1 at any length) are raised.
   const scaled = scaledMin(Number(gst.gen.length));
   for (const k of ["minNumber", "minSpecial"]) gst.gen[k] = Math.max(Number(gst.gen[k]) || 0, scaled);
@@ -128,26 +130,35 @@ const gst = {
   error: undefined as string | undefined,
   /** "Custom" was picked in the passphrase separator list (kept even while the typed value matches a preset). */
   customSeparator: false,
+  /** The type a field's generator opened on before the saved options arrived (see startGeneratorPick). */
+  pickType: undefined as string | undefined,
   /** The password options' "Minimum counts" section is expanded. */
   minimumsOpen: false,
 };
 
 export function resetGenerator(): void {
-  Object.assign(gst, { gen: { ...GEN_DEFAULTS }, prefs: undefined, wordlist: 0, generated: "", identity: undefined, suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false });
+  Object.assign(gst, { gen: { ...GEN_DEFAULTS }, prefs: undefined, wordlist: 0, generated: "", identity: undefined, suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false, pickType: undefined });
 }
 
 /** The edit form's generator: which field it fills, and how the value gets back to the form. */
 export interface GeneratorPick {
   field: "password" | "username";
   use(value: string): void;
+  /** Username only: keep the value in a custom field instead, which fills the page field of that name. */
+  addField?(name: string, value: string): void;
   back(): void;
 }
+
+/** A generated email address (an alias, a plus or catch-all address) or a plain username. */
+const customFieldName = (value: string) => (value.includes("@") ? "Email" : "Username");
 
 const PICK_TYPES = { password: ["password", "passphrase", "pin"], username: ["username", "alias"] };
 
 /** Opens the generator on a type that fits the field, with a value made for it. */
 export function startGeneratorPick(field: GeneratorPick["field"]): void {
   if (!PICK_TYPES[field].includes(str(gst.gen.type))) gst.gen.type = PICK_TYPES[field][0];
+  // The saved options may still be on their way: they must not turn a username pick back into a password.
+  if (gst.prefs !== "loaded") gst.pickType = str(gst.gen.type);
   Object.assign(gst, { generated: "", suggestions: [], error: undefined });
 }
 
@@ -597,7 +608,13 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         )
       : null,
     pick && gst.generated
-      ? h("div", { class: "editor-footer" }, h("button", { type: "button", class: "btn filled wide", onclick: () => pick.use(gst.generated) }, icon("check"), t(pick.field === "password" ? "usePassword" : "useUsername")))
+      ? h(
+          "div",
+          { class: "editor-footer" },
+          h("button", { type: "button", class: "btn filled wide", onclick: () => pick.use(gst.generated) }, icon("check"), t(pick.field === "password" ? "usePassword" : "useUsername")),
+          // Named for what it is: custom fields fill page fields by id, name or label, so "Email" lands in an email box.
+          pick.addField ? h("button", { type: "button", class: "btn tonal wide", onclick: () => pick.addField!(customFieldName(gst.generated), gst.generated) }, icon("plus"), t("addAsCustomField", customFieldName(gst.generated))) : null,
+        )
       : null,
     !pick && g.type === "identity" && gst.identity
       ? actionRow("plus", t("createIdentityWithThis"), () => {
