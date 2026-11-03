@@ -1788,9 +1788,10 @@ try {
       return c?.type;
     }, [...challenge]);
     await approve(async (w) => {
-      // The item made by the first create holds a passkey already: never offered, so never overwritten.
-      await w.getByRole("listitem").filter({ hasText: "local-user" }).waitFor();
-      assert.equal(await w.getByRole("listitem").filter({ hasText: "pk-user" }).count(), 0);
+      // The item made by the first create holds a passkey: offered, but replaced only after a confirmation.
+      await w.getByRole("listitem").filter({ hasText: "pk-user · has a passkey" }).click();
+      await w.getByText("already has a passkey. Replace it with the new one?").waitFor();
+      await w.getByRole("button", { name: "Cancel" }).click();
       await w.getByRole("listitem").filter({ hasText: "local-user" }).click();
     });
     assert.equal(await created, "public-key");

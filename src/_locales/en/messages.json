@@ -533,6 +533,28 @@
   "passkeySaveTo": {
     "message": "Or add it to a login you already have:"
   },
+  "passkeyHasOne": {
+    "message": "$P1$ · has a passkey",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyReplaceTitle": {
+    "message": "Replace passkey"
+  },
+  "passkeyReplaceConfirm": {
+    "message": "$P1$ already has a passkey. Replace it with the new one? The old one is removed from Warren and can no longer sign you in.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyReplace": {
+    "message": "Replace passkey"
+  },
   "passkeyNone": {
     "message": "No passkey for this site in your vault"
   },

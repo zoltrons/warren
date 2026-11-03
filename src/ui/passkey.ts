@@ -7,7 +7,14 @@ import { type Ctx, tile } from "./vault.ts";
 
 export const passkeyRequestId = new URLSearchParams(location.search).get("passkey");
 
-const pk = { prompt: undefined as PasskeyPrompt | undefined, loading: false, busy: false, error: undefined as string | undefined };
+const pk = {
+  prompt: undefined as PasskeyPrompt | undefined,
+  loading: false,
+  busy: false,
+  error: undefined as string | undefined,
+  /** Create: the login whose passkey the user is being asked to replace. */
+  confirm: undefined as PasskeyCandidate | undefined,
+};
 
 async function load(ctx: Ctx) {
   pk.loading = true;
@@ -18,10 +25,11 @@ async function load(ctx: Ctx) {
   ctx.rerender();
 }
 
-async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, credentialId?: string) {
+async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false) {
   pk.busy = true;
+  pk.confirm = undefined;
   ctx.rerender();
-  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}) });
+  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}) });
   if (r.ok) return window.close();
   pk.busy = false;
   pk.error = r.error;
@@ -36,9 +44,16 @@ const list = (ctx: Ctx, candidates: PasskeyCandidate[]) =>
     ...candidates.map((c) =>
       h(
         "button",
-        { type: "button", class: "row", role: "listitem", disabled: pk.busy, onclick: () => void decide(ctx, "use", c.itemId, c.credentialId) },
+        {
+          type: "button",
+          class: "row",
+          role: "listitem",
+          disabled: pk.busy,
+          // A login that holds a passkey is only replaced after the user confirms it.
+          onclick: () => (c.replaces ? ((pk.confirm = c), ctx.rerender()) : void decide(ctx, "use", c.itemId, c.credentialId)),
+        },
         tile(c.name, 1),
-        h("div", { class: "body" }, h("span", { class: "title" }, c.name), h("span", { class: "sub" }, c.userName)),
+        h("div", { class: "body" }, h("span", { class: "title" }, c.name), h("span", { class: "sub" }, c.replaces ? t("passkeyHasOne", c.userName) : c.userName)),
         icon("chevron"),
       ),
     ),
@@ -53,7 +68,18 @@ export function passkeyScreen(ctx: Ctx): HTMLElement {
     { class: "page" },
     h("div", { class: "brand" }, h("div", { class: "logo" }, icon("key")), h("h1", {}, t(create ? "passkeySaveTitle" : "passkeySignInTitle")), p ? h("p", {}, p.origin) : null),
     pk.error ? h("div", { class: "error", role: "alert" }, icon("error"), h("div", {}, pk.error)) : null,
-    !p
+    pk.confirm
+      ? h(
+          "div",
+          { class: "actions", role: "alertdialog", "aria-label": t("passkeyReplaceTitle") },
+          h("p", { class: "note" }, t("passkeyReplaceConfirm", pk.confirm.name)),
+          h("button", { type: "button", class: "btn filled wide", disabled: pk.busy, onclick: () => void decide(ctx, "use", pk.confirm!.itemId, "", true) }, t("passkeyReplace")),
+          h("button", { type: "button", class: "btn text", disabled: pk.busy, onclick: () => ((pk.confirm = undefined), ctx.rerender()) }, t("cancel")),
+        )
+      : null,
+    pk.confirm
+      ? null
+      : !p
       ? pk.error ? null : h("div", { class: "progress" })
       : create
         ? h(

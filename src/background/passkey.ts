@@ -213,15 +213,17 @@ async function candidates(p: Pending, ids: string[]): Promise<PasskeyCandidate[]
 }
 
 /**
- * A new passkey can join one of the site's own logins (by item id, empty credentialId). Read-only items
- * and items that hold a passkey already are not offered: the official apps keep one passkey per login,
- * and an existing one is never overwritten from here.
+ * A new passkey can join one of the site's own editable logins (by item id, empty credentialId). The
+ * official apps keep one passkey per login: one that holds a passkey already is offered as `replaces`, and
+ * passkeyDecision overwrites it only with the user's confirmation.
  */
 async function joinable(p: Pending): Promise<PasskeyCandidate[]> {
   await ensureLoaded();
   const { defaultUriMatch } = await getSettings();
   const items = await coreCall<VaultItem[]>({ op: "matchUri", url: p.origin, defaultMatch: defaultUriMatch });
-  return items.filter((i) => !i.readOnly && !i.hasPasskey && !i.failed).map((i) => ({ itemId: i.id, name: i.name, userName: i.sub, credentialId: "" }));
+  return items
+    .filter((i) => !i.readOnly && !i.failed)
+    .map((i) => ({ itemId: i.id, name: i.name, userName: i.sub, credentialId: "", ...(i.hasPasskey ? { replaces: true } : {}) }));
 }
 
 /** Inline menu: is there a stored passkey for the conditional request waiting in this frame? */
@@ -263,7 +265,7 @@ export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   return { kind: "create", ...base, rpName: p.call.options.rpName, userName: p.call.options.user.name, candidates: await joinable(p) };
 }
 
-export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string): Promise<null> {
+export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false): Promise<null> {
   const p = get(id);
   if (action === "fallback") return (p.done({ fallback: true }), null);
   await requireUnlocked();
@@ -282,7 +284,10 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       // Joining an existing login: only one offered for this site, and a flagged one is confirmed in the popup first.
       let item: Record<string, any> | undefined;
       if (itemId) {
-        if (!(await joinable(p)).some((c) => c.itemId === itemId)) throw new UserError("invalid", "Choose one of the logins for this site");
+        const target = (await joinable(p)).find((c) => c.itemId === itemId);
+        if (!target) throw new UserError("invalid", "Choose one of the logins for this site");
+        // Never overwrite a passkey the window did not ask the user about.
+        if (target.replaces && !replace) throw new UserError("invalid", "This login already has a passkey: confirm replacing it");
         item = await coreCall<Record<string, any>>({ op: "getCipher", id: itemId });
         if (repromptPending(item)) throw new UserError("reprompt", REPROMPT_MESSAGE);
       }

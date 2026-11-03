@@ -119,7 +119,8 @@ export type Request =
   | { type: "removeSendPassword"; id: string }
   // passkeys: the approval window opened for a website request
   | { type: "passkeyPrompt"; id: string }
-  | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string }
+  /** `replace`: the user confirmed that a new passkey takes the place of the one `itemId` holds. */
+  | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string; replace?: boolean }
   // autofill on the active tab (host permissions cover every http(s) tab)
   | { type: "pageMatches" }
   /** One-shot: the origin the inline menu's "Create account" asked a new login for, if any. */
@@ -234,7 +235,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   removeSendPassword: obj({ type: literal("removeSendPassword"), id: str }),
   setDefaultManager: obj({ type: literal("setDefaultManager"), enabled: bool }),
   passkeyPrompt: obj({ type: literal("passkeyPrompt"), id: str }),
-  passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str) }),
+  passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str), replace: opt(bool) }),
   pageMatches: obj({ type: literal("pageMatches") }),
   takeNewLogin: obj({ type: literal("takeNewLogin") }),
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
@@ -382,6 +383,8 @@ export interface PasskeyCandidate {
   userName: string;
   /** base64url; empty for a create, where candidates are the logins a new passkey can join. */
   credentialId: string;
+  /** Create only: the login holds a passkey, which the new one replaces once the user confirms. */
+  replaces?: boolean;
 }
 
 /** What the approval window shows for a pending website passkey request. */

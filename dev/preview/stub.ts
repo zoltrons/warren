@@ -174,6 +174,21 @@ function respond(req: Request): Response<unknown> {
         ],
       };
     case "passkeyPrompt":
+      if (scene === "passkeyCreate")
+        return {
+          ok: true,
+          data: {
+            kind: "create",
+            origin: "https://github.com",
+            rpId: "github.com",
+            rpName: "GitHub",
+            userName: "octo",
+            candidates: [
+              { itemId: "1", name: "GitHub", userName: "octo", credentialId: "", replaces: true },
+              { itemId: "2", name: "GitHub (work)", userName: "ada@example.com", credentialId: "" },
+            ],
+          },
+        };
       return {
         ok: true,
         data: {
