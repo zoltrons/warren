@@ -33,6 +33,7 @@ const settings = {
   contextMenu: true,
   showCardsOnTab: true,
   showIdentitiesOnTab: true,
+  quickActionMenus: false,
 };
 
 const state: State =

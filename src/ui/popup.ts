@@ -418,6 +418,7 @@ function lockedView(s: State): HTMLElement {
     h(
       "div",
       { class: "brand" },
+      h("div", { class: "logo" }, icon(withPin ? "dialpad" : "lock")),
       h("h1", {}, t("lockedTitle")),
       h("p", {}, s.email ?? ""),
       h("p", { class: "host" }, host(s.serverUrl)),
@@ -551,6 +552,7 @@ function settingsTab(s: State): HTMLElement {
         : null,
       row(t("showCardsOnTab"), undefined, toggle(t("showCardsOnTab"), s.settings.showCardsOnTab, (b) => void act({ type: "setSettings", showCardsOnTab: b.checked }))),
       row(t("showIdentitiesOnTab"), undefined, toggle(t("showIdentitiesOnTab"), s.settings.showIdentitiesOnTab, (b) => void act({ type: "setSettings", showIdentitiesOnTab: b.checked }))),
+      row(t("quickActionMenus"), t("quickActionMenusHint"), toggle(t("quickActionMenus"), s.settings.quickActionMenus, (b) => void act({ type: "setSettings", quickActionMenus: b.checked }))),
       row(t("autoCopyTotp"), t("autoCopyTotpHint"), toggle(t("autoCopyTotp"), s.settings.autoCopyTotp, (b) => void act({ type: "setSettings", autoCopyTotp: b.checked }))),
       row(t("enableContextMenu"), undefined, toggle(t("enableContextMenu"), s.settings.contextMenu, (b) => void act({ type: "setSettings", contextMenu: b.checked }))),
       row(t("savePrompt"), t("savePromptHint"), toggle(t("savePrompt"), s.settings.savePrompt, (b) => void act({ type: "setSettings", savePrompt: b.checked }))),
@@ -881,7 +883,11 @@ function render(): void {
   const key = screenKey();
   if (lastScreen) scrollMemory.set(lastScreen, window.scrollY);
   const focused = document.activeElement?.id;
+  // A sideways chip row keeps its position on the same screen (picking a chip re-renders it).
+  const chipsLeft = lastScreen === key ? app.querySelector(".chips.scroll")?.scrollLeft : undefined;
   app.replaceChildren(view);
+  const chips = app.querySelector(".chips.scroll");
+  if (chips && chipsLeft) chips.scrollLeft = chipsLeft;
   const again = focused ? document.getElementById(focused) : null;
   ((again ?? app.querySelector("[data-autofocus]")) as HTMLElement | null)?.focus({ preventScroll: true });
   window.scrollTo(0, scrollMemory.get(key) ?? 0);
@@ -891,6 +897,18 @@ function render(): void {
     performance.mark("warren:first-render");
   }
 }
+
+// A mouse wheel only scrolls vertically: on a sideways chip row it scrolls the row instead.
+document.addEventListener(
+  "wheel",
+  (e) => {
+    const row = (e.target as Element | null)?.closest?.(".chips.scroll");
+    if (!row || Math.abs(e.deltaX) >= Math.abs(e.deltaY) || row.scrollWidth <= row.clientWidth) return;
+    row.scrollLeft += e.deltaY;
+    e.preventDefault();
+  },
+  { passive: false },
+);
 
 // Test-only hook for tools/smoke-biometric.mjs (no Vaultwarden needed); compiled out of releases.
 declare const E2E: boolean;
@@ -916,7 +934,7 @@ void send<State>({ type: "getState" }).then((res) => {
         autoLockMinutes: 15, timeoutAction: "lock", lockOnSystemLock: true, inlineMenu: true, savePrompt: true, neverSave: [],
         defaultManager: false, favicons: true, autoCopyTotp: true, defaultUriMatch: 0, clearClipboardDelay: "fiveMinutes",
         autofillOnPageLoad: false, autofillOnPageLoadDefault: true, autosubmit: false, inlineMenuCards: true, inlineMenuIdentities: true, contextMenu: true,
-        showCardsOnTab: true, showIdentitiesOnTab: true,
+        showCardsOnTab: true, showIdentitiesOnTab: true, quickActionMenus: false,
       },
     };
     ui.error = res.error;

@@ -18,10 +18,12 @@ type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 const GEN_DEFAULTS: Json = {
-  type: "password", length: 20, lowercase: true, uppercase: true, numbers: true, special: true, avoidAmbiguous: false, minLowercase: 1, minUppercase: 1, minNumber: 1, minSpecial: 1,
+  type: "password", length: 20, lowercase: true, uppercase: true, numbers: true, special: true, avoidAmbiguous: false, minLowercase: 1, minUppercase: 1, minNumber: 2, minSpecial: 2,
   numWords: 5, wordSeparator: "-", capitalize: true, includeNumber: true, pinLength: 4,
   usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin",
 };
+/** Digits and symbols scale with the length, about one in ten and never below one (20 → 2, 40 → 4). */
+const scaledMin = (length: number) => Math.max(1, Math.round(length / 10));
 const SEPARATORS = [["-", "sepHyphen"], [" ", "sepSpace"], [".", "sepPeriod"], [",", "sepComma"], ["_", "sepUnderscore"], ["", "sepNone"]] as const;
 // Clear-text keys of older builds, moved into the encrypted store once (loadPrefs).
 const LEGACY_OPTIONS = "genOptions";
@@ -77,6 +79,9 @@ async function loadPrefs(ctx: Ctx) {
     }
   }
   gst.gen = { ...GEN_DEFAULTS, ...prefs.options, email: prefs.email, domain: prefs.domain };
+  // Saved minimums below what the length calls for (older builds kept 1 at any length) are raised.
+  const scaled = scaledMin(Number(gst.gen.length));
+  for (const k of ["minNumber", "minSpecial"]) gst.gen[k] = Math.max(Number(gst.gen[k]) || 0, scaled);
   gst.wordlist = prefs.wordlist;
   gst.prefs = "loaded";
   void regenerate(ctx);
@@ -263,6 +268,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   const g = gst.gen;
   const set = (k: string, v: unknown) => {
     g[k] = v;
+    if (k === "length") g.minNumber = g.minSpecial = scaledMin(Number(v));
     const { email, domain, ...options } = g;
     const change = k === "email" || k === "domain" ? { email: str(email), domain: str(domain) } : { options };
     void send({ type: "setGeneratorPrefs", ...change }).then((r) => {
@@ -278,7 +284,20 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       h("span", { class: "switch" }, h("input", { type: "checkbox", checked: g[k] === true, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).checked) }), h("span")),
     );
   const slider = (k: string, label: string, min: number, max: number) => {
-    const badge = h("span", { class: "value-badge" }, String(g[k]));
+    // A number box, not a label: typing 64 beats dragging to it.
+    const badge = h("input", {
+      type: "number",
+      class: "value-badge",
+      min,
+      max,
+      value: String(g[k]),
+      "aria-label": label,
+      onchange: () => {
+        const v = Math.round(Number(badge.value));
+        set(k, Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : g[k]); // regenerate re-renders: clamped value, new minimums
+      },
+      onkeydown: (e: KeyboardEvent) => e.key === "Enter" && badge.blur(),
+    }) as HTMLInputElement;
     const input = h("input", { type: "range", min, max, value: String(g[k]), "aria-label": label });
     // The filled part of the track is a CSS gradient driven by --fill.
     const paint = (v: number) => {
@@ -288,14 +307,14 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     paint(Number(g[k]));
     input.addEventListener("input", () => {
       const v = Number(input.value);
-      badge.textContent = String(v);
+      badge.value = String(v);
       paint(v);
     });
     input.addEventListener("change", () => set(k, Number(input.value)));
     return h("div", { class: "row slider-row" }, h("div", { class: "body" }, h("span", { class: "title" }, label)), input, stepper(k, label, min, max, badge));
   };
   // −/+ for exact values: a 5–128 slider is too coarse to hit one number.
-  const stepper = (k: string, label: string, min: number, max: number, badge = h("span", { class: "value-badge" }, String(g[k]))) => {
+  const stepper = (k: string, label: string, min: number, max: number, badge: HTMLElement = h("span", { class: "value-badge" }, String(g[k]))) => {
     const v = Number(g[k]);
     return h(
       "span",
@@ -370,8 +389,8 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         h("summary", { class: "row" }, h("div", { class: "body" }, h("span", { class: "title" }, t("minimums"))), icon("chevronDown")),
         g.uppercase === true ? stepRow("minUppercase", t("minUppercase"), 0, 9) : null,
         g.lowercase === true ? stepRow("minLowercase", t("minLowercase"), 0, 9) : null,
-        g.numbers === true ? stepRow("minNumber", t("minDigits"), 0, 9) : null,
-        g.special === true ? stepRow("minSpecial", t("minSymbols"), 0, 9) : null,
+        g.numbers === true ? stepRow("minNumber", t("minDigits"), 0, 20) : null,
+        g.special === true ? stepRow("minSpecial", t("minSymbols"), 0, 20) : null,
       ),
     );
   else if (g.type === "passphrase")

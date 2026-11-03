@@ -71,12 +71,19 @@ export async function sync(force: boolean): Promise<boolean> {
   return true;
 }
 
-/** Makes sure the worker holds the decrypted vault, without moving the whole list around. */
-export async function ensureLoaded(): Promise<void> {
-  if (await coreCall<boolean>({ op: "vaultLoaded" })) return;
-  const cache = await getLocal("vault");
-  if (cache) await load(cache);
-  else await sync(true);
+let loading: Promise<void> | undefined;
+
+/**
+ * Makes sure the worker holds the decrypted vault, without moving the whole list around. Callers at the
+ * same time (the popup asks for the list and the site's matches at once) share one load.
+ */
+export function ensureLoaded(): Promise<void> {
+  return (loading ??= (async () => {
+    if (await coreCall<boolean>({ op: "vaultLoaded" })) return;
+    const cache = await getLocal("vault");
+    if (cache) await load(cache);
+    else await sync(true);
+  })().finally(() => (loading = undefined)));
 }
 
 export async function list(): Promise<VaultList> {

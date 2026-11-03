@@ -270,6 +270,7 @@ async function handle(req: Request): Promise<unknown> {
         contextMenu: req.contextMenu ?? current.contextMenu,
         showCardsOnTab: req.showCardsOnTab ?? current.showCardsOnTab,
         showIdentitiesOnTab: req.showIdentitiesOnTab ?? current.showIdentitiesOnTab,
+        quickActionMenus: req.quickActionMenus ?? current.quickActionMenus,
       }));
       if (req.timeoutAction) await relocateRefreshToken();
       if (req.clearNeverSave || req.removeNeverSave) {

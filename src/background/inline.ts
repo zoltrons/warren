@@ -116,19 +116,21 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   if (!settings.savePrompt || !(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
   await ensureLoaded();
   const matches = await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch });
-  // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com").
-  const sameUser = matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase());
-  const same = sameUser.find((m) => !m.readOnly);
+  // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com"). A page
+  // without one (the password step of a two-step sign-in) may be any of the site's logins.
+  const sameUser = username ? matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase()) : matches;
+  const editable = sameUser.filter((m) => !m.readOnly);
   // Only read-only copies (e.g. an organization's): the login is saved already, never offer a duplicate.
-  if (!same && sameUser.length) return;
-  const expiresAt = Date.now() + SAVE_TTL_MS;
-  let pending: PendingSave | undefined;
-  if (!same) pending = { kind: "add", url, username, password, token: "", expiresAt };
+  if (!editable.length && sameUser.length) return dropSave(tabId);
   // A flagged item is never compared or overwritten from inside a page: edit it in the popup.
-  else if (repromptPending(same)) return;
-  else if ((await coreCall<{ password: string }>({ op: "fillData", id: same.id })).password !== password)
-    pending = { kind: "update", url, username, password, itemId: same.id, token: "", expiresAt };
-  if (!pending) return;
+  if (editable.some((m) => repromptPending(m))) return;
+  // A saved login signing in: nothing to offer, and a save an earlier (mistyped) submit left waiting goes.
+  for (const m of editable) if ((await coreCall<{ password: string }>({ op: "fillData", id: m.id })).password === password) return dropSave(tabId);
+  const expiresAt = Date.now() + SAVE_TTL_MS;
+  let pending: PendingSave;
+  if (!editable.length) pending = { kind: "add", url, username, password, token: "", expiresAt };
+  else if (username || editable.length === 1) pending = { kind: "update", url, username: username || editable[0]!.sub, password, itemId: editable[0]!.id, token: "", expiresAt };
+  else return; // several logins, none with this password: no telling which one changed
   await setTabState("save", tabId, pending);
   await showBar(tabId);
 }

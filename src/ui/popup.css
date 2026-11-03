@@ -333,6 +333,9 @@ svg.i { width: 18px; height: 18px; flex: none; fill: currentColor; stroke: none;
 
 .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 12px 0 4px; }
 .logo { width: 48px; height: 48px; }
+/* A glyph instead of the app icon (locked, passkey, re-prompt screens): a tinted badge. */
+div.logo { display: grid; place-items: center; border-radius: var(--r-lg); background: var(--tint-strong); color: var(--primary); }
+div.logo > svg.i { width: 28px; height: 28px; }
 .brand h1 { font-size: 18px; font-weight: 600; line-height: 1.2; margin: 0; }
 .brand p { margin: 0; color: var(--muted); font-size: 12px; }
 
@@ -478,6 +481,14 @@ a.row { text-decoration: none; color: var(--text); }
   cursor: pointer;
 }
 .row:has(> .row-main:hover) { background-image: linear-gradient(var(--tint), var(--tint)); }
+/* Vault rows: one small button per quick action, packed tight; one that has nothing to do is dimmed. */
+.row > .quick-action { margin-inline: -6px; }
+.row > .quick-action + .btn { margin-left: 4px; }
+.row > .quick-action:disabled { opacity: 0.35; cursor: default; }
+/* Item view: the label and value copy on a click. */
+.body.copyable { cursor: pointer; }
+.row:has(> .body.copyable:hover) { background-image: linear-gradient(var(--tint), var(--tint)); }
+.row:has(> .body.copyable:active) { background-image: linear-gradient(var(--tint-strong), var(--tint-strong)); }
 .row:has(> .row-main:active) { background-image: linear-gradient(var(--tint-strong), var(--tint-strong)); }
 .row > svg.i { color: var(--muted); }
 .row > svg.i:last-child { color: var(--faint); width: 16px; height: 16px; }
@@ -868,6 +879,8 @@ a.row { text-decoration: none; color: var(--text); }
 .slider-row .value-badge { flex: none; }
 .stepper { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .stepper .value-badge { min-width: 28px; text-align: center; color: var(--text); }
+.stepper input.value-badge { width: 40px; height: 28px; padding: 0; border: 1px solid var(--outline); border-radius: var(--r-xs); background: transparent; }
+.stepper input.value-badge:focus-visible { border-color: var(--primary); box-shadow: none; }
 .stepper .icon-btn { width: 28px; height: 28px; }
 .row .chips { flex: none; justify-content: flex-end; }
 /* A collapsible block of rows inside a group: the summary is a row with a turning chevron. */

@@ -1534,6 +1534,26 @@ try {
     assert.equal(await loginPage.locator("warren-bar").count(), 0, "a username in other case was offered as a new login");
   });
 
+  await step("save bar: signing in to a saved login offers nothing, without a username on the page too", async () => {
+    // A mistyped password first: an update is offered...
+    await loginPage.goto(`${SITE}/login`);
+    await loginPage.fill("#u", "bar-user");
+    await loginPage.fill("#p", "bar-pass-typo");
+    await loginPage.keyboard.press("Escape");
+    await loginPage.getByRole("button", { name: "Sign in" }).click();
+    await (await frameOf(loginPage, "bar.html")).getByText("Update the saved password?").waitFor();
+    // ...then the right one (the password step of a two-step sign-in: no username on the page) takes it back.
+    await loginPage.waitForTimeout(5100); // one report per 5 s
+    await loginPage.fill("#u", "");
+    await loginPage.fill("#p", "bar-pass-2");
+    await loginPage.keyboard.press("Escape");
+    await loginPage.getByRole("button", { name: "Sign in" }).click();
+    await loginPage.waitForFunction(() => !document.querySelector("warren-bar"), undefined, { timeout: 5000 });
+    await loginPage.goto(`${SITE}/login`); // the dropped save is not shown again on the next page
+    await loginPage.waitForTimeout(1500);
+    assert.equal(await loginPage.locator("warren-bar").count(), 0, "a stale save came back");
+  });
+
   await step("save bar: a re-prompt item is never offered an update from inside a page", async () => {
     if (page.isClosed()) await reopenPopup(); // the previous popup fill closed it
     const saved = await page.evaluate((site) => chrome.runtime.sendMessage({ type: "saveItem", item: { type: 1, name: "Guarded login", reprompt: 1, login: { username: "guard-user", password: "guard-pass", uris: [{ uri: site, match: null }] } } }), SITE);

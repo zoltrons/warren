@@ -192,6 +192,7 @@ export async function getSettings(): Promise<Settings> {
     contextMenu: true,
     showCardsOnTab: true,
     showIdentitiesOnTab: true,
+    quickActionMenus: false,
     ...(settings as Partial<Settings>),
     // Kept encrypted (private.ts); getState fills it in while the vault is unlocked.
     neverSave: [],

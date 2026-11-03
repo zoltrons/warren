@@ -1,6 +1,6 @@
 // Autofill on the active tab from the popup, Ctrl+Shift+L or the context menu.
 import type { FillResult, PageLogin } from "../autofill/types.ts";
-import type { PageMatches, VaultItem } from "../shared/messages.ts";
+import type { PageMatches, VaultItem, VaultList } from "../shared/messages.ts";
 import { pickPageLoadLogin } from "../shared/pageload.ts";
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
@@ -8,7 +8,7 @@ import { customFieldsOf, type FillRequest, fillInFrames, pageCall } from "./engi
 import { touchAutoLock } from "./lock.ts";
 import { getLocal, getSettings } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
-import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed } from "./vault.ts";
+import { copyToClipboard, ensureLoaded, isUnlocked, markUsed } from "./vault.ts";
 import { readPrivate } from "./private.ts";
 
 const CONTEXT_MENU_ID = "warren-autofill";
@@ -41,7 +41,8 @@ export async function pageMatches(): Promise<PageMatches> {
   const settings = await getSettings();
   const items = await matches(url);
   const wanted = [settings.showCardsOnTab ? 3 : 0, settings.showIdentitiesOnTab ? 4 : 0].filter(Boolean);
-  if (wanted.length) items.push(...(await list()).items.filter((i) => wanted.includes(i.type) && !i.failed));
+  // The bare list: list() would also decrypt the usage data, which is not needed here.
+  if (wanted.length) items.push(...(await coreCall<VaultList>({ op: "listVault" })).items.filter((i) => wanted.includes(i.type) && !i.failed));
   return { host: url.host, origin: url.origin, items };
 }
 

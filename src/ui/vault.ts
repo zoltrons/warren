@@ -374,16 +374,44 @@ function menu(anchor: HTMLElement, label: string, items: MenuItem[], radio = fal
 
 // ---------- data ----------
 
+/**
+ * The label-and-value part of a row copies its value on a click or Enter, like its copy button. A click
+ * on a link or button inside it, or one that ends a text selection, does not.
+ */
+function copyOnClick(ctx: Ctx, key: string, value: () => string, title: string): Record<string, unknown> {
+  const run = () => void copy(ctx, value(), key);
+  return {
+    class: "body copyable",
+    role: "button",
+    tabindex: "0",
+    title: t("copyField", title),
+    onclick: (e: MouseEvent) => {
+      if ((e.target as Element).closest("a,button,input,textarea,select,details") || getSelection()?.toString()) return;
+      run();
+    },
+    onkeydown: (e: KeyboardEvent) => {
+      if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      run();
+    },
+  };
+}
+
 async function loadList(ctx: Ctx) {
   st.loading = true;
+  // Asked for alongside the list, and shown as soon as it is here (it used to wait for the sync).
+  const page = send<PageMatches>({ type: "pageMatches" });
   const r = await send<VaultList>({ type: "vaultList" });
   st.loading = false;
   if (r.ok) st.list = r.data;
   else st.error = r.error;
   ctx.rerender();
   if (!r.ok) return;
-  const p = await send<PageMatches>({ type: "pageMatches" });
-  if (p.ok) st.page = p.data;
+  const p = await page;
+  if (p.ok) {
+    st.page = p.data;
+    ctx.rerender();
+  }
   // Opened by the inline menu's "Create account": go straight to the form.
   const site = await send<string | null>({ type: "takeNewLogin" });
   if (site.ok && site.data) startEdit(ctx, undefined, sitePrefill(site.data));
@@ -469,28 +497,136 @@ function sortItems(items: VaultItem[]): VaultItem[] {
   return list.sort(byName);
 }
 
+// ---------- quick actions ----------
+
+/** The full item for a quick action. A flagged one opens its view instead, where the master password is asked. */
+async function fullItem(ctx: Ctx, id: string): Promise<Json | undefined> {
+  const r = await send<Json>({ type: "getItem", id });
+  if (r.ok) return r.data;
+  if (r.code === "reprompt") open(ctx, { kind: "item", id });
+  else toast(ctx, r.error);
+  return undefined;
+}
+
+async function copyOf(ctx: Ctx, id: string, pick: (item: Json) => string) {
+  const item = await fullItem(ctx, id);
+  const value = item ? pick(item) : "";
+  if (value) await copy(ctx, value);
+}
+
+async function copyTotp(ctx: Ctx, id: string) {
+  const r = await send<{ code: string }>({ type: "totp", id });
+  if (r.ok) await copy(ctx, r.data.code);
+  else if (r.code === "reprompt") open(ctx, { kind: "item", id });
+  else toast(ctx, r.error);
+}
+
+const iconMode = () => !settingsOf()?.quickActionMenus;
+
+/**
+ * Quick actions of a list row, like the official extension. By default one button each for a login:
+ * open the website, copy the username, the password and the code (dimmed when the login has none). With
+ * the "Quick actions as menus" setting: a copy button (a menu when there is a choice) and "⋮" with fill,
+ * favorite, website, edit and clone. Secrets are fetched on use, through the worker's re-prompt check.
+ */
+function rowActions(ctx: Ctx, i: VaultItem, withFill: boolean): Child[] {
+  if (i.failed) return [];
+  const field = (o: string, k: string) => (item: Json) => str(obj(item[o])?.[k]);
+  const name = i.name || t("untitled");
+  if (iconMode()) {
+    if (i.type !== 1) return [];
+    const url = i.uris.map(webUrl).find(Boolean);
+    const button = (ic: IconName, text: string, run: () => void, enabled: boolean) =>
+      iconButton(ic, `${text} (${name})`, run, { class: "icon-btn sm quick-action", disabled: !enabled });
+    return [
+      button("external", t("openWebsite"), () => void chrome.tabs.create({ url: url! }), !!url),
+      button("user", t("copyField", label("username")), () => void copy(ctx, i.sub), !!i.sub),
+      button("key", t("copyField", label("password")), () => void copyOf(ctx, i.id, field("login", "password")), !i.noPassword),
+      button("timer", t("copyField", t("oneTimeCode")), () => void copyTotp(ctx, i.id), i.hasTotp),
+    ];
+  }
+  const copies: MenuItem[] =
+    i.type === 1
+      ? [
+          ...(i.sub ? [{ label: t("copyField", label("username")), icon: "user" as const, onClick: () => void copy(ctx, i.sub) }] : []),
+          { label: t("copyField", label("password")), icon: "key", onClick: () => void copyOf(ctx, i.id, field("login", "password")) },
+          ...(i.hasTotp ? [{ label: t("copyField", t("oneTimeCode")), icon: "timer" as const, onClick: () => void copyTotp(ctx, i.id) }] : []),
+        ]
+      : i.type === 3
+        ? [
+            { label: t("copyField", label("number")), icon: "card", onClick: () => void copyOf(ctx, i.id, field("card", "number")) },
+            { label: t("copyField", label("code")), icon: "key", onClick: () => void copyOf(ctx, i.id, field("card", "code")) },
+          ]
+        : i.type === 2
+          ? [{ label: t("copyField", t("notes")), icon: "note", onClick: () => void copyOf(ctx, i.id, (item) => str(item.notes)) }]
+          : [];
+  const url = i.uris.map(webUrl).find(Boolean);
+  const editable = !i.readOnly && st.folder !== "trash";
+  const more: MenuItem[] = [
+    ...(withFill ? [{ label: t("fill"), icon: "key" as const, onClick: () => void fill(ctx, i.id) }] : []),
+    ...(editable
+      ? [
+          {
+            label: t(i.favorite ? "unfavorite" : "favorite"),
+            icon: (i.favorite ? "starBorder" : "star") as IconName,
+            onClick: () => void fullItem(ctx, i.id).then((item) => item && vaultAction(ctx, { type: "saveItem", item: { ...item, favorite: !i.favorite } }, "saved", false)),
+          },
+        ]
+      : []),
+    ...(url ? [{ label: t("openWebsite"), icon: "external" as const, onClick: () => void chrome.tabs.create({ url }) }] : []),
+    ...(editable
+      ? [
+          { label: t("edit"), icon: "edit" as const, onClick: () => void fullItem(ctx, i.id).then((item) => item && startEdit(ctx, item)) },
+          {
+            label: t("clone"),
+            icon: "copy" as const,
+            onClick: () =>
+              void fullItem(ctx, i.id).then(
+                (item) => item && startEdit(ctx, { ...structuredClone(item), id: undefined, attachments: null, name: `${str(item.name)} ${t("copySuffix")}`, passwordHistory: null }, {}, true),
+              ),
+          },
+        ]
+      : []),
+  ];
+  const copyBtn: HTMLElement | null =
+    copies.length === 1
+      ? iconButton("copy", `${copies[0]!.label} (${name})`, copies[0]!.onClick, { class: "icon-btn sm" })
+      : copies.length
+        ? iconButton("copy", t("copyOptions", name), () => menu(copyBtn!, t("copyOptions", name), copies), { class: "icon-btn sm", "aria-haspopup": "menu" })
+        : null;
+  const moreBtn: HTMLElement | null = more.length
+    ? iconButton("more", t("moreOptions", name), () => menu(moreBtn!, t("moreOptions", name), more), { class: "icon-btn sm", "aria-haspopup": "menu" })
+    : null;
+  return [copyBtn, moreBtn];
+}
+
 function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
   const name = i.failed ? t("decryptFailed") : i.name || t("untitled");
+  const onPage = !!st.page?.host && st.folder !== "trash" && (i.type === 3 || i.type === 4 || (i.type === 1 && !!st.page.items.some((m) => m.id === i.id)));
   return h(
-    "button",
-    {
-      type: "button",
-      class: "row",
-      role: "listitem",
-      "aria-label": t("showItem", name),
-      onclick: () => open(ctx, { kind: "item", id: i.id }),
-    },
-    tile(i.name, i.type, i.uris, i.brand),
+    "div",
+    { class: "row" },
     h(
-      "div",
-      { class: "body" },
-      h("span", { class: "title" }, name),
-      h("span", { class: "sub" }, i.sub || t(TYPE_LABEL[i.type] ?? "untitled")),
+      "button",
+      {
+        type: "button",
+        class: "row-main",
+        role: "listitem",
+        "aria-label": t("showItem", name),
+        onclick: () => open(ctx, { kind: "item", id: i.id }),
+      },
+      tile(i.name, i.type, i.uris, i.brand),
+      h(
+        "div",
+        { class: "body" },
+        h("span", { class: "title" }, name),
+        h("span", { class: "sub" }, i.sub || t(TYPE_LABEL[i.type] ?? "untitled")),
+      ),
+      i.hasTotp && !(iconMode() && i.type === 1) ? h("span", { class: "meta" }, icon("timer", t("oneTimeCode"))) : null,
+      i.reused || i.weak ? h("span", { class: "meta warn" }, icon("error", t(i.reused ? "filterReused" : "filterWeak"))) : null,
+      i.favorite ? h("span", { class: "meta fav" }, icon("star", t("favorite"))) : null,
     ),
-    i.hasTotp ? h("span", { class: "meta" }, icon("timer", t("oneTimeCode"))) : null,
-    i.reused || i.weak ? h("span", { class: "meta warn" }, icon("error", t(i.reused ? "filterReused" : "filterWeak"))) : null,
-    i.favorite ? h("span", { class: "meta fav" }, icon("star", t("favorite"))) : null,
-    icon("chevron"),
+    ...rowActions(ctx, i, onPage),
   );
 }
 
@@ -524,11 +660,30 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
   const nodes: Child[] = [];
   const grouped = st.sort === "name" || st.sort === "nameDesc";
   const pushGroup = (list: VaultItem[]) => nodes.push(h("div", { class: "group" }, ...list.map((i) => itemRow(ctx, i))));
+  const browsing = !q && !st.folder;
+  const page = st.page?.host && st.folder !== "trash" && !q ? st.page : undefined;
+  // The site's own logins lead, also inside a filter (the ones the filter keeps).
+  if (page) {
+    const ids = new Set(page.items.filter((i) => i.type === 1).map((i) => i.id));
+    const site = items.filter((i) => ids.has(i.id));
+    if (site.length || browsing) {
+      nodes.push(sectionTitle(t("onThisSite", page.host!)));
+      if (site.length) nodes.push(h("div", { class: "group" }, ...site.map((i) => suggestionRow(ctx, i))));
+      if (browsing) nodes.push(h("button", { type: "button", class: "btn text small add-page", onclick: () => void saveFromPage(ctx) }, icon("plus"), t("saveFromPage")));
+    }
+  }
   if (!items.length) {
     nodes.push(emptyState(ctx, q));
   } else {
-    // Recently opened items come first while browsing a vault big enough to need them.
-    if (!q && !st.folder && items.length > 8 && recentShown()) {
+    // Favorites next; a letter index is kept for the rest.
+    const favs = q ? [] : items.filter((i) => i.favorite);
+    const rest = favs.length ? items.filter((i) => !i.favorite) : items;
+    if (favs.length) {
+      nodes.push(sectionTitle(t("favorites")));
+      pushGroup(favs);
+    }
+    // Then recently opened items, while browsing a vault big enough to need them.
+    if (browsing && items.length > 8 && recentShown()) {
       const opened = loadOpened();
       const recent = items.filter((i) => opened[i.id]).sort((a, b) => opened[b.id]!.at - opened[a.id]!.at).slice(0, 3);
       if (recent.length) {
@@ -543,13 +698,12 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
         pushGroup(recent);
       }
     }
-    // Favorites float to the top while browsing; a letter index is kept for the rest.
-    const favs = q ? [] : items.filter((i) => i.favorite);
-    const rest = favs.length ? items.filter((i) => !i.favorite) : items;
-    if (favs.length) {
-      nodes.push(sectionTitle(t("favorites")));
-      pushGroup(favs);
-    }
+    // Cards and identities to fill on this page belong to no site: headings of their own, like the official client.
+    if (page && browsing)
+      for (const [type, title] of [[3, "typeCards"], [4, "typeIdentities"]] as const) {
+        const list = page.items.filter((i) => i.type === type);
+        if (list.length) nodes.push(sectionTitle(t(title)), h("div", { class: "group" }, ...list.map((i) => suggestionRow(ctx, i))));
+      }
     if (!grouped) {
       if (rest.length) pushGroup(rest);
     } else {
@@ -722,7 +876,6 @@ function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
-    st.query || st.folder ? null : suggestions(ctx),
     st.loading && !st.list ? skeletonList() : listBox,
     h("button", { type: "button", class: "fab", onclick: () => void newItem(ctx) }, icon("plus"), t("newItem")),
   );
@@ -764,26 +917,8 @@ function suggestionRow(ctx: Ctx, i: VaultItem): HTMLElement {
       tile(i.name, i.type, i.uris, i.brand),
       h("div", { class: "body" }, h("span", { class: "title" }, name), i.sub ? h("span", { class: "sub" }, i.sub) : null),
     ),
+    ...rowActions(ctx, i, false),
     h("button", { type: "button", class: "btn small neutral", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill")),
-  );
-}
-
-function suggestions(ctx: Ctx): Child {
-  const page = st.page;
-  if (!page?.host) return null;
-  // Only logins are tied to the page by their URIs. A card or an identity belongs to no site, so it
-  // never appears under the site heading: it gets a heading of its own, like the official client.
-  const group = (title: string, type: number): Child[] => {
-    const items = page.items.filter((i) => i.type === type);
-    return items.length ? [sectionTitle(title), h("div", { class: "group" }, ...items.map((i) => suggestionRow(ctx, i)))] : [];
-  };
-  return h(
-    "section",
-    { class: "suggestions", "aria-label": page.host },
-    ...group(t("onThisSite", page.host), 1),
-    ...group(t("typeCards"), 3),
-    ...group(t("typeIdentities"), 4),
-    h("button", { type: "button", class: "btn text small add-page", onclick: () => void saveFromPage(ctx) }, icon("plus"), t("saveFromPage")),
   );
 }
 
@@ -915,7 +1050,7 @@ function fieldRow(
     "div",
     { class: `row field-row${opts.secret ? " elevated" : ""}` },
     icon(ic),
-    h("div", { class: "body" }, h("span", { class: "label" }, title), valueEl, opts.extra),
+    h("div", copyOnClick(ctx, key, () => opts.copyValue ?? value, title), h("span", { class: "label" }, title), valueEl, opts.extra),
     h(
       "span",
       { class: "field-actions" },
@@ -1014,7 +1149,7 @@ function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElemen
     icon("timer"),
     h(
       "div",
-      { class: "body" },
+      copyOnClick(ctx, "totp", () => st.totp?.code ?? code, t("oneTimeCode")),
       h("span", { class: "label" }, t("oneTimeCode")),
       h("span", { class: "value mono totp", "data-totp": "1" }, pretty(code)),
       next ? h("span", { class: "totp-next" }, t("nextCode"), " ", h("span", { class: "mono" }, pretty(next))) : null,
@@ -1253,7 +1388,7 @@ function uriRow(ctx: Ctx, index: number, uri: string, match: number | null, onHt
     "div",
     { class: "row" },
     icon(insecure ? "error" : "globe"),
-    h("div", { class: "body" }, h("span", { class: "title ellipsis" }, uri), sub ? h("span", { class: `sub${insecure ? " warn" : ""}` }, sub) : null),
+    h("div", copyOnClick(ctx, `uri.${index}`, () => uri, uri), h("span", { class: "title ellipsis" }, uri), sub ? h("span", { class: `sub${insecure ? " warn" : ""}` }, sub) : null),
     h("span", { class: "field-actions" }, href ? iconButton("external", t("openWebsite"), () => void chrome.tabs.create({ url: href })) : null, copyButton(ctx, `uri.${index}`, uri, t("copyField", uri)), moreButton(ctx, uri, items)),
   );
 }

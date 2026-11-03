@@ -70,6 +70,7 @@ export type Request =
       contextMenu?: boolean;
       showCardsOnTab?: boolean;
       showIdentitiesOnTab?: boolean;
+      quickActionMenus?: boolean;
     }
   | { type: "setDefaultManager"; enabled: boolean }
   // vault (unlocked only)
@@ -172,6 +173,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
       contextMenu: opt(bool),
       showCardsOnTab: opt(bool),
       showIdentitiesOnTab: opt(bool),
+      quickActionMenus: opt(bool),
     })(v, p);
     if (s.autoLockMinutes !== undefined && !(AUTO_LOCK_CHOICES as readonly number[]).includes(s.autoLockMinutes))
       throw new ValidationError("autoLockMinutes: not an allowed choice");
@@ -289,6 +291,8 @@ export interface Settings {
   contextMenu: boolean;
   showCardsOnTab: boolean;
   showIdentitiesOnTab: boolean;
+  /** Vault rows: a copy menu and "⋮" instead of one icon per action. */
+  quickActionMenus: boolean;
 }
 
 export interface State {
@@ -321,6 +325,8 @@ export interface VaultItem {
   favorite: boolean;
   readOnly: boolean;
   hasTotp: boolean;
+  /** Login only: has no password (present only when true). */
+  noPassword?: boolean;
   /** Login only: holds a passkey (present only when true). */
   hasPasskey?: boolean;
   /** Login only, in the main list only: how many items share this password (absent: unique). */

@@ -218,6 +218,22 @@
   "copied": {
     "message": "Copied — clears in 30 s"
   },
+  "copyOptions": {
+    "message": "Copy from $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "moreOptions": {
+    "message": "More options for $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "copyField": {
     "message": "Copy $P1$",
     "placeholders": {
@@ -1226,6 +1242,12 @@
   },
   "showIdentitiesOnTab": {
     "message": "Show identities in the tab view"
+  },
+  "quickActionMenus": {
+    "message": "Quick actions as menus"
+  },
+  "quickActionMenusHint": {
+    "message": "A copy menu and more options on each vault row, instead of a button per action"
   },
   "clearClipboard": {
     "message": "Clear clipboard"

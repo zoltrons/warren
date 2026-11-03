@@ -86,6 +86,7 @@ function summary(c: Json): VaultItem {
     favorite: ci(c, "favorite") === true,
     readOnly: ci(c, "edit") === false,
     hasTotp: !!s(ci(login, "totp")),
+    ...(type === 1 && !s(ci(login, "password")) ? { noPassword: true } : {}),
     ...(Array.isArray(ci(login, "fido2Credentials")) && (ci(login, "fido2Credentials") as unknown[]).length ? { hasPasskey: true } : {}),
     ...(Number(ci(c, "reprompt")) === 1 ? { reprompt: true } : {}),
     ...(typeof ci(login, "autofillOnPageLoad") === "boolean" ? { autofillOnPageLoad: ci(login, "autofillOnPageLoad") as boolean } : {}),
