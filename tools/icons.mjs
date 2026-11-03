@@ -14,13 +14,17 @@ const icon = readFileSync(join(brand, "icon.svg"), "utf8");
 const wordmark = readFileSync(join(brand, "wordmark.svg"), "utf8");
 
 const C = { cherry: "#2A0A1A", snow: "#FFF7F8", pink: "#FF4F7B" };
-const recolor = (svg, map) => svg.replace(/#[0-9A-F]{6}/g, (c) => map[c] ?? c);
+const recolor = (svg, map) => svg.replace(/#[0-9A-F]{6}/g, (c) => map[c] ?? c); // wordmark only
 const inner = (svg) => svg.replace(/^<svg[^>]*>|<\/svg>\s*$/g, "").trim();
+// The icon is colored only by its <style> block (classes bg, rabbit, inner, eye, lock, keyhole); variants swap it.
+const paint = (p) => icon.replace(/<style>[\s\S]*?<\/style>/, `<style>${Object.entries(p).map(([k, v]) => `.${k}{fill:${v}}`).join("")}</style>`);
+const gray = { bg: "#3B3337", rabbit: "#CFC7CA", inner: "#8E8388", eye: "#3B3337", lock: "#8E8388", keyhole: "#3B3337" };
 
 const variants = {
-  "icon-light": recolor(icon, { [C.cherry]: C.pink }).replace(/(<path fill=")#FF4F7B/, `$1${C.cherry}`),
+  // On a pink ground the pink lock would vanish: the lock turns night cherry and its keyhole pink.
+  "icon-light": paint({ bg: C.pink, rabbit: C.snow, inner: C.pink, eye: C.cherry, lock: C.cherry, keyhole: C.pink }),
   // Locked: gray tones of the same drawing. Logged out: the locked icon, faded.
-  "icon-locked": recolor(icon, { [C.cherry]: "#3B3337", [C.snow]: "#CFC7CA", [C.pink]: "#8E8388" }),
+  "icon-locked": paint(gray),
 };
 variants["icon-loggedout"] = variants["icon-locked"].replace(/(<svg[^>]*>)([\s\S]*)<\/svg>/, '$1<g opacity=".5">$2</g></svg>');
 

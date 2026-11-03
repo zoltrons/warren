@@ -10,12 +10,12 @@ format name. Never put the rabbit inside a shield. No orange.
 
 | File | What |
 |---|---|
-| `icon.svg` | **Master** icon: a padlock body that is also a rabbit head, ears as the shackle |
+| `icon.svg` | **Master** icon: a rabbit peeking over a pink padlock, paws on its edge. Colors live only in its `<style>` block (classes `bg`, `rabbit`, `inner`, `eye`, `lock`, `keyhole`) |
 | `wordmark.svg` | **Master** wordmark `warren`: hand-drawn rounded strokes, no font, pink `w` |
 | `icon-light.svg`, `icon-locked.svg`, `icon-loggedout.svg`, `logo-horizontal-{dark,light}.svg` | Generated |
 | `../src/icons/*.png` | Generated: manifest sizes and the toolbar icon per lock state |
 
-Edit only the two masters, then run `node tools/icons.mjs` (add `--sheet out.png` for a contact sheet of
+Edit only the two masters (variants swap the icon's `<style>` palette), then run `node tools/icons.mjs` (add `--sheet out.png` for a contact sheet of
 16/32/48/128 on light and dark toolbars). At 19 px and below the inner ears are dropped so the silhouette stays clean.
 
 ## Palette

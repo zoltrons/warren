@@ -1,13 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="28" fill="#3B3337"/>
-  <g transform="rotate(5 43 72)">
-    <rect x="31" y="10" width="24" height="66" rx="12" fill="#CFC7CA"/>
-    <rect class="inner" x="38" y="20" width="10" height="40" rx="5" fill="#8E8388"/>
+  <style>.bg{fill:#3B3337}.rabbit{fill:#CFC7CA}.inner{fill:#8E8388}.eye{fill:#3B3337}.lock{fill:#8E8388}.keyhole{fill:#3B3337}</style>
+  <rect class="bg" width="128" height="128" rx="28"/>
+  <g transform="rotate(-8 50 60)">
+    <rect class="rabbit" x="40" y="8" width="20" height="54" rx="10"/>
+    <rect class="inner" x="46" y="17" width="8" height="34" rx="4"/>
   </g>
-  <g transform="rotate(-5 85 72)">
-    <rect x="73" y="10" width="24" height="66" rx="12" fill="#CFC7CA"/>
-    <rect class="inner" x="80" y="20" width="10" height="40" rx="5" fill="#8E8388"/>
+  <g transform="rotate(8 78 60)">
+    <rect class="rabbit" x="68" y="8" width="20" height="54" rx="10"/>
+    <rect class="inner" x="74" y="17" width="8" height="34" rx="4"/>
   </g>
-  <rect x="18" y="56" width="92" height="62" rx="26" fill="#CFC7CA"/>
-  <path fill="#3B3337" d="M64 70a11 11 0 0 1 6 20.2L73 106H55l3-15.8A11 11 0 0 1 64 70z"/>
+  <circle class="rabbit" cx="64" cy="66" r="29"/>
+  <circle class="eye" cx="53" cy="57" r="5"/>
+  <circle class="eye" cx="75" cy="57" r="5"/>
+  <rect class="lock" x="16" y="68" width="96" height="50" rx="14"/>
+  <ellipse class="rabbit" cx="42" cy="69" rx="9" ry="7"/>
+  <ellipse class="rabbit" cx="86" cy="69" rx="9" ry="7"/>
+  <circle class="keyhole" cx="64" cy="88" r="6.5"/>
+  <rect class="keyhole" x="61" y="90" width="6" height="16" rx="3"/>
 </svg>
