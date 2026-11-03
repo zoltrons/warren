@@ -37,10 +37,14 @@ export class Psl {
   }
 }
 
-/** Saved URIs may lack a scheme ("example.com"); Bitwarden treats those as http(s). */
+/**
+ * Saved URIs may lack a scheme ("example.com"); Bitwarden treats those as http(s). Other schemes are not
+ * websites: `androidapp://com.ebay.mobile` must not match the registrable domain ebay.mobile.
+ */
 export function parseUri(uri: string): URL | undefined {
   try {
-    return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(uri) ? uri : `http://${uri}`);
+    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(uri) ? uri : `http://${uri}`);
+    return u.protocol === "http:" || u.protocol === "https:" ? u : undefined;
   } catch {
     return undefined;
   }

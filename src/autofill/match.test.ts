@@ -26,6 +26,17 @@ test("domain match (default)", () => {
   assert.ok(!uriMatches("https://example.com", null, page("chrome://settings"), psl));
 });
 
+test("app URIs never match a website by domain or host", () => {
+  for (const [saved, url] of [
+    ["androidapp://com.amazon.mShop.android.shopping", "https://android.shopping/login"],
+    ["androidapp://com.ebay.mobile", "https://ebay.mobile/"],
+    ["iosapp://com.example.app", "https://example.app/"],
+  ] as const) {
+    assert.ok(!uriMatches(saved, MATCH.Domain, page(url), psl), saved);
+    assert.ok(!uriMatches(saved, MATCH.Host, page(url), psl), saved);
+  }
+});
+
 test("host, startsWith, exact, regex, never", () => {
   assert.ok(uriMatches("https://a.example.com:8443", MATCH.Host, page("https://a.example.com:8443/p"), psl));
   assert.ok(!uriMatches("https://a.example.com", MATCH.Host, page("https://b.example.com"), psl));
