@@ -117,7 +117,7 @@ const st = {
   /** Cipher id whose master-password re-prompt screen is showing. */
   repromptFor: undefined as string | undefined,
   reveal: new Set<string>(),
-  totp: undefined as { code: string; period: number; remaining: number } | undefined,
+  totp: undefined as { code: string; next: string; period: number; remaining: number } | undefined,
   /** Timestamp of the first tap of a two-tap destructive action; 0 when idle. */
   confirmDelete: 0,
   draft: undefined as EditDraft | undefined,
@@ -142,6 +142,8 @@ const st = {
   picking: undefined as GeneratorPick["field"] | undefined,
 };
 let totpTimer: ReturnType<typeof setInterval> | undefined;
+/** Seconds left at which the next code is pointed out. */
+const TOTP_SOON = 10;
 /** An open flagged item re-checks its grant: it expires, and dies with the service worker. */
 let repromptTimer: ReturnType<typeof setInterval> | undefined;
 const REPROMPT_CHECK_MS = 10_000;
@@ -984,13 +986,19 @@ function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElemen
     void refreshTotp(ctx, id);
     return h("div", { class: "row" }, icon("timer"), h("div", { class: "body" }, h("span", { class: "label" }, t("oneTimeCode")), h("span", { class: "value" }, "…")));
   }
-  const { code, remaining, period } = st.totp;
-  const pretty = code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+  const { code, next, remaining, period } = st.totp;
+  const pretty = (c: string) => (c.length === 6 ? `${c.slice(0, 3)} ${c.slice(3)}` : c);
   return h(
     "div",
-    { class: "row field-row totp-row elevated" },
+    { class: `row field-row totp-row elevated${remaining <= TOTP_SOON ? " soon" : ""}` },
     icon("timer"),
-    h("div", { class: "body" }, h("span", { class: "label" }, t("oneTimeCode")), h("span", { class: "value mono totp", "data-totp": "1" }, pretty)),
+    h(
+      "div",
+      { class: "body" },
+      h("span", { class: "label" }, t("oneTimeCode")),
+      h("span", { class: "value mono totp", "data-totp": "1" }, pretty(code)),
+      next ? h("span", { class: "totp-next" }, t("nextCode"), " ", h("span", { class: "mono" }, pretty(next))) : null,
+    ),
     h(
       "span",
       { class: "field-actions" },
@@ -1002,6 +1010,7 @@ function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElemen
       ),
       copyButton(ctx, "totp", code, t("copyField", t("oneTimeCode"))),
       moreButton(ctx, code, [
+        ...(next ? [{ label: t("copyNextCode"), icon: "copy" as const, onClick: () => void copy(ctx, next) }] : []),
         { label: t("copyAuthKey"), icon: "copy", onClick: () => void copy(ctx, secret) },
         { label: t("showAuthQr"), onClick: () => ((st.qr = { text: otpauthUri(secret, name), note: t("authQrNote") }), ctx.rerender()) },
       ]),
@@ -1018,10 +1027,10 @@ function hideForReprompt(ctx: Ctx, id: string) {
 }
 
 async function refreshTotp(ctx: Ctx, id: string) {
-  const r = await send<{ code: string; period: number; remaining: number }>({ type: "totp", id });
+  const r = await send<{ code: string; next: string; period: number; remaining: number }>({ type: "totp", id });
   if (st.route.kind !== "item" || st.route.id !== id) return;
   if (!r.ok) return r.code === "reprompt" ? hideForReprompt(ctx, id) : ctx.rerender();
-  st.totp = { code: r.data.code, period: r.data.period || 30, remaining: r.data.remaining };
+  st.totp = { code: r.data.code, next: r.data.next, period: r.data.period || 30, remaining: r.data.remaining };
   ctx.rerender();
   clearInterval(totpTimer);
   totpTimer = setInterval(() => {
@@ -1037,6 +1046,7 @@ async function refreshTotp(ctx: Ctx, id: string) {
     if (!pill) return;
     pill.setAttribute("aria-label", t("secondsLeft", String(st.totp.remaining)));
     pill.setAttribute("data-remaining", String(st.totp.remaining));
+    pill.closest(".totp-row")?.classList.toggle("soon", st.totp.remaining <= TOTP_SOON);
     const seconds = pill.querySelector<HTMLElement>(".totp-seconds");
     if (seconds) seconds.textContent = String(st.totp.remaining);
     const bar = pill.querySelector<SVGCircleElement>(".ring-bar");

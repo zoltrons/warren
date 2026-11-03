@@ -226,6 +226,12 @@
       }
     }
   },
+  "nextCode": {
+    "message": "Next"
+  },
+  "copyNextCode": {
+    "message": "Copy next code"
+  },
   "oneTimeCode": {
     "message": "One-time code"
   },

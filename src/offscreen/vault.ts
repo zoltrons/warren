@@ -151,10 +151,14 @@ export function prepareSave(item: Json): Json {
   return enc;
 }
 
-export function totp(id: string): { code: string; period: number; remaining: number } {
+/** The current code, and the next one so a code about to expire is not a race. */
+export function totp(id: string): { code: string; next: string; period: number; remaining: number } {
   const secret = s(ci(o(ci(get(id), "login")), "totp"));
   if (!secret) throw new Error("item has no TOTP");
-  return JSON.parse(core.totp(secret, Date.now()));
+  const now = Date.now();
+  const cur = JSON.parse(core.totp(secret, now)) as { code: string; period: number; remaining: number };
+  // remaining is in whole seconds to the boundary, so this lands inside the next period.
+  return { ...cur, next: (JSON.parse(core.totp(secret, now + cur.remaining * 1000)) as { code: string }).code };
 }
 
 const gen = (options: Json) => core.generatePassword(JSON.stringify(options));

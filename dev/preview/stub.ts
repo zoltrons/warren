@@ -147,7 +147,7 @@ function respond(req: Request): Response<unknown> {
     case "getItem":
       return { ok: true, data: github };
     case "totp":
-      return { ok: true, data: { code: "123456", period: 30, remaining: 21 } };
+      return { ok: true, data: { code: "123456", next: "482913", period: 30, remaining: 8 } };
     case "generate":
       return { ok: true, data: "k7#Vm2qT!pR9zLd4Xw8b" };
     case "aliasSettings":
