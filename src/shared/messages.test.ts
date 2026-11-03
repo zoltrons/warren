@@ -39,7 +39,9 @@ test("passkey calls: page-supplied options are bounded", () => {
   const base = { kind: "get", conditional: false, options: { challenge: "c", allow: [] } };
   assert.deepEqual(parsePasskeyCall(base), { ...base, options: { ...base.options, rpId: undefined } });
   // A huge challenge or an endless allowCredentials list would otherwise be page-controlled work.
-  throws(() => parsePasskeyCall({ ...base, options: { challenge: "x".repeat(2000), allow: [] } }), /too long/);
+  throws(() => parsePasskeyCall({ ...base, options: { challenge: "x".repeat(64 * 1024 + 1), allow: [] } }), /too long/);
+  // Google's "Verify it's you" sends a challenge of about 14 000 characters: it must not be refused.
+  parsePasskeyCall({ ...base, options: { challenge: "x".repeat(14_367), allow: [] } });
   throws(() => parsePasskeyCall({ ...base, options: { challenge: "c", allow: Array.from({ length: 65 }, (_, i) => `id${i}`) } }), /too many/);
   throws(() => parsePasskeyCall({ ...base, options: { challenge: "c", allow: [], rpId: "a".repeat(300) } }), /too long/);
   throws(

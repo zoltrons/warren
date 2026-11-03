@@ -497,9 +497,13 @@ export const OFFSCREEN_TARGET = "warren-offscreen";
 
 const kdfParams: Validator<KdfParams> = obj({ type: num, iterations: num, memory: num, parallelism: num });
 
-/** WebAuthn bounds: a challenge is a short random value and names/ids are small by spec. */
+/**
+ * WebAuthn bounds. The spec sets no upper limit on a challenge and sites use it to carry signed state:
+ * Google's is about 14 000 base64url characters. 64 KiB lets those through and still bounds the work.
+ * Names and ids are small by spec.
+ */
 const rpIdField = capped(253);
-const challengeField = capped(1024);
+const challengeField = capped(64 * 1024);
 const user = obj({ id: capped(1024), name: capped(1024), displayName: capped(1024) });
 /** A page-supplied array of credential ids: bounded, so it cannot ask for unbounded work. */
 const credIdList = (v: unknown, p: string): string[] => {
