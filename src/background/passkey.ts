@@ -1,7 +1,8 @@
 // Passkeys for websites, always on (like the official clients). The MAIN-world shim
-// (passkey-page.js) + isolated relay (passkey-relay.js) are registered on every secure origin, so a
-// WebAuthn call that a stored passkey can answer is served by Warren, and everything else is
-// handed straight back to the browser. Conditional mediation (passkey autofill) additionally shows
+// (passkey-page.js) + isolated relay (passkey-relay.js) are registered on every secure origin, so
+// WebAuthn calls are served by Warren's window (a plain get with no matching passkey says so there and
+// offers the browser, like the official clients); security-key-only requests and passkey autofill with
+// nothing to offer go straight to the browser. Conditional mediation (passkey autofill) additionally shows
 // "Sign in with a passkey" in the inline menu while the website is waiting for an assertion; picking it
 // signs in directly when one passkey matches (see openConditional).
 // Crypto runs in the worker (offscreen/fido2.ts); credentials are stored as Bitwarden's
@@ -18,7 +19,7 @@ import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { getLocal, getSettings } from "./store.ts";
-import { ensureLoaded, isUnlocked, requireUnlocked, save } from "./vault.ts";
+import { ensureLoaded, isUnlocked, requireUnlocked, save, sync } from "./vault.ts";
 
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
 /**
@@ -153,9 +154,14 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     if (conditional) timer = setTimeout(() => void p.done({ fallback: true }), CONDITIONAL_TTL_MS);
     if (call.kind === "get") {
       if (await isUnlocked()) {
-        // Nothing in the vault can answer this call: stay out of the way, no window.
-        const found = await candidates(p, call.options.allow).catch(() => []);
-        if (!found.length) return p.done({ fallback: true });
+        if (!(await candidates(p, call.options.allow).catch(() => [])).length) {
+          // Passkey autofill with nothing to offer stays out of the way: the browser's own UI keeps working.
+          if (conditional) return p.done({ fallback: true });
+          // Like the official clients: the passkey may have been saved on another device since the last sync.
+          // If it is still not there, the window says so and offers "Use another device or browser" rather
+          // than handing the call to the system dialog unasked.
+          await sync(false).catch(() => false);
+        }
       } else if (conditional) {
         // Passkey autofill runs on page load: never nag for the master password. The browser's own
         // conditional UI keeps working, and the inline menu entry appears after unlocking.
@@ -261,7 +267,12 @@ export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   await requireUnlocked();
   const p = get(id);
   const base = { origin: p.origin, rpId: p.rpId };
-  if (p.call.kind === "get") return { kind: "get", ...base, candidates: await candidates(p, p.call.options.allow) };
+  if (p.call.kind === "get") {
+    const found = await candidates(p, p.call.options.allow);
+    // Nothing matches: say whether the vault has passkeys for this site at all (the site may know another one).
+    const others = !found.length && p.call.options.allow.length ? (await candidates(p, [])).length : 0;
+    return { kind: "get", ...base, candidates: found, ...(others ? { others } : {}) };
+  }
   return { kind: "create", ...base, rpName: p.call.options.rpName, userName: p.call.options.user.name, candidates: await joinable(p) };
 }
 

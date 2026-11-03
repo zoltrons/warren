@@ -558,6 +558,22 @@
   "passkeyNone": {
     "message": "No passkey for this site in your vault"
   },
+  "passkeyNoneFor": {
+    "message": "Warren holds no passkey for $P1$. If you saved it in another app, use that one.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyNotAsked": {
+    "message": "Warren has a passkey for $P1$, but the site asked for a different one: it no longer knows the one in Warren, or the account differs.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "passkeyUseBrowser": {
     "message": "Use another device or browser"
   },

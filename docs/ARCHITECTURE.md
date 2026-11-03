@@ -149,9 +149,11 @@ Other content scripts are registered at runtime (`chrome.scripting.registerConte
 
 * **Passkeys** (always on, no setting): registers a MAIN-world shim (`passkey-page.js`, wraps
   `navigator.credentials.create/get`) and an isolated relay (`passkey-relay.js`) on every secure
-  origin (`https`, `localhost`), top frames only. A `get`/`create` a stored passkey can answer opens an
-  approval window (`popup.html?passkey=<id>`); anything else (no matching passkey, not logged in) is
-  handed straight back to the browser without a window. Conditional mediation (passkey autofill) is
+  origin (`https`, `localhost`), top frames only. A `create` and a plain `get` open an approval window
+  (`popup.html?passkey=<id>`), like the official clients: a `get` with no matching passkey syncs once and,
+  if there is still none, the window says so next to "Use another device or browser". Handed straight
+  back to the browser without a window: not logged in, an `allowCredentials` list of security keys only
+  (every entry names transports, none `internal`), and passkey autofill with nothing to offer. Conditional mediation (passkey autofill) is
   raced against the browser's native UI, and while such a request waits the inline menu offers
   "Sign in with passkey" (the request is continued, not restarted). The origin comes from
   `port.sender.origin`, the RP ID is checked against it (with the PSL) in the worker, and keys are

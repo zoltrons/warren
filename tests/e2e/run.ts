@@ -1836,6 +1836,38 @@ try {
     await cdp.detach();
   });
 
+  await step("passkeys: no matching passkey shows the window; a security key list goes to the browser", async () => {
+    await loginPage.locator("#u").click();
+    const cdp = await ctx.newCDPSession(loginPage);
+    await cdp.send("WebAuthn.enable", { enableUI: false });
+    await cdp.send("WebAuthn.addVirtualAuthenticator", { options: authenticator });
+    const ask = (transports: string[] | undefined) =>
+      loginPage.evaluate(async ({ ch, transports }) => {
+        try {
+          const allowCredentials = [{ type: "public-key" as const, id: new Uint8Array(16).fill(7), ...(transports ? { transports: transports as AuthenticatorTransport[] } : {}) }];
+          await navigator.credentials.get({ publicKey: { challenge: Uint8Array.from(ch), rpId: "localhost", allowCredentials, timeout: 1000 } });
+          return "resolved";
+        } catch (e) {
+          return (e as DOMException).name;
+        }
+      }, { ch: [...challenge], transports });
+    // A passkey Warren does not hold (saved elsewhere, like Google's): Warren's window says so (Google's case).
+    const got = ask(["internal", "hybrid"]);
+    await approve(async (w) => {
+      await w.getByText("No passkey for this site in your vault").waitFor();
+      await w.getByRole("button", { name: "Use another device or browser" }).click();
+    });
+    assert.equal(await got, "NotAllowedError"); // the browser's own WebAuthn: the virtual key has no such credential
+    // Security keys only: straight to the browser, no window.
+    const opened: Page[] = [];
+    const watch = (p: Page) => opened.push(p);
+    ctx.on("page", watch);
+    assert.equal(await ask(["usb", "nfc"]), "NotAllowedError");
+    ctx.off("page", watch);
+    assert.deepEqual(opened.filter((p) => p.url().includes("popup.html?passkey=")), [], "a security-key-only request opened Warren's window");
+    await cdp.detach();
+  });
+
   // ---------- Phase 4: SSO (mock IdP from docker-compose.yml) ----------
   const ssoUser = await register("sso", [1, 3, 64, 4]);
 

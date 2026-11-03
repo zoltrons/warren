@@ -92,7 +92,13 @@ export function passkeyScreen(ctx: Ctx): HTMLElement {
           )
         : p.candidates.length
           ? list(ctx, p.candidates)
-          : h("div", { class: "empty" }, icon("key"), h("strong", {}, t("passkeyNone"))),
+          : h(
+              "div",
+              { class: "empty" },
+              icon("key"),
+              h("strong", {}, t("passkeyNone")),
+              h("p", {}, p.others ? t("passkeyNotAsked", p.rpId) : t("passkeyNoneFor", p.rpId)),
+            ),
     pk.busy ? h("div", { class: "progress" }) : null,
     h("button", { type: "button", class: "btn text", disabled: pk.busy, onclick: () => void decide(ctx, "fallback") }, t("passkeyUseBrowser")),
   );

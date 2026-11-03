@@ -395,6 +395,8 @@ export interface PasskeyPrompt {
   rpName?: string;
   userName?: string;
   candidates: PasskeyCandidate[];
+  /** Get with no candidates: how many passkeys the vault holds for this RP ID that the site did not ask for. */
+  others?: number;
 }
 
 /** Decrypted send for the list. `link` carries the decryption secret in its fragment. */

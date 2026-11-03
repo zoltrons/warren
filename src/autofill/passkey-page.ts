@@ -178,9 +178,13 @@
     );
   };
 
+  /** Every allowed credential lives on a security key (USB, NFC, BLE): Warren holds none of them. */
+  const securityKeysOnly = (pk: PublicKeyCredentialRequestOptions) =>
+    !!pk.allowCredentials?.length && pk.allowCredentials.every((x) => x.transports?.length && !x.transports.includes("internal"));
+
   c.get = (opts?: CredentialRequestOptions) => {
     const pk = opts?.publicKey;
-    if (!pk) return get(opts);
+    if (!pk || securityKeysOnly(pk)) return get(opts);
     if (opts.mediation === "conditional") return conditionalGet(opts, pk);
     if (!document.hasFocus()) return get(opts);
     return settle("get", options(pk), () => get(opts), opts.signal);
