@@ -12,6 +12,7 @@ import {
 import type { HistoryEntry } from "../shared/messages.ts";
 import { type Child, h, send, t, when, withChevron } from "./dom.ts";
 import { icon } from "./icons.ts";
+import { type FakeIdentity, fakeIdentity } from "./identity-gen.ts";
 import { actionRow, colorize, copy, copyButton, type Ctx, iconButton, sectionTitle, startEdit, strength, strengthBar, topBar } from "./vault.ts";
 
 type Json = Record<string, unknown>;
@@ -20,7 +21,7 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 const GEN_DEFAULTS: Json = {
   type: "password", length: 20, lowercase: true, uppercase: true, numbers: true, special: true, avoidAmbiguous: false, minLowercase: 1, minUppercase: 1, minNumber: 2, minSpecial: 2,
   numWords: 5, wordSeparator: "-", capitalize: true, includeNumber: true, pinLength: 4,
-  usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin",
+  usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin", identityMinAge: 18, identityMaxAge: 65,
 };
 /** Digits and symbols scale with the length, about one in ten and never below one (20 → 2, 40 → 4). */
 const scaledMin = (length: number) => Math.max(1, Math.round(length / 10));
@@ -112,6 +113,8 @@ const gst = {
   /** Words in the custom passphrase list (0: built-in). */
   wordlist: 0,
   generated: "",
+  /** The fake identity on screen (type "identity"); `generated` holds its full name. */
+  identity: undefined as FakeIdentity | undefined,
   /** Forwarded email alias settings for the service selected in the generator (kept by the worker). */
   alias: undefined as AliasSettings | undefined,
   /** Which service's settings are being read right now (a switch mid-flight must not land). */
@@ -130,7 +133,7 @@ const gst = {
 };
 
 export function resetGenerator(): void {
-  Object.assign(gst, { gen: { ...GEN_DEFAULTS }, prefs: undefined, wordlist: 0, generated: "", suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false });
+  Object.assign(gst, { gen: { ...GEN_DEFAULTS }, prefs: undefined, wordlist: 0, generated: "", identity: undefined, suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false });
 }
 
 /** The edit form's generator: which field it fills, and how the value gets back to the form. */
@@ -159,6 +162,13 @@ async function regenerate(ctx: Ctx) {
     gst.suggestions = [];
     gst.error = undefined;
     gst.generated = "";
+    ctx.rerender();
+    return;
+  }
+  if (gst.gen.type === "identity") {
+    // Made here: a made-up person is no secret, and the worker has nothing to add.
+    gst.identity = fakeIdentity(Number(gst.gen.identityMinAge) || 18, Number(gst.gen.identityMaxAge) || 65);
+    Object.assign(gst, { generated: `${gst.identity.firstName} ${gst.identity.lastName}`, suggestions: [], error: undefined });
     ctx.rerender();
     return;
   }
@@ -418,6 +428,28 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       ),
     );
   else if (g.type === "pin") options = h("div", { class: "group" }, slider("pinLength", t("length"), 3, 12));
+  else if (g.type === "identity") {
+    const p = gst.identity;
+    const line = (key: string, title: string, value: string, sub?: string) =>
+      h("div", { class: "row" }, h("div", { class: "body" }, h("span", { class: "label" }, title), h("span", { class: "value" }, value), sub ? h("span", { class: "sub" }, sub) : null), copyButton(ctx, `id.${key}`, value, t("copyField", title)));
+    options = h(
+      "div",
+      {},
+      p
+        ? h(
+            "div",
+            { class: "group" },
+            line("first", t("field_firstName"), p.firstName),
+            line("last", t("field_lastName"), p.lastName),
+            line("birth", t("birthDate"), p.birthDate, t("ageYears", String(p.age))),
+            line("user", t("field_username"), p.username),
+            line("city", t("field_city"), p.city),
+            line("country", t("field_country"), p.country),
+          )
+        : null,
+      h("div", { class: "group" }, stepRow("identityMinAge", t("minAge"), 13, Number(g.identityMaxAge)), stepRow("identityMaxAge", t("maxAge"), Number(g.identityMinAge), 99)),
+    );
+  }
   else if (g.type === "alias") {
     const info = ALIAS_INFO[aliasVendor];
     const saved = gst.alias;
@@ -517,7 +549,8 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         chip("pin", t("typePin")),
         chip("username", t("username")),
         chip("alias", t("forwardedEmailShort")),
-      ].filter((_, i) => !pick || (pick.field === "password" ? i < 3 : i >= 3)),
+        chip("identity", t("typeIdentity")),
+      ].filter((_, i) => !pick || (pick.field === "password" ? i < 3 : i === 3 || i === 4)),
     ),
     g.type === "alias" && !gst.generated ? null : h(
       "div",
@@ -539,13 +572,15 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
             t("copyField", t("generatedValue")),
             () => {
               void copy(ctx, gst.generated);
-              void send({ type: "generatorHistoryAdd", value: gst.generated });
+              if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
             },
             { disabled: !gst.generated },
           ),
         ),
       ),
-      h("div", { class: "generated-foot" }, gst.generated && g.type !== "alias" ? strengthBar(gst.generated) : null, gst.generated && g.type !== "alias" ? h("span", { class: "meter-label" }, strength(gst.generated).label) : null),
+      g.type === "identity"
+        ? null
+        : h("div", { class: "generated-foot" }, gst.generated && g.type !== "alias" ? strengthBar(gst.generated) : null, gst.generated && g.type !== "alias" ? h("span", { class: "meter-label" }, strength(gst.generated).label) : null),
     ),
     options,
     g.type === "alias" && !gst.generated
@@ -564,7 +599,24 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     pick && gst.generated
       ? h("div", { class: "editor-footer" }, h("button", { type: "button", class: "btn filled wide", onclick: () => pick.use(gst.generated) }, icon("check"), t(pick.field === "password" ? "usePassword" : "useUsername")))
       : null,
-    !pick && gst.generated
+    !pick && g.type === "identity" && gst.identity
+      ? actionRow("plus", t("createIdentityWithThis"), () => {
+          const p = gst.identity!;
+          ctx.goto("vault");
+          // Bitwarden identities have no birth date: it goes in a custom field, with the age it gives today.
+          startEdit(
+            ctx,
+            {
+              type: 4, favorite: false, reprompt: 0, folderId: null, organizationId: null,
+              name: `${p.firstName} ${p.lastName}`,
+              identity: { firstName: p.firstName, lastName: p.lastName, username: p.username, city: p.city, country: p.country },
+              fields: [{ name: t("birthDate"), value: p.birthDate, type: 0, linkedId: null }, { name: t("age"), value: String(p.age), type: 0, linkedId: null }],
+            },
+            {},
+            true,
+          );
+        })
+      : !pick && gst.generated
       ? actionRow("plus", t(g.type === "alias" ? "createLoginWithEmail" : g.type === "username" ? "createLoginWithUsername" : "createLoginWithPassword"), () => {
           ctx.goto("vault");
           startEdit(ctx, undefined, { data: { [g.type === "username" || g.type === "alias" ? "username" : "password"]: gst.generated } });

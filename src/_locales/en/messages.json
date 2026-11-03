@@ -596,6 +596,29 @@
   "typeCard": {
     "message": "Card"
   },
+  "birthDate": {
+    "message": "Birth date"
+  },
+  "age": {
+    "message": "Age"
+  },
+  "ageYears": {
+    "message": "$P1$ years old",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "minAge": {
+    "message": "Minimum age"
+  },
+  "maxAge": {
+    "message": "Maximum age"
+  },
+  "createIdentityWithThis": {
+    "message": "Create an identity with this"
+  },
   "typeIdentity": {
     "message": "Identity"
   },
