@@ -18,7 +18,7 @@ Material Icons, "round" theme (github.com/google/material-design-icons), path da
   Copyright Google LLC. Licensed under the Apache License 2.0, reproduced below.
 
 Faker (github.com/faker-js/faker), name and city lists in identity-data.json
-  Built by tools/identity-data.mjs from @faker-js/faker 9.9.0 locale data. MIT License:
+  Built by tools/identity-data.mjs from @faker-js/faker 10.6.0 locale data. MIT License:
 
   Faker - Copyright (c) 2022-2025
 

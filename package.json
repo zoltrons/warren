@@ -20,7 +20,7 @@
     "test:biometric": "node tools/build.mjs --e2e && node tools/smoke-biometric.mjs"
   },
   "devDependencies": {
-    "@faker-js/faker": "9.9.0",
+    "@faker-js/faker": "10.6.0",
     "@types/chrome": "0.3.5",
     "esbuild": "0.28.2",
     "playwright-core": "1.64.1",
