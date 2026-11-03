@@ -1,10 +1,9 @@
 # Licensing
 
-**Status: proposed, awaiting maintainer confirmation.**
+## Decision
 
-## Decision (proposed)
-
-Warren is licensed **GPL-3.0-only**.
+Warren is licensed **GPL-3.0-only**: full text in `LICENSE`, third-party notices in `NOTICE`. The build copies both
+into `dist/ext`, so every `.zip` and `.crx` carries them.
 
 | Upstream | License | How we use it |
 |---|---|---|
@@ -23,9 +22,14 @@ GPL-3.0-only is compatible with bitwarden/clients.
 Consequence: the distributed extension (including the WASM built from `bitwarden-crypto`) must ship
 with GPL-3.0 terms and corresponding source (this repository at the released tag + `upstream.lock`).
 
+Other password managers, open or source-available, are idea and UX references only. Some are "all rights
+reserved": a feature may work the way theirs does, but no code, text, icons or other assets are taken from them.
+No license choice here could make copying from such a project allowed.
+
 ## Rules
 
 * Do not copy upstream source into this repo without asking first; prefer pinned dependencies.
+* Never copy from a project whose license is not GPL-3.0-compatible; describe the behaviour and write it anew.
 * Local modules that re-implement upstream behaviour (`cipher.rs`, `totp.rs`, `generator.rs`) are
   written from scratch against the behaviour and test vectors; `upstream-map.yaml` records what they track.
 * Never enable sdk-internal's `bitwarden-license` feature or any `bitwarden_license/` crate.

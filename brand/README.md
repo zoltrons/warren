@@ -47,7 +47,11 @@ only to your own server.
 > generates passwords, and locks itself when you step away. Your vault is decrypted only in memory and Warren
 > talks to nobody but your server.
 >
-> Warren is an unofficial client and is not affiliated with Bitwarden, Inc. or the Vaultwarden project.
+> Works with the latest Vaultwarden release.
+>
+> Warren is in early testing and may not be ready for wide use. It is provided as is, without warranty; the
+> authors accept no liability for lost data or any other damage. Warren is an unofficial client and is not
+> affiliated with Bitwarden, Inc. or the Vaultwarden project. License: GPL-3.0.
 
 **Cover image (direction only, not produced):** night-cherry field, the icon large on the left with a soft blush
 glow behind it, the horizontal `warren` wordmark and the tagline in snow on the right. One small gold sparkle

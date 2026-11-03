@@ -11,7 +11,14 @@ Warren is a small, quick password manager for Chromium browsers that talks to on
 [Vaultwarden](https://github.com/dani-garcia/vaultwarden). No account elsewhere, no telemetry, no UI framework.
 Your vault is decrypted only in memory and locks itself when you walk away.
 
+> [!WARNING]
+> **Warren is in early testing and may not be ready for wide use.** It is provided as is, without warranty of any
+> kind, and the authors accept no liability for lost data or any other damage (GPL-3.0 sections 15 and 16). Keep an
+> export of your vault and another client at hand.
+>
 > Warren is an unofficial client and is not affiliated with Bitwarden, Inc. or the Vaultwarden project.
+
+**Server:** the latest Vaultwarden release only. Older releases are neither tested nor supported.
 
 ## What it does
 
@@ -53,4 +60,6 @@ Warren speaks the Bitwarden client protocol and uses Bitwarden's
 [`bitwarden-crypto`](https://github.com/bitwarden/sdk-internal) crate under its GPL-3.0 option. Icons in the
 interface come from Google's Material Icons (Apache-2.0). Details: [docs/LICENSING.md](docs/LICENSING.md).
 
-Warren is licensed GPL-3.0-only.
+Warren is free software under the [GNU GPL v3](LICENSE) (GPL-3.0-only); third-party notices are in
+[NOTICE](NOTICE). It is not a fork: it is written from scratch, and other password managers are idea references
+only. Their code is never copied.

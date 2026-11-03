@@ -160,6 +160,7 @@ function setupView(): HTMLElement {
         : null,
     ),
     h("p", { class: "note" }, t("setupHint")),
+    h("p", { class: "note" }, t("testingNote")),
   );
 }
 

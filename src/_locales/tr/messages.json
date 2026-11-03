@@ -9,6 +9,9 @@
     "message": "Vaultwarden için yapıldı. Tarayıcında yaşayan, yalnızca kendi sunucunla konuşan küçük ve hızlı bir parola yöneticisi."
   },
   "disclaimer": {
-    "message": "Warren resmi bir ürün değildir; Bitwarden, Inc. veya Vaultwarden projesiyle bağlantılı değildir."
+    "message": "Warren resmi olmayan, test aşamasındaki bir istemcidir ve yaygın kullanıma hazır olmayabilir. Olduğu gibi, hiçbir garanti olmadan sunulur: geliştiriciler veri kaybı veya başka herhangi bir zarar için sorumluluk kabul etmez. Bitwarden, Inc. veya Vaultwarden projesiyle bağlantılı değildir."
+  },
+  "testingNote": {
+    "message": "Hâlâ test aşamasında: Warren henüz günlük kullanıma hazır olmayabilir ve yalnızca Vaultwarden'ın en son sürümüyle çalışır. Kasanın bir dışa aktarımını yakında tut."
   }
 }

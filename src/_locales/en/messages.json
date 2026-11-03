@@ -9,7 +9,10 @@
     "message": "Made for Vaultwarden. A small, quick password manager that lives in your browser and talks only to your own server."
   },
   "disclaimer": {
-    "message": "Warren is an unofficial client and is not affiliated with Bitwarden, Inc. or the Vaultwarden project."
+    "message": "Warren is an unofficial client in early testing and may not be ready for wide use. It comes as is, without any warranty: the authors accept no liability for lost data or any other damage. Not affiliated with Bitwarden, Inc. or the Vaultwarden project."
+  },
+  "testingNote": {
+    "message": "Still in testing: Warren may not be ready for everyday use yet, and it works with the latest Vaultwarden only. Keep an export of your vault close by."
   },
   "errNoReply": {
     "message": "The extension did not answer. Try again."

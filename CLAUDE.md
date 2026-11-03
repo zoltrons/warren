@@ -15,7 +15,7 @@ Chat with the owner in Turkish; code, comments, commits in English. Browser is *
 | Rust crypto tests | `bash tools/fetch-test-vectors.sh && WARREN_TEST_VECTORS=target/test-vectors cargo test -p warren-core-wasm` |
 | Autofill engine tests | `cargo test -p autofill-designation -p autofill-cpd -p autofill-clue -p autofill-autocomplete-off -p autofill-resolver -p autofill-autosubmit -p autofill-fill` |
 | Smoke, no server | `npm run test:fill` / `test:passkeys` / `test:biometric` |
-| e2e vs. Vaultwarden on :8080 | `docker compose -f dev/vaultwarden/docker-compose.yml up -d --wait`, `node tools/build.mjs --e2e`, `npm run test:e2e` |
+| e2e vs. Vaultwarden **latest** (only supported release) on :8080 | `docker compose -f dev/vaultwarden/docker-compose.yml up -d --wait`, `node tools/build.mjs --e2e`, `npm run test:e2e` |
 | UI screenshots, stubbed worker | `node dev/preview/build.mjs && node dev/preview/shot.mjs` |
 | Icons from `brand/icon.svg` + `brand/wordmark.svg` | `node tools/icons.mjs [--sheet out.png]` |
 
@@ -69,3 +69,5 @@ page.js/content.js --CollectedPageDetails--> background/engine.ts --> crates/aut
 - `npm run size` budget (`tools/size-budget.json`); no new dependencies without cause.
 - Vaultwarden mixes PascalCase/camelCase JSON: read with the `ci` helpers.
 - Server-facing ids stay Bitwarden's: `Bitwarden-Client-*` headers, `CLIENT_NAME`, `DEVICE_TYPE` (constants.ts).
+- License GPL-3.0-only (`LICENSE`, `NOTICE`, docs/LICENSING.md). Other password managers are idea references only: never copy
+  their code, text or assets.
