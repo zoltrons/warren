@@ -8,7 +8,7 @@ export const when = (v: string | number): string => new Date(v).toLocaleString(u
 
 // Theme is a per-device UI preference (localStorage of the extension origin, shared by popup, panel and
 // the in-page frames); applied before the first render to avoid a flash.
-export const THEMES = ["system", "light", "dark"] as const;
+export const THEMES = ["system", "light", "dark", "black"] as const;
 export function savedTheme(): string {
   try {
     return localStorage.getItem("theme") ?? "system";

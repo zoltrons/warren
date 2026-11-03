@@ -61,6 +61,7 @@ const css = readFileSync(new URL("../src/ui/popup.css", import.meta.url), "utf8"
 const light = tokens(css, ":root {");
 const darkVars = tokens(css, ':root[data-theme="dark"] {');
 const darkMedia = tokens(css, ':root:not([data-theme="light"]) {');
+const blackVars = tokens(css, ':root[data-theme="black"] {');
 let failed = 0;
 for (const k of new Set([...Object.keys(darkVars), ...Object.keys(darkMedia)]))
   if (darkVars[k] !== darkMedia[k]) (failed++, console.log(`DRIFT  --${k}: data-theme="${darkVars[k]}" vs media="${darkMedia[k]}"`));
@@ -76,7 +77,7 @@ const PAIRS = [
 const MIN = { text: 4.5, ui: 3 };
 
 const rows = [];
-for (const [name, t] of [["light", light], ["dark", { ...light, ...darkVars }]]) {
+for (const [name, t] of [["light", light], ["dark", { ...light, ...darkVars }], ["black", { ...light, ...darkVars, ...blackVars }]]) {
   const color = (k, under) => {
     const c = parse(t[k]);
     return c[3] < 1 ? over(c, under ?? color("surface")) : c;

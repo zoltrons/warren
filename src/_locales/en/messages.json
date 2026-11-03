@@ -853,6 +853,9 @@
   "theme_dark": {
     "message": "Dark"
   },
+  "theme_black": {
+    "message": "Pure black"
+  },
   "timeoutAction": {
     "message": "Timeout action"
   },

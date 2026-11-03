@@ -86,6 +86,7 @@
   --normal: 175ms;
 }
 
+:root[data-theme="black"],
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #2a0a1a;
@@ -170,6 +171,19 @@
     --tile-ink: 78%;
     --favorite: #ffc83d;
   }
+}
+
+/* Pure black (OLED): the dark theme with flat black surfaces; cards are told apart by their hairlines. */
+:root[data-theme="black"] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-raised: #1a1a1a;
+  --surface-sunken: #000000;
+  --on-primary: #000000;
+  --switch-thumb: #000000;
+  --tile-l: 16%;
+  --outline: rgba(255 211 220 / 0.22);
+  --outline-weak: rgba(255 211 220 / 0.14);
 }
 
 /* ---------- base ---------- */
