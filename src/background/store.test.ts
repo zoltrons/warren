@@ -75,3 +75,19 @@ test("with 'log out' as timeout action the refresh token is kept in memory only,
   assert.equal((local.account as Record<string, unknown>).refreshToken, "rt");
   assert.equal((session.session as Record<string, unknown>).refreshToken, undefined);
 });
+
+test("a missing refresh token logs out only when it was meant to be in memory", async () => {
+  const { accessToken } = await import("./account.ts");
+  (globalThis as any).chrome.alarms = { clear: async () => true };
+  (globalThis as any).chrome.offscreen.hasDocument = async () => false;
+  (globalThis as any).chrome.tabs = { query: async () => [] };
+  local.server = { url: "https://vault.example", version: "1", name: "t" };
+  local.account = { email: "a@b.c" };
+  session.session = { unlocked: true };
+  local.settings = { timeoutAction: "lock" };
+  await assert.rejects(accessToken(), /log in again/);
+  assert.ok(local.account, "an account without a stored token (lock action) must stay");
+  local.settings = { timeoutAction: "logout" };
+  await assert.rejects(accessToken(), /log in again/);
+  assert.equal(local.account, undefined);
+});

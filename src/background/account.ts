@@ -392,7 +392,7 @@ async function refreshAccessToken(): Promise<string> {
   const current = await currentRefreshToken();
   if (!current) {
     // Kept in memory only ("log out" timeout action) and gone with an extension update: the session is over.
-    if (await getLocal("account")) await logout();
+    if ((await getSettings()).timeoutAction === "logout" && (await getLocal("account"))) await logout();
     throw new UserError("sessionExpired", "Please log in again");
   }
   let t: TokenResponse;
