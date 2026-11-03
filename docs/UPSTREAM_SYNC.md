@@ -12,9 +12,9 @@ Status: pins and map exist (Phase 0); the report tool and CI job are Phase 1 wor
    changed enums (cipher types, KDF types, EncString types), new key formats (COSE, type 7+), KDF
    default changes, new required request fields (Vaultwarden `CipherData`, `ConnectData`). Read-only.
 4. **CI bump job** (Phase 1) — weekly: bump the Cargo git rev to sdk-internal main, then run
-   `tools/fetch-test-vectors.sh` + `cargo test`, the Vaultwarden contract tests on `:<pinned>` and
-   `:latest`, and `tools/size-report.mjs` with the WASM size delta in the PR body.
-5. **Renovate** (Phase 1) — JS devDependencies, the Vaultwarden image tag, and the sdk-internal rev
+   `tools/fetch-test-vectors.sh` + `cargo test`, the Vaultwarden contract tests on `:latest` (the only
+   supported release), and `tools/size-report.mjs` with the WASM size delta in the PR body.
+5. **Renovate** (Phase 1) — JS devDependencies, the last-reviewed Vaultwarden version, and the sdk-internal rev
    (regex manager over `upstream.lock` + `Cargo.toml`).
 
 ## Contract tests

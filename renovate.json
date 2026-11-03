@@ -27,9 +27,9 @@
     },
     {
       "customType": "regex",
-      "description": "Vaultwarden version pinned for tests",
-      "managerFilePatterns": ["/^upstream\\.lock$/", "/^dev/vaultwarden/docker-compose\\.yml$/"],
-      "matchStrings": ["version = \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"", "VW_TAG:-(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "description": "Last Vaultwarden release reviewed (upstream.lock); tests always run latest",
+      "managerFilePatterns": ["/^upstream\\.lock$/"],
+      "matchStrings": ["version = \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""],
       "depNameTemplate": "vaultwarden/server",
       "datasourceTemplate": "docker"
     }

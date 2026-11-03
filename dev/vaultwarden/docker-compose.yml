@@ -1,12 +1,11 @@
 # Local Vaultwarden for the e2e contract tests.
 # Test-only fixture: signups are open and there is no admin token. Never expose beyond 127.0.0.1.
-#   VW_TAG=1.37.4 docker compose up -d     (pinned, see upstream.lock)
-#   VW_TAG=latest docker compose up -d     (matrix leg)
+# Warren supports only the latest Vaultwarden release, so this runs vaultwarden/server:latest.
 name: warren-vw
 
 services:
   vaultwarden:
-    image: vaultwarden/server:${VW_TAG:-1.37.4}
+    image: vaultwarden/server:latest
     restart: "no"
     ports:
       - "127.0.0.1:${VW_PORT:-8080}:80"

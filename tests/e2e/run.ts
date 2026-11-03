@@ -75,19 +75,27 @@ async function poll(what: string, check: () => Promise<boolean>): Promise<void> 
   assert.fail(`timed out waiting for ${what}`);
 }
 
-const totpNow = () => JSON.parse(wasm.totp(TOTP_KEY, Date.now())) as { code: string; remaining: number };
+const totpNow = (key = TOTP_KEY) => JSON.parse(wasm.totp(key, Date.now())) as { code: string; remaining: number };
+/** The two-step login key: the server picks it (get-authenticator), so it is known only after enableTotp. */
+let twoFactorKey = "";
 
 /** Vaultwarden rejects a TOTP code twice in the same step, so wait for a fresh one. */
 async function freshTotp(): Promise<string> {
-  await new Promise((r) => setTimeout(r, (totpNow().remaining + 1) * 1000));
-  return totpNow().code;
+  await new Promise((r) => setTimeout(r, (totpNow(twoFactorKey).remaining + 1) * 1000));
+  return totpNow(twoFactorKey).code;
 }
 
+/** Vaultwarden's flow: get-authenticator returns a key and a verification token bound to it; enabling needs both. */
 async function enableTotp(u: TestUser): Promise<void> {
   const tok = await passwordToken(BASE, { email: u.email, authHash: authHash(u), deviceId: crypto.randomUUID() });
+  const setup = (await call(BASE, "POST", "/api/two-factor/get-authenticator", {
+    token: tok.access_token,
+    json: { masterPasswordHash: authHash(u) },
+  })) as { authenticator: { key: string }; userVerificationToken: string };
+  twoFactorKey = setup.authenticator.key;
   await call(BASE, "POST", "/api/two-factor/authenticator", {
     token: tok.access_token,
-    json: { key: TOTP_KEY, token: totpNow().code, masterPasswordHash: authHash(u) },
+    json: { key: twoFactorKey, token: totpNow(twoFactorKey).code, userVerificationToken: setup.userVerificationToken },
   });
 }
 
@@ -461,8 +469,13 @@ try {
   const { authenticatorId: regAuth } = await regCdp.send("WebAuthn.addVirtualAuthenticator", { options: authenticator });
   {
     const tok = await passwordToken(BASE, { email: keyUser.email, authHash: authHash(keyUser), deviceId: crypto.randomUUID() });
-    const json = { masterPasswordHash: authHash(keyUser) };
-    const challenge = await call(BASE, "POST", "/api/two-factor/get-webauthn-challenge", { token: tok.access_token, json });
+    // Vaultwarden's flow: get-webauthn trades the password for a verification token the next two calls need.
+    const { userVerificationToken } = (await call(BASE, "POST", "/api/two-factor/get-webauthn", {
+      token: tok.access_token,
+      json: { masterPasswordHash: authHash(keyUser) },
+    })) as { userVerificationToken: string };
+    const json = { userVerificationToken };
+    const { options: challenge } = (await call(BASE, "POST", "/api/two-factor/get-webauthn-challenge", { token: tok.access_token, json })) as { options: unknown };
     // The passkey shim offers to save this key in the vault; hand it to the security key instead.
     const handBack = ctx.waitForEvent("page", { predicate: (p) => p.url().includes("popup.html?passkey=") })
       .then((w) => w.getByRole("button", { name: "Use another device or browser" }).click());
@@ -1557,15 +1570,15 @@ try {
   });
 
   await step("lock does not wait behind a slow server call", async () => {
-    await sw.evaluate(() => {
+    await sw.evaluate((server) => {
       const g = globalThis as any;
       g.realFetch = g.fetch;
-      // Hold only server calls: the toolbar icon is loaded with fetch too and must not take the release hook.
+      // Hold only server calls: setIcon loads the toolbar icon with fetch("icons/…") and must not take the release hook.
       g.fetch = (...a: Parameters<typeof fetch>) =>
-        String(a[0] instanceof Request ? a[0].url : a[0]).startsWith("chrome-extension:")
-          ? g.realFetch(...a)
-          : new Promise((r) => (g.releaseFetch = () => r(g.realFetch(...a))));
-    });
+        String(a[0] instanceof Request ? a[0].url : a[0]).startsWith(server)
+          ? new Promise((r) => (g.releaseFetch = () => r(g.realFetch(...a))))
+          : g.realFetch(...a);
+    }, BASE);
     const sync = page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
     await poll("sync in flight", () => sw.evaluate(() => !!(globalThis as any).releaseFetch));
     const locked = page.evaluate(() => chrome.runtime.sendMessage({ type: "lock" })).then(() => "locked");

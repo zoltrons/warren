@@ -20,12 +20,9 @@ license = "GPL-3.0-only"
 
 [vaultwarden]
 repo = "https://github.com/dani-garcia/vaultwarden"
-version = "1.37.4"
-image = "vaultwarden/server:1.37.4"
-image-digest = "sha256:efb3cde962015fcc036b2ea625242248611943b27212ebf4392841fb30fad055"
-# /api/config "version" reported by this release (Bitwarden server compat level).
-server-compat-version = "2026.6.0"
-test-matrix = ["1.37.4", "latest"]
+# Supported: the latest release only; CI and e2e run vaultwarden/server:latest.
+# Last release reviewed for protocol changes (sync-upstream diff base); Renovate bumps it.
+version = "1.37.5"
 license = "AGPL-3.0-only"
 
 [chromium]

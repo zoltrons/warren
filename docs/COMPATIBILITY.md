@@ -1,7 +1,10 @@
 # Compatibility notes
 
+Warren supports **only the latest Vaultwarden release**; CI runs every e2e step against `vaultwarden/server:latest`.
+Older releases are neither tested nor supported. The notes below record what was verified and on which release.
+
 Facts verified against **Vaultwarden 1.37.4** (`vaultwarden/server@sha256:efb3cde9…`, local Docker)
-on 2026-10-29 by the Phase 0 spike (removed; see git history), unless marked otherwise.
+on 2026-10-29, unless marked otherwise.
 
 ## Server identity / capability detection
 
@@ -148,6 +151,19 @@ on 2026-10-29 by the Phase 0 spike (removed; see git history), unless marked oth
   `POST /api/accounts/verify-password {masterPasswordHash}` (400 when wrong).
 * **PIN**: client-only (bitwarden-crypto `PinKey`: the PIN through the account KDF with the email as
   salt, stretched; wraps the user key). Nothing goes to the server.
+
+## 1.37.5 (verified by the full e2e suite on 2026-11-03, SSO steps excepted)
+
+* Enabling two-step methods needs a verification token: `POST /api/two-factor/get-authenticator` (or
+  `get-webauthn`, `get-email`) with `masterPasswordHash` returns `userVerificationToken`, which the enable call
+  (and `get-webauthn-challenge`) must send instead of the hash. The authenticator token is bound to the key the
+  server picked, so the client cannot choose its own key. Warren never enables 2FA; only the e2e setup does.
+* `get-webauthn-challenge` wraps the creation options: `{ "options": { …, "status": "ok" } }`.
+* `send-email-login` without an auth request now needs a pending login (`TwoFactorIncomplete`) for the sent
+  `deviceIdentifier`: request it only after the password step answered "two-step required", with the same device id
+  (Warren already does).
+* Updating a cipher whose organization differs from the server's copy fails with "Organization mismatch. Please
+  resync the client": sync before retrying.
 
 ## Not yet verified
 

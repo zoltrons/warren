@@ -89,10 +89,9 @@ scripts may only send a whitelisted subset of message types).
 
 * Depends on `bitwarden-crypto` from `bitwarden/sdk-internal` by **git dependency pinned to the exact
   rev in `upstream.lock`** (no vendoring/copying; see `docs/LICENSING.md`).
-* Phase 0 (measured, report removed; see git history) decided whether `bitwarden-vault` / `bitwarden-generators` are usable (see
-  git history). Both depend on `bitwarden-core`, `bitwarden-api-api`, `reqwest` and (vault)
-  `bitwarden-ssh`/`bitwarden-state`/`zxcvbn`, so the expected outcome is "crypto only": cipher field
-  walking, TOTP and the generator become small local Rust modules, kept honest by upstream test
+* `bitwarden-vault` / `bitwarden-generators` are not used: both depend on `bitwarden-core`,
+  `bitwarden-api-api`, `reqwest` and (vault) `bitwarden-ssh`/`bitwarden-state`/`zxcvbn`, so Warren takes
+  "crypto only": cipher field walking, TOTP and the generator are small local Rust modules, kept honest by upstream test
   vectors and tracked in `upstream-map.yaml`.
 * JS API is batch oriented (one call decrypts the whole vault): `deriveMasterKey`, `makeAuthHash`,
   `unlockUserKey`, `decryptCipherList`, `decryptCipher`, `encryptCipher`, `totp`, `generatePassword`,
@@ -192,8 +191,8 @@ Other content scripts are registered at runtime (`chrome.scripting.registerConte
 ## Upstream sync
 
 `upstream.lock` (pins) → `upstream-map.yaml` (upstream path → local module) → `tools/sync-upstream`
-(Markdown diff report; never edits code) → CI job (bump Cargo rev, run test vectors + Vaultwarden
-matrix, report WASM size delta). Details in `docs/UPSTREAM_SYNC.md`.
+(Markdown diff report; never edits code) → CI job (bump Cargo rev, run test vectors + e2e on
+Vaultwarden latest, report WASM size delta). Details in `docs/UPSTREAM_SYNC.md`.
 
 ## Repository layout
 
