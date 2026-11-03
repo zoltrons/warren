@@ -469,7 +469,9 @@ a.row { text-decoration: none; color: var(--text); }
 }
 .row.field-row { padding-block: 8px; align-items: flex-start; }
 .row.totp-row { align-items: center; }
-.row.field-row > svg.i:first-child { margin-top: -1px; }
+/* Centers the 18 px glyph on the label + value pair (~36 px), level with the actions, like the TOTP row. */
+.row.field-row:not(.totp-row) > svg.i:first-child { margin-top: 9px; }
+.row.field-row:not(.totp-row) > .field-actions { margin-top: 2px; }
 /* Trailing value actions stay a tight pair instead of inheriting the row gap. */
 .field-actions { display: flex; align-items: center; gap: 2px; flex: none; }
 /* Inline-editable text inside a row (folder names, the new-folder field). */

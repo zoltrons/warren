@@ -1207,13 +1207,12 @@ function uriRow(ctx: Ctx, index: number, uri: string, match: number | null, onHt
   if (front) items.push({ label: t("openMainPage"), icon: "home", onClick: () => void chrome.tabs.create({ url: front }) });
   if (https) items.push({ label: t("switchToHttps"), icon: "shield", onClick: () => onHttps!(https) });
   const sub = [insecure ? t("insecureUri") : "", match !== null ? uriMatchLabel(match) : ""].filter(Boolean).join(" · ");
-  const more: HTMLElement = iconButton("more", t("moreActions"), () => menu(more, t("moreActions"), items), { "aria-haspopup": "menu" });
   return h(
     "div",
     { class: "row" },
     icon(insecure ? "error" : "globe"),
     h("div", { class: "body" }, h("span", { class: "title ellipsis" }, uri), sub ? h("span", { class: `sub${insecure ? " warn" : ""}` }, sub) : null),
-    h("span", { class: "field-actions" }, href ? iconButton("external", t("openWebsite"), () => void chrome.tabs.create({ url: href })) : null, copyButton(ctx, `uri.${index}`, uri, t("copyField", uri)), items.length ? more : null),
+    h("span", { class: "field-actions" }, href ? iconButton("external", t("openWebsite"), () => void chrome.tabs.create({ url: href })) : null, copyButton(ctx, `uri.${index}`, uri, t("copyField", uri)), moreButton(ctx, uri, items)),
   );
 }
 
