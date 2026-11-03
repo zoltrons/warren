@@ -1520,6 +1520,16 @@ try {
     assert.deepEqual([c?.login.password, c?.passwordHistory?.[0]?.password], ["bar-pass-2", "bar-pass"]);
   });
 
+  await step("save bar: the saved login typed in other letter case offers nothing", async () => {
+    await loginPage.goto(`${SITE}/login`);
+    await loginPage.fill("#u", "BAR-USER");
+    await loginPage.fill("#p", "bar-pass-2");
+    await loginPage.keyboard.press("Escape");
+    await loginPage.getByRole("button", { name: "Sign in" }).click();
+    await loginPage.waitForTimeout(1500);
+    assert.equal(await loginPage.locator("warren-bar").count(), 0, "a username in other case was offered as a new login");
+  });
+
   await step("save bar: a re-prompt item is never offered an update from inside a page", async () => {
     if (page.isClosed()) await reopenPopup(); // the previous popup fill closed it
     const saved = await page.evaluate((site) => chrome.runtime.sendMessage({ type: "saveItem", item: { type: 1, name: "Guarded login", reprompt: 1, login: { username: "guard-user", password: "guard-pass", uris: [{ uri: site, match: null }] } } }), SITE);

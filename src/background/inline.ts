@@ -112,7 +112,11 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   if (!settings.savePrompt || settings.neverSave.includes(host) || !(await isUnlocked())) return;
   await ensureLoaded();
   const matches = await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch });
-  const same = matches.find((m) => m.sub === username && !m.readOnly);
+  // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com").
+  const sameUser = matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase());
+  const same = sameUser.find((m) => !m.readOnly);
+  // Only read-only copies (e.g. an organization's): the login is saved already, never offer a duplicate.
+  if (!same && sameUser.length) return;
   const expiresAt = Date.now() + SAVE_TTL_MS;
   let pending: PendingSave | undefined;
   if (!same) pending = { kind: "add", url, username, password, token: "", expiresAt };
