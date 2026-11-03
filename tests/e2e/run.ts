@@ -10,7 +10,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { chromium, type Page, type Worker } from "playwright-core";
+import { chromium, type Locator, type Page, type Worker } from "playwright-core";
 import { passwordToken, prelogin, refreshToken, revisionDate } from "../../src/transport/auth.ts";
 import { call } from "../../src/transport/http.ts";
 
@@ -24,6 +24,13 @@ await wasm.default({ module_or_path: readFileSync(join(wasmDir, "core_wasm_bg.wa
 
 type Kdf = [number, number, number, number];
 interface TestUser { email: string; password: string; kdf: Kdf }
+
+/** A click that closes its own window (a passkey decision): the window going away mid-click is success. */
+async function closingClick(w: Page, target: Locator) {
+  await target.click().catch((e: unknown) => {
+    if (!w.isClosed()) throw e;
+  });
+}
 
 const passed: string[] = [];
 let currentPage: Page | undefined;
@@ -478,7 +485,7 @@ try {
     const { options: challenge } = (await call(BASE, "POST", "/api/two-factor/get-webauthn-challenge", { token: tok.access_token, json })) as { options: unknown };
     // The passkey shim offers to save this key in the vault; hand it to the security key instead.
     const handBack = ctx.waitForEvent("page", { predicate: (p) => p.url().includes("popup.html?passkey=") })
-      .then((w) => w.getByRole("button", { name: "Use another device or browser" }).click());
+      .then((w) => closingClick(w, w.getByRole("button", { name: "Use another device or browser" })));
     const deviceResponse = await regPage.evaluate(async (opts: any) => {
       const bytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
       const b64u = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -1680,7 +1687,10 @@ try {
   const approve = async (action: (w: Page) => Promise<void>) => {
     const w = await ctx.waitForEvent("page", { predicate: (p) => p.url().includes("popup.html?passkey=") });
     await w.waitForLoadState();
-    await action(w);
+    // A decision closes the window, sometimes before the click that made it returns.
+    await action(w).catch((e: unknown) => {
+      if (!w.isClosed()) throw e;
+    });
   };
   const challenge = randomBytes(32);
   let spki = "";
