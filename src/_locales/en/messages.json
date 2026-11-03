@@ -672,8 +672,16 @@
       }
     }
   },
-  "passkeyAvailable": {
-    "message": "Passkey available"
+  "passkey": {
+    "message": "Passkey"
+  },
+  "passkeyCreated": {
+    "message": "Created $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   },
   "yes": {
     "message": "Yes"

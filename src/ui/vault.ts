@@ -1264,8 +1264,14 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
   const data = schema ? (obj(item[schema.obj]) ?? {}) : {};
   const rows: Child[] = [];
   const expiry = type === 3 ? expiryRow(ctx, str(data.expMonth), str(data.expYear)) : undefined;
+  // Like the official clients: the passkey sits after the password as "Created <date>"; creationDate is not encrypted.
+  const passkey = type === 1 && Array.isArray(data.fido2Credentials) ? obj(data.fido2Credentials[0]) : undefined;
   for (const f of schema?.fields ?? []) {
     const v = str(data[f.key]);
+    if (passkey && f.key === "totp")
+      rows.push(
+        h("div", { class: "row field-row" }, icon("fingerprint"), h("div", { class: "body" }, h("span", { class: "label" }, t("passkey")), h("span", { class: "value" }, t("passkeyCreated", passkey.creationDate ? when(str(passkey.creationDate)) : "")))),
+      );
     if (!v) continue;
     if (expiry && (f.key === "expMonth" || f.key === "expYear")) {
       if (f.key === "expMonth") rows.push(expiry);
@@ -1290,7 +1296,6 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
   const org = st.list?.organizations?.find((o) => o.id === item.organizationId);
   const collections = (Array.isArray(item.collectionIds) ? (item.collectionIds as string[]) : []).map((c) => st.list?.collections?.find((x) => x.id === c)?.name).filter(Boolean);
   const date = (v: unknown) => (typeof v === "string" && v ? when(v) : "");
-  const passkeys = Array.isArray(login?.fido2Credentials) ? (login!.fido2Credentials as Json[]).length : 0;
   const confirm = st.confirmDelete > 0;
   const password = type === 1 ? str(data.password) : "";
   const reused = summary?.reused ?? 0;
@@ -1347,7 +1352,6 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
         )
       : null,
     login?.passwordRevisionDate ? h("p", { class: "caption" }, t("passwordChanged", date(login.passwordRevisionDate))) : null,
-    passkeys ? h("div", { class: "notice info" }, icon("key"), h("div", {}, t("passkeyAvailable"))) : null,
     ...section(
       t("websites"),
       ...uriEntries.map(({ uri: u, match }, i) => uriRow(ctx, i, u, match, editable ? (to) => fixUri(u, to) : undefined)),

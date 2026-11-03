@@ -108,6 +108,7 @@ const github: Json = {
     password: "gh-secret-1",
     totp: "JBSWY3DPEHPK3PXP",
     passwordRevisionDate: "2026-08-14T09:30:00.000Z",
+    fido2Credentials: [{ creationDate: "2026-09-02T10:15:00.000Z" }],
     uris: [
       { uri: "https://github.com/login", match: null },
       { uri: "https://gist.github.com", match: null },
