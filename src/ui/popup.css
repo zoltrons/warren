@@ -531,6 +531,9 @@ a.row { text-decoration: none; color: var(--text); }
   color: hsl(var(--h) var(--tile-s) var(--tile-ink));
 }
 .tile:has(img) { background: var(--surface-sunken); }
+.tile.card-tile { background: transparent; }
+.card-mark { width: 30px; height: auto; border-radius: 3px; box-shadow: 0 0 0 1px var(--outline-weak); }
+.hero .card-mark { width: 40px; }
 .tile img { width: 20px; height: 20px; }
 .hero .tile { width: 44px; height: 44px; border-radius: var(--r-md); font-size: 18px; }
 .hero .tile img { width: 24px; height: 24px; }

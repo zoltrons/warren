@@ -3,6 +3,7 @@
 import type { FillResult, PageLogin } from "../autofill/types.ts";
 import { URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
 import { cardBrand, groupCardNumber, luhnValid } from "../shared/card.ts";
+import { cardMark } from "./card-mark.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
@@ -201,11 +202,13 @@ function iconUrl(uris: string[]): string | undefined {
   return undefined;
 }
 
-/** A tinted letter tile; logins with a website get the server's favicon instead. */
-export function tile(name: string, type: number, uris: string[] = []): HTMLElement {
+/** A tinted letter tile; logins with a website get the server's favicon, cards their network's mark. */
+export function tile(name: string, type: number, uris: string[] = [], brand = ""): HTMLElement {
   const letter = name.trim().slice(0, 1).toUpperCase();
   const fallback: IconName = type === 2 ? "note" : type === 3 ? "card" : type === 4 ? "user" : type === 5 ? "key" : "key";
   const el = h("span", { class: "tile", style: `--h:${hue(name)}`, "aria-hidden": "true" }, letter || icon(fallback));
+  const mark = type === 3 && brand ? cardMark(brand) : undefined;
+  if (mark) return (el.classList.add("card-tile"), el.replaceChildren(mark), el);
   const src = type === 1 ? iconUrl(uris) : undefined;
   if (src) el.replaceChildren(h("img", { src, alt: "", onerror: () => el.replaceChildren(letter || icon(fallback)) }));
   return el;
@@ -453,7 +456,7 @@ function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
       "aria-label": t("showItem", name),
       onclick: () => open(ctx, { kind: "item", id: i.id }),
     },
-    tile(i.name, i.type, i.uris),
+    tile(i.name, i.type, i.uris, i.brand),
     h(
       "div",
       { class: "body" },
@@ -727,7 +730,7 @@ function suggestionRow(ctx: Ctx, i: VaultItem): HTMLElement {
     h(
       "button",
       { type: "button", class: "row-main", "aria-label": t("showItem", name), onclick: () => open(ctx, { kind: "item", id: i.id }) },
-      tile(i.name, i.type, i.uris),
+      tile(i.name, i.type, i.uris, i.brand),
       h("div", { class: "body" }, h("span", { class: "title" }, name), i.sub ? h("span", { class: "sub" }, i.sub) : null),
     ),
     h("button", { type: "button", class: "btn small neutral", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill")),
@@ -1329,7 +1332,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
     h(
       "div",
       { class: "hero" },
-      tile(str(item.name), type, uris),
+      tile(str(item.name), type, uris, type === 3 ? str(data.brand) || cardBrand(str(data.number)) || "" : ""),
       h("div", { class: "body" }, h("h1", {}, str(item.name) || t("untitled")), h("span", { class: "sub" }, t(TYPE_LABEL[type] ?? "untitled"))),
     ),
     quickActions(ctx, id, uris),

@@ -1,6 +1,7 @@
 // Decrypted vault held in the crypto worker's memory. Dropped when the worker is terminated (lock).
 import * as core from "../../dist/wasm/core_wasm.js";
 import type { Folder, PasskeyCandidate, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import { cardBrand } from "../shared/card.ts";
 import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
 import { ci } from "../shared/validate.ts";
@@ -90,6 +91,7 @@ function summary(c: Json): VaultItem {
     ...(typeof ci(login, "autofillOnPageLoad") === "boolean" ? { autofillOnPageLoad: ci(login, "autofillOnPageLoad") as boolean } : {}),
     revisionDate: time(ci(c, "revisionDate")),
     creationDate: time(ci(c, "creationDate")),
+    ...(type === 3 ? { brand: s(ci(o(ci(c, "card")), "brand")) || cardBrand(s(ci(o(ci(c, "card")), "number"))) } : {}),
     ...(c.failed ? { failed: true } : {}),
   };
 }

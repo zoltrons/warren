@@ -21,6 +21,8 @@ export function cardBrand(n: string): string | undefined {
   if (/^4/.test(d)) return "Visa";
   if (/^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/.test(d)) return "Mastercard";
   if (/^3[47]/.test(d)) return "Amex";
+  if (/^(5018|5020|5038|5893|6304|6759|676[1-3])/.test(d)) return "Maestro";
+  if (/^(60(?!11)|652[12]|8[12]|508)/.test(d)) return "RuPay";
   if (/^(6011|65|64[4-9])/.test(d)) return "Discover";
   if (/^3(0[0-5]|[68])/.test(d)) return "Diners Club";
   if (/^35(2[89]|[3-8])/.test(d)) return "JCB";

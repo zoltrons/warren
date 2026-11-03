@@ -320,6 +320,8 @@ export interface VaultItem {
   /** epoch ms; used by the list's "recently edited / created" sorting. */
   revisionDate?: number;
   creationDate?: number;
+  /** Card only: the network, from the brand field or worked out from the number's leading digits. */
+  brand?: string;
   failed?: boolean;
 }
 

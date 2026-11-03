@@ -16,6 +16,10 @@ test("brand from the prefix", () => {
   assert.equal(cardBrand("378282246310005"), "Amex");
   assert.equal(cardBrand("6011111111111117"), "Discover");
   assert.equal(cardBrand("3530111333300000"), "JCB");
+  assert.equal(cardBrand("6759649826438453"), "Maestro");
+  assert.equal(cardBrand("6521000000000000"), "RuPay");
+  assert.equal(cardBrand("6500000000000002"), "Discover");
+  assert.equal(cardBrand("6200000000000005"), "UnionPay");
   assert.equal(cardBrand("9"), undefined);
 });
 
