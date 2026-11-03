@@ -2,6 +2,20 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.6 — 2026-11-03
+
+### Fixed
+
+- **Passkey sign-in on Google works.** Google's "Verify it's you" sends a challenge of about 14 000 characters;
+  Warren refused anything over 1 024 and the browser's system dialog took over. Challenges up to 64 KiB are now
+  accepted (WebAuthn sets no upper limit), so a passkey saved in the vault, by Warren or by the official
+  clients, signs in.
+
+### Changed
+
+- The identity generator's name lists are rebuilt from Faker 10.6.0, the release that fixes GHSA-qxc2-j82w-r537
+  (Faker is a build-time tool only and was never shipped).
+
 ## 0.0.5 — 2026-11-03
 
 ### Fixed
