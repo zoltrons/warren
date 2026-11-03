@@ -850,6 +850,17 @@ a.row { text-decoration: none; color: var(--text); }
 .slider-row .body .title { white-space: nowrap; }
 .slider-row input[type="range"] { flex: 1 1 auto; min-width: 0; width: auto; }
 .slider-row .value-badge { flex: none; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.stepper .value-badge { min-width: 28px; text-align: center; color: var(--text); }
+.stepper .icon-btn { width: 28px; height: 28px; }
+.row .chips { flex: none; justify-content: flex-end; }
+/* A collapsible block of rows inside a group: the summary is a row with a turning chevron. */
+.row-details > summary { list-style: none; cursor: pointer; }
+.row-details > summary::-webkit-details-marker { display: none; }
+.row-details > summary:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
+.row-details > summary svg.i { color: var(--muted); transition: transform var(--fast) var(--ease); }
+.row-details[open] > summary svg.i { transform: rotate(180deg); }
+.group > .row-details { border-top: 0; }
 .small-input { max-width: 70px; }
 
 /* ---------- toast (card, popover shadow, 8 px radius) ---------- */

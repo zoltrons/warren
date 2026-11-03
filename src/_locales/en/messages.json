@@ -1303,6 +1303,28 @@
   "repromptConfirm": {
     "message": "Confirm"
   },
+  "include": {
+    "message": "Include"
+  },
+  "minimums": {
+    "message": "Minimum counts"
+  },
+  "increase": {
+    "message": "Increase $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "decrease": {
+    "message": "Decrease $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "minDigits": {
     "message": "Minimum digits"
   },

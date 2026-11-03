@@ -79,6 +79,8 @@ const gst = {
   /** Generator history screen, while open. */
   history: undefined as HistoryEntry[] | undefined,
   error: undefined as string | undefined,
+  /** The password options' "Minimum counts" section is expanded. */
+  minimumsOpen: false,
 };
 
 export function resetGenerator(): void {
@@ -234,8 +236,8 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       h("div", { class: "body" }, h("span", { class: "title" }, label)),
       h("span", { class: "switch" }, h("input", { type: "checkbox", checked: g[k] === true, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).checked) }), h("span")),
     );
-  const slider = (k: string, label: string, min: number, max: number, suffix = "") => {
-    const badge = h("span", { class: "value-badge" }, `${String(g[k])}${suffix}`);
+  const slider = (k: string, label: string, min: number, max: number) => {
+    const badge = h("span", { class: "value-badge" }, String(g[k]));
     const input = h("input", { type: "range", min, max, value: String(g[k]), "aria-label": label });
     // The filled part of the track is a CSS gradient driven by --fill.
     const paint = (v: number) => {
@@ -245,18 +247,30 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     paint(Number(g[k]));
     input.addEventListener("input", () => {
       const v = Number(input.value);
-      badge.textContent = `${v}${suffix}`;
+      badge.textContent = String(v);
       paint(v);
     });
     input.addEventListener("change", () => set(k, Number(input.value)));
+    return h("div", { class: "row slider-row" }, h("div", { class: "body" }, h("span", { class: "title" }, label)), input, stepper(k, label, min, max, badge));
+  };
+  // −/+ for exact values: a 5–128 slider is too coarse to hit one number.
+  const stepper = (k: string, label: string, min: number, max: number, badge = h("span", { class: "value-badge" }, String(g[k]))) => {
+    const v = Number(g[k]);
     return h(
-      "div",
-      { class: "row slider-row" },
-      h("div", { class: "body" }, h("span", { class: "title" }, label)),
-      input,
+      "span",
+      { class: "stepper", role: "group", "aria-label": label },
+      iconButton("remove", t("decrease", label), () => set(k, Math.max(min, v - 1)), { disabled: v <= min }),
       badge,
+      iconButton("plus", t("increase", label), () => set(k, Math.min(max, v + 1)), { disabled: v >= max }),
     );
   };
+  const stepRow = (k: string, label: string, min: number, max: number) =>
+    h("div", { class: "row" }, h("div", { class: "body" }, h("span", { class: "title" }, label)), stepper(k, label, min, max));
+  // Character sets as one row of chips; the last one switched on cannot be switched off.
+  const SETS = [["uppercase", "A–Z"], ["lowercase", "a–z"], ["numbers", "0–9"], ["special", "!@#$%"]] as const;
+  const onSets = SETS.filter(([k]) => g[k] === true).length;
+  const setChip = ([k, label]: (typeof SETS)[number]) =>
+    h("button", { type: "button", class: "chip mono", "aria-pressed": String(g[k] === true), disabled: g[k] === true && onSets === 1, onclick: () => set(k, g[k] !== true) }, label);
   g.email ||= ctx.email() ?? "";
   const chip = (type: string, label: string, key = "type") => h("button", { type: "button", class: "chip", "aria-pressed": String(g[key] === type), onclick: () => set(key, type) }, label);
   const text = (k: string, label: string, props: Record<string, unknown> = {}) =>
@@ -283,15 +297,17 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       "div",
       { class: "group" },
       slider("length", t("length"), 5, 128),
-      toggle("uppercase", "A–Z"),
-      g.uppercase === true ? slider("minUppercase", t("minUppercase"), 0, 9) : null,
-      toggle("lowercase", "a–z"),
-      g.lowercase === true ? slider("minLowercase", t("minLowercase"), 0, 9) : null,
-      toggle("numbers", "0–9"),
-      toggle("special", "!@#$%^&*"),
+      h("div", { class: "row" }, h("div", { class: "body" }, h("span", { class: "title" }, t("include"))), h("div", { class: "chips", role: "group", "aria-label": t("include") }, ...SETS.map(setChip))),
       toggle("avoidAmbiguous", t("avoidAmbiguous")),
-      g.numbers === true ? slider("minNumber", t("minDigits"), 0, 9) : null,
-      g.special === true ? slider("minSpecial", t("minSymbols"), 0, 9) : null,
+      h(
+        "details",
+        { class: "row-details", open: gst.minimumsOpen, ontoggle: (e: Event) => (gst.minimumsOpen = (e.target as HTMLDetailsElement).open) },
+        h("summary", { class: "row" }, h("div", { class: "body" }, h("span", { class: "title" }, t("minimums"))), icon("chevronDown")),
+        g.uppercase === true ? stepRow("minUppercase", t("minUppercase"), 0, 9) : null,
+        g.lowercase === true ? stepRow("minLowercase", t("minLowercase"), 0, 9) : null,
+        g.numbers === true ? stepRow("minNumber", t("minDigits"), 0, 9) : null,
+        g.special === true ? stepRow("minSpecial", t("minSymbols"), 0, 9) : null,
+      ),
     );
   else if (g.type === "passphrase")
     options = h(
