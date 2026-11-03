@@ -51,3 +51,12 @@ test("the removed 10 and 20 second clipboard delays become 30 seconds", async ()
   local.settings = { clearClipboardDelay: "oneMinute" };
   assert.equal((await getSettings()).clearClipboardDelay, "oneMinute");
 });
+
+test("overlapping settings writes keep every change", async () => {
+  const { updateSettings } = await import("./store.ts");
+  local.settings = {};
+  await Promise.all([updateSettings(() => ({ favicons: false })), updateSettings(() => ({ autosubmit: true }))]);
+  const saved = local.settings as Record<string, unknown>;
+  assert.equal(saved.favicons, false);
+  assert.equal(saved.autosubmit, true);
+});

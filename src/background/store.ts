@@ -192,6 +192,19 @@ export async function getSettings(): Promise<Settings> {
   };
 }
 
+/** Settings writes run one at a time: two quick toggles must not both start from the same old settings. */
+let settingsWrites: Promise<unknown> = Promise.resolve();
+
+export function updateSettings(change: (s: Settings) => Partial<Settings>): Promise<void> {
+  const write = async () => {
+    const current = await getSettings();
+    await setLocal("settings", { ...current, ...change(current) });
+  };
+  const result = settingsWrites.then(write, write);
+  settingsWrites = result.catch(() => undefined);
+  return result;
+}
+
 export async function getDeviceId(): Promise<string> {
   let id = await getLocal("deviceId");
   if (!id) {
@@ -221,5 +234,5 @@ export async function setDefaultManager(enabled: boolean): Promise<void> {
     for (const p of prefs) if ((await p.get({})).levelOfControl.endsWith("by_this_extension")) await (enabled ? p.set({ value: false }) : p.clear({}));
   }
   if (!enabled) await chrome.permissions.remove({ permissions: ["privacy"] }).catch(() => undefined);
-  await setLocal("settings", { ...(await getSettings()), defaultManager: enabled });
+  await updateSettings(() => ({ defaultManager: enabled }));
 }

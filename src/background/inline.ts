@@ -9,7 +9,7 @@ import { touchAutoLock } from "./lock.ts";
 import { pageLoadFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional } from "./passkey.ts";
-import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
+import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession, updateSettings } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save } from "./vault.ts";
 
@@ -177,8 +177,8 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     if (!p.token || req.token !== p.token) throw new Error("this save prompt is no longer active");
     if (req.type === "barInfo") return { kind: p.kind, host: new URL(p.url).host, username: p.username } satisfies BarInfo;
     if (req.action === "never") {
-      const s = await getSettings();
-      await setLocal("settings", { ...s, neverSave: [...s.neverSave, new URL(p.url).host] });
+      const host = new URL(p.url).host;
+      await updateSettings((s) => ({ neverSave: [...s.neverSave.filter((h) => h !== host), host] }));
     } else if (req.action === "save") {
       if (p.kind === "update" && p.itemId) {
         const item = await coreCall<Record<string, any>>({ op: "getCipher", id: p.itemId });

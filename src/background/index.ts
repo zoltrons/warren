@@ -35,6 +35,7 @@ import {
   setDefaultManager,
   setLocal,
   updateSession,
+  updateSettings,
 } from "./store.ts";
 import { handleFrame, handlePage, showBar } from "./inline.ts";
 import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, passkeyPrompt } from "./passkey.ts";
@@ -236,9 +237,7 @@ async function handle(req: Request): Promise<unknown> {
     case "passkeyDecision":
       return passkeyDecision(req.id, req.action, req.itemId, req.credentialId);
     case "setSettings": {
-      const current = await getSettings();
-      await setLocal("settings", {
-        ...current,
+      await updateSettings((current) => ({
         autoLockMinutes: req.autoLockMinutes ?? current.autoLockMinutes,
         timeoutAction: req.timeoutAction ?? current.timeoutAction,
         lockOnSystemLock: req.lockOnSystemLock ?? current.lockOnSystemLock,
@@ -257,7 +256,7 @@ async function handle(req: Request): Promise<unknown> {
         showCardsOnTab: req.showCardsOnTab ?? current.showCardsOnTab,
         showIdentitiesOnTab: req.showIdentitiesOnTab ?? current.showIdentitiesOnTab,
         neverSave: req.clearNeverSave ? [] : req.removeNeverSave ? current.neverSave.filter((h) => h !== req.removeNeverSave) : current.neverSave,
-      });
+      }));
       break;
     }
     case "setDefaultManager":
