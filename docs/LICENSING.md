@@ -11,6 +11,7 @@ into `dist/ext`, so every `.zip` and `.crx` carries them.
 | bitwarden/sdk-internal `test-vectors/` | same | Downloaded at test time by `tools/fetch-test-vectors.sh` into `target/` (gitignored). Not committed. |
 | bitwarden/clients | GPL-3.0-only | Read as reference only. No source copied. |
 | publicsuffix/list | MPL-2.0 | Data file fetched at build time (`tools/fetch-psl.mjs`, pinned in `upstream.lock`) and shipped as `psl.json`. MPL-2.0 is GPL-compatible; ship its notice with releases. |
+| faker-js/faker | MIT | Dev dependency only. `tools/identity-data.mjs` picks name and city lists from its locale data into `src/ui/identity-data.json` (committed, shipped); the MIT notice is in `NOTICE`. No faker code ships. |
 | dani-garcia/vaultwarden | AGPL-3.0-only | Protocol reference and a test server in Docker. No code linked or copied. |
 | google/material-design-icons (`round` theme, the "Material Rounded" glyphs) | Apache-2.0 | SVG path data vendored in `src/ui/icons.ts` (43 glyphs, unmodified paths). Apache-2.0 is one-way compatible with GPL-3.0: the combined work ships under GPL-3.0 and the Apache notice is kept with the release. |
 

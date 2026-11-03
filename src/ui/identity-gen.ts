@@ -1,22 +1,18 @@
-// Fake identities for sign-ups that ask for a name and a birthday they have no business knowing.
-// Random picks (crypto.getRandomValues, unbiased) from short built-in lists; nothing here is a secret.
+// Fake identities for sign-ups that ask for a name and a birthday they have no business knowing. Names and
+// cities come from one country (identity-data.json, built by tools/identity-data.mjs from faker's locale
+// data), so they fit together. Picks use crypto.getRandomValues, unbiased; nothing here is a secret.
 
-const FIRST = [
-  "Ada", "Alex", "Amelia", "Arda", "Aylin", "Baran", "Bora", "Can", "Clara", "Daniel", "Defne", "Deniz", "Derin", "Ece",
-  "Efe", "Elif", "Emma", "Emre", "Eren", "Eva", "Felix", "Hannah", "Henry", "Ilgaz", "Ipek", "Jonas", "Julia", "Kaan",
-  "Kerem", "Lara", "Leo", "Lina", "Lucas", "Maya", "Mert", "Mia", "Nehir", "Nora", "Oliver", "Oscar", "Ozan", "Selin",
-  "Sofia", "Tuna", "Yaren", "Zeynep",
-] as const;
-const LAST = [
-  "Acar", "Akın", "Aksoy", "Arslan", "Aydın", "Baker", "Bauer", "Berg", "Çelik", "Coleman", "Demir", "Doğan", "Ellis",
-  "Erdem", "Fischer", "Foster", "Güneş", "Hansen", "Hayes", "Kaya", "Keller", "Koç", "Kurt", "Lambert", "Moreau",
-  "Novak", "Öztürk", "Parker", "Reed", "Şahin", "Silva", "Taylor", "Tekin", "Vogel", "Walsh", "Yıldız", "Yılmaz",
-] as const;
-const PLACES = [
-  ["Istanbul", "Türkiye"], ["Ankara", "Türkiye"], ["Izmir", "Türkiye"], ["Eskişehir", "Türkiye"], ["Berlin", "Germany"],
-  ["Hamburg", "Germany"], ["Amsterdam", "Netherlands"], ["Lisbon", "Portugal"], ["Dublin", "Ireland"],
-  ["Toronto", "Canada"], ["Melbourne", "Australia"], ["Austin", "United States"],
-] as const;
+export interface CountryData {
+  country: string;
+  female: string[];
+  male: string[];
+  last: string[];
+  /** Feminine family names where they differ (Polish), in the same order as `last`. */
+  lastFemale?: string[];
+  cities: string[];
+}
+/** By ISO country code. */
+export type IdentityData = Record<string, CountryData>;
 
 export interface FakeIdentity {
   firstName: string;
@@ -40,8 +36,15 @@ function rand(n: number): number {
 
 const pick = <T>(list: readonly T[]): T => list[rand(list.length)]!;
 
-/** Lower-case ASCII for a username: "Çelik" → "celik", "Yıldız" → "yildiz". */
-const ascii = (s: string) => s.replace(/ı/g, "i").replace(/İ/g, "I").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+/** Lower-case ASCII letters for a username: "Çelik" → "celik", "Łukasz" → "lukasz", "Groß" → "gross". */
+const ascii = (s: string) =>
+  s
+    .replace(/[ıİ]/g, "i")
+    .replace(/[łŁ]/g, "l")
+    .replace(/ß/g, "ss")
+    .normalize("NFD")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
 
 /** Whole years from `birth` to `today` (UTC dates). */
 export function ageOn(birth: Date, today: Date): number {
@@ -49,26 +52,32 @@ export function ageOn(birth: Date, today: Date): number {
   return today.getUTCFullYear() - birth.getUTCFullYear() - (before ? 1 : 0);
 }
 
-/** Someone between `minAge` and `maxAge` years old today (either order). */
-export function fakeIdentity(minAge: number, maxAge: number, today = new Date()): FakeIdentity {
-  const lo = Math.min(minAge, maxAge);
-  const age = lo + rand(Math.abs(maxAge - minAge) + 1);
+/** A birth date that makes someone between `minAge` and `maxAge` (either order) today. */
+function birthDate(minAge: number, maxAge: number, today: Date): Date {
+  const age = Math.min(minAge, maxAge) + rand(Math.abs(maxAge - minAge) + 1);
   // The latest birthday that makes them `age` today; on Feb 29 a non-leap year has the 28th.
   const y = today.getUTCFullYear() - age;
   let latest = new Date(Date.UTC(y, today.getUTCMonth(), today.getUTCDate()));
   if (latest.getUTCMonth() !== today.getUTCMonth()) latest = new Date(Date.UTC(y, today.getUTCMonth() + 1, 0));
   // Up to 364 days earlier: still the same age (a year back would be one more).
-  const birth = new Date(latest.getTime() - rand(365) * 86_400_000);
-  const firstName = pick(FIRST);
-  const lastName = pick(LAST);
-  const [city, country] = pick(PLACES);
+  return new Date(latest.getTime() - rand(365) * 86_400_000);
+}
+
+/** A person of `code`'s country, or of a random one when `code` is not in `data`. */
+export function fakeIdentity(data: IdentityData, code: string, minAge: number, maxAge: number, today = new Date()): FakeIdentity {
+  const c = data[code] ?? data[pick(Object.keys(data))]!;
+  const female = rand(2) === 0;
+  const i = rand(c.last.length);
+  const firstName = pick(female ? c.female : c.male);
+  const lastName = (female && c.lastFemale?.[i]) || c.last[i]!;
+  const birth = birthDate(minAge, maxAge, today);
   return {
     firstName,
     lastName,
     birthDate: birth.toISOString().slice(0, 10),
     age: ageOn(birth, today),
     username: `${ascii(firstName)}.${ascii(lastName)}${String(rand(100)).padStart(2, "0")}`,
-    city,
-    country,
+    city: pick(c.cities),
+    country: c.country,
   };
 }

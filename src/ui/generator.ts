@@ -12,7 +12,7 @@ import {
 import type { HistoryEntry } from "../shared/messages.ts";
 import { type Child, h, send, t, when, withChevron } from "./dom.ts";
 import { icon } from "./icons.ts";
-import { type FakeIdentity, fakeIdentity } from "./identity-gen.ts";
+import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
 import { actionRow, colorize, copy, copyButton, type Ctx, iconButton, sectionTitle, startEdit, strength, strengthBar, topBar } from "./vault.ts";
 
 type Json = Record<string, unknown>;
@@ -21,8 +21,19 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 const GEN_DEFAULTS: Json = {
   type: "password", length: 20, lowercase: true, uppercase: true, numbers: true, special: true, avoidAmbiguous: false, minLowercase: 1, minUppercase: 1, minNumber: 2, minSpecial: 2,
   numWords: 5, wordSeparator: "-", capitalize: true, includeNumber: true, pinLength: 4,
-  usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin", identityMinAge: 18, identityMaxAge: 65,
+  usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin", identityMinAge: 18, identityMaxAge: 65, identityCountry: "",
 };
+
+/** Names and cities per country, fetched the first time the identity generator opens (about 50 KB). */
+let identityData: Promise<IdentityData> | undefined;
+const loadIdentityData = () =>
+  (identityData ??= fetch("identity-data.json").then((r) => {
+    if (!r.ok) throw new Error(`identity-data.json: ${r.status}`);
+    return r.json() as Promise<IdentityData>;
+  }).catch((e: unknown) => {
+    identityData = undefined; // a later visit tries again
+    throw e;
+  }));
 /** Digits and symbols scale with the length, about one in ten and never below one (20 → 2, 40 → 4). */
 const scaledMin = (length: number) => Math.max(1, Math.round(length / 10));
 const SEPARATORS = [["-", "sepHyphen"], [" ", "sepSpace"], [".", "sepPeriod"], [",", "sepComma"], ["_", "sepUnderscore"], ["", "sepNone"]] as const;
@@ -117,6 +128,8 @@ const gst = {
   generated: "",
   /** The fake identity on screen (type "identity"); `generated` holds its full name. */
   identity: undefined as FakeIdentity | undefined,
+  /** [code, name] of the countries the identity generator knows, once its data is loaded. */
+  identityCountries: [] as [string, string][],
   /** Forwarded email alias settings for the service selected in the generator (kept by the worker). */
   alias: undefined as AliasSettings | undefined,
   /** Which service's settings are being read right now (a switch mid-flight must not land). */
@@ -178,8 +191,15 @@ async function regenerate(ctx: Ctx) {
   }
   if (gst.gen.type === "identity") {
     // Made here: a made-up person is no secret, and the worker has nothing to add.
-    gst.identity = fakeIdentity(Number(gst.gen.identityMinAge) || 18, Number(gst.gen.identityMaxAge) || 65);
-    Object.assign(gst, { generated: `${gst.identity.firstName} ${gst.identity.lastName}`, suggestions: [], error: undefined });
+    try {
+      const data = await loadIdentityData();
+      if (gst.gen.type !== "identity") return;
+      gst.identity = fakeIdentity(data, str(gst.gen.identityCountry), Number(gst.gen.identityMinAge) || 18, Number(gst.gen.identityMaxAge) || 65);
+      Object.assign(gst, { generated: `${gst.identity.firstName} ${gst.identity.lastName}`, suggestions: [], error: undefined });
+      gst.identityCountries = Object.entries(data).map(([code, c]) => [code, c.country] as [string, string]);
+    } catch (e) {
+      gst.error = e instanceof Error ? e.message : String(e);
+    }
     ctx.rerender();
     return;
   }
@@ -443,9 +463,22 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     const p = gst.identity;
     const line = (key: string, title: string, value: string, sub?: string) =>
       h("div", { class: "row" }, h("div", { class: "body" }, h("span", { class: "label" }, title), h("span", { class: "value" }, value), sub ? h("span", { class: "sub" }, sub) : null), copyButton(ctx, `id.${key}`, value, t("copyField", title)));
+    const country = h(
+      "div",
+      { class: "row" },
+      h("div", { class: "body" }, h("span", { class: "title" }, t("field_country"))),
+      withChevron(
+        h(
+          "select",
+          { "aria-label": t("field_country"), onchange: (e: Event) => set("identityCountry", (e.target as HTMLSelectElement).value) },
+          h("option", { value: "", selected: !g.identityCountry }, t("anyCountry")),
+          ...gst.identityCountries.map(([code, name]) => h("option", { value: code, selected: g.identityCountry === code }, name)),
+        ),
+      ),
+    );
     options = h(
       "div",
-      {},
+      { class: "stack" },
       p
         ? h(
             "div",
@@ -458,7 +491,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
             line("country", t("field_country"), p.country),
           )
         : null,
-      h("div", { class: "group" }, stepRow("identityMinAge", t("minAge"), 13, Number(g.identityMaxAge)), stepRow("identityMaxAge", t("maxAge"), Number(g.identityMinAge), 99)),
+      h("div", { class: "group" }, country, stepRow("identityMinAge", t("minAge"), 13, Number(g.identityMaxAge)), stepRow("identityMaxAge", t("maxAge"), Number(g.identityMinAge), 99)),
     );
   }
   else if (g.type === "alias") {
@@ -571,7 +604,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         { class: "generated-row" },
         h(
           "output",
-          { class: "mono", "aria-live": "polite", "aria-label": t("generatedValue") },
+          { class: g.type === "identity" ? "plain" : "mono", "aria-live": "polite", "aria-label": t("generatedValue") },
           ...(gst.generated ? colorize(gst.generated) : ["…"]),
         ),
         h(

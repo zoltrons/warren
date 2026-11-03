@@ -771,9 +771,17 @@ a.row { text-decoration: none; color: var(--text); }
 
 /* one-time code: a small determinate ring next to the value */
 .totp { font-size: 16px; letter-spacing: 0.06em; }
-.totp-next { font-size: 12px; color: var(--muted); transition: color var(--fast) var(--ease); }
-.totp-next .mono { letter-spacing: 0.06em; }
-.totp-row.soon .totp-next { color: var(--link); font-weight: 500; }
+/* The next code: a quiet pill under the current one, tinted in its last seconds. */
+.totp-next {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  margin-top: 4px; padding: 2px 8px; border-radius: 999px;
+  background: var(--surface-sunken); color: var(--muted);
+  font-size: 11px; line-height: 16px;
+  transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+.totp-next .mono { font-size: 12px; letter-spacing: 0.06em; color: var(--text); }
+.totp-row.soon .totp-next { background: var(--primary-weak); color: var(--link); }
+.totp-row.soon .totp-next .mono { color: var(--link); font-weight: 500; }
 .totp-ring { position: relative; width: 28px; height: 28px; flex: none; display: grid; place-items: center; }
 .totp-ring svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ring-track { fill: none; stroke: var(--outline-weak); stroke-width: 1.75; }
@@ -781,6 +789,8 @@ a.row { text-decoration: none; color: var(--text); }
 .totp-seconds {
   position: relative; font-size: 11px; font-weight: 500; color: var(--muted);
   font-variant-numeric: tabular-nums;
+  /* Centre the digits themselves, not a line box whose descender space differs per font. */
+  line-height: 1; text-box: trim-both cap alphabetic;
 }
 
 /* strength meter: thin bar, red → orange → green */
@@ -865,6 +875,9 @@ a.row { text-decoration: none; color: var(--text); }
 }
 .generated-row { display: flex; align-items: center; gap: 8px; }
 .generated output { flex: 1; min-width: 0; font-size: 16px; word-break: break-all; letter-spacing: 0.04em; }
+/* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
+.generated output.plain { font-size: 17px; font-weight: 600; letter-spacing: 0; word-break: normal; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
 .generated .trailing { display: flex; }
 .generated-foot { display: flex; align-items: center; gap: 8px; }
 .generated-foot:empty { display: none; }

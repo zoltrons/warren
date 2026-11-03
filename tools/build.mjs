@@ -38,6 +38,7 @@ function copyStatic() {
   cpSync(join(wasmDir, "autofill_core_bg.wasm"), join(out, "autofill_core_bg.wasm"));
   if (!existsSync(join(root, "dist/psl.json"))) throw new Error("dist/psl.json missing: run `node tools/fetch-psl.mjs`");
   cpSync(join(root, "dist/psl.json"), join(out, "psl.json"));
+  cpSync(join(root, "src/ui/identity-data.json"), join(out, "identity-data.json"));
   cpSync(join(root, "src/_locales"), join(out, "_locales"), { recursive: true });
   cpSync(join(root, "src/icons"), join(out, "icons"), { recursive: true });
   // GPL-3.0 and the Apache-2.0 / MPL-2.0 notices travel with every build.
