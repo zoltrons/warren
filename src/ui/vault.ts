@@ -4,6 +4,7 @@ import type { FillResult, PageLogin } from "../autofill/types.ts";
 import { URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
 import { cardBrand, groupCardNumber, luhnValid } from "../shared/card.ts";
 import { cardMark } from "./card-mark.ts";
+import { cachedFavicon, type Favicon, loadFavicon } from "./favicon.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
@@ -210,7 +211,15 @@ export function tile(name: string, type: number, uris: string[] = [], brand = ""
   const mark = type === 3 && brand ? cardMark(brand) : undefined;
   if (mark) return (el.classList.add("card-tile"), el.replaceChildren(mark), el);
   const src = type === 1 ? iconUrl(uris) : undefined;
-  if (src) el.replaceChildren(h("img", { src, alt: "", onerror: () => el.replaceChildren(letter || icon(fallback)) }));
+  if (!src) return el;
+  const show = (f: Favicon | null) => {
+    if (!f) return;
+    el.replaceChildren(h("img", { src: f.url, alt: "", onerror: () => (el.classList.remove(f.tone || "_"), el.replaceChildren(letter || icon(fallback))) }));
+    if (f.tone) el.classList.add(f.tone);
+  };
+  const known = cachedFavicon(src);
+  if (known !== undefined) show(known);
+  else void loadFavicon(src).then(show);
   return el;
 }
 

@@ -78,6 +78,9 @@
   --switch-off: rgba(42 10 26 / 0.3);
   --switch-on: #2a0a1a;
   --switch-thumb: hsl(0 0% 100%);
+  /* favicon plates: a near-black logo or a near-white one gets a backdrop it can be seen on */
+  --plate-dark-icon: var(--surface-sunken);
+  --plate-light-icon: #5c3a4a;
   --favorite: hsl(44 100% 34%);
 
   /* motion: 120/175 ms, cubic-bezier(.4,0,.2,1) */
@@ -126,6 +129,8 @@
     --tile-s: 22%;
     --tile-l: 24%;
     --tile-ink: 78%;
+    --plate-dark-icon: #f3e9ec;
+    --plate-light-icon: var(--surface-sunken);
   --favorite: #ffc83d;
 }
 
@@ -169,6 +174,8 @@
     --tile-s: 22%;
     --tile-l: 24%;
     --tile-ink: 78%;
+    --plate-dark-icon: #f3e9ec;
+    --plate-light-icon: var(--surface-sunken);
     --favorite: #ffc83d;
   }
 }
@@ -531,6 +538,8 @@ a.row { text-decoration: none; color: var(--text); }
   color: hsl(var(--h) var(--tile-s) var(--tile-ink));
 }
 .tile:has(img) { background: var(--surface-sunken); }
+.tile.tone-dark { background: var(--plate-dark-icon); }
+.tile.tone-light { background: var(--plate-light-icon); }
 .tile.card-tile { background: transparent; }
 .card-mark { width: 30px; height: auto; border-radius: 3px; box-shadow: 0 0 0 1px var(--outline-weak); }
 .hero .card-mark { width: 40px; }

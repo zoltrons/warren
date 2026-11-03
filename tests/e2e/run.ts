@@ -646,7 +646,11 @@ try {
 
   await step("website icons come from the server's icon service and can be turned off", async () => {
     const icon = () => rows().filter({ hasText: "GitHub" }).locator(".tile img");
-    assert.equal(await icon().getAttribute("src"), `${BASE}/icons/github.com/icon.png`);
+    // Fetched once from the server's icon service (to check its tone), then shown from a blob URL.
+    await icon().waitFor();
+    assert.match((await icon().getAttribute("src")) ?? "", /^blob:/);
+    const url = `${BASE}/icons/github.com/icon.png`;
+    assert.ok(await page.evaluate((u) => performance.getEntriesByType("resource").some((e) => e.name === u), url), "icon not fetched from the server");
     assert.equal(await rows().filter({ hasText: "Wifi note" }).locator(".tile img").count(), 0);
     await page.getByRole("button", { name: "Settings" }).click();
     await page.getByLabel("Show website icons").uncheck();
