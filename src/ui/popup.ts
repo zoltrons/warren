@@ -458,6 +458,7 @@ function navButton(tab: Ui["tab"], label: string, ic: IconName) {
       "aria-current": ui.tab === tab ? "page" : undefined,
       onclick: () => {
         ui.tab = tab;
+        ui.pinSetup = false;
         // The "On this site" matches depend on settings edited in another tab; refresh on return.
         if (tab === "vault") void refreshPageMatches().then(render, render);
         else render();
@@ -670,14 +671,12 @@ function settingsTab(s: State): HTMLElement {
       row(
         t("unlockWithPin"),
         t("unlockWithPinHint"),
-        toggle(t("unlockWithPin"), !!s.pinSet || !!ui.pinSetup, (b) => (b.checked ? ((ui.pinSetup = true), render()) : void act({ type: "setPin" }))),
+        // Switching off before a PIN was saved only closes the setup form; there is nothing to remove yet.
+        toggle(t("unlockWithPin"), !!s.pinSet || !!ui.pinSetup, (b) =>
+          b.checked ? ((ui.pinSetup = true), render()) : s.pinSet ? void act({ type: "setPin" }) : ((ui.pinSetup = false), (draft.pin = ""), render()),
+        ),
       ),
-      row(
-        t("biometricUnlock"),
-        t("biometricUnlockHint"),
-        toggle(t("biometricUnlock"), !!s.biometric, (b) => void (b.checked ? setupBiometric() : disableBiometric())),
-      ),
-      ui.pinSetup && !s.pinSet ? row(t("pinLockOnRestart"), undefined, toggle(t("pinLockOnRestart"), pinLock, (b) => (pinLock = b.checked))) : null,
+      ui.pinSetup && !s.pinSet ? row(t("pinLockOnRestart"), t("pinLockOnRestartHint"), toggle(t("pinLockOnRestart"), pinLock, (b) => (pinLock = b.checked))) : null,
       ui.pinSetup && !s.pinSet
         ? h(
             "form",
@@ -691,10 +690,15 @@ function settingsTab(s: State): HTMLElement {
                 render();
               },
             },
-            h("input", { type: "password", autocomplete: "off", required: true, "aria-label": t("pin"), placeholder: t("pin"), value: draft.pin, oninput: (e: Event) => (draft.pin = (e.target as HTMLInputElement).value) }),
-            h("button", { type: "submit", class: "btn tonal small" }, t("setPin")),
+            h("input", { type: "password", autocomplete: "off", required: true, "data-autofocus": "1", "aria-label": t("pin"), placeholder: t("pin"), value: draft.pin, oninput: (e: Event) => (draft.pin = (e.target as HTMLInputElement).value) }),
+            h("button", { type: "submit", class: "btn tonal small", disabled: ui.busy }, t("setPin")),
           )
         : null,
+      row(
+        t("biometricUnlock"),
+        t("biometricUnlockHint"),
+        toggle(t("biometricUnlock"), !!s.biometric, (b) => void (b.checked ? setupBiometric() : disableBiometric())),
+      ),
     ),
     h("h2", { class: "section-title" }, t("vault")),
     h(
