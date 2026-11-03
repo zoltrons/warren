@@ -23,6 +23,7 @@ const GEN_DEFAULTS: Json = {
   usernameType: "word", email: "", domain: "", aliasVendor: "simplelogin",
 };
 const GEN_KEY = "genOptions";
+const SEPARATORS = [["-", "sepHyphen"], [" ", "sepSpace"], [".", "sepPeriod"], [",", "sepComma"], ["_", "sepUnderscore"], ["", "sepNone"]] as const;
 const WORDLIST_KEY = "genWordlist";
 
 /** The generator's last options (a device preference, like the sort order). */
@@ -79,12 +80,14 @@ const gst = {
   /** Generator history screen, while open. */
   history: undefined as HistoryEntry[] | undefined,
   error: undefined as string | undefined,
+  /** "Custom" was picked in the passphrase separator list (kept even while the typed value matches a preset). */
+  customSeparator: false,
   /** The password options' "Minimum counts" section is expanded. */
   minimumsOpen: false,
 };
 
 export function resetGenerator(): void {
-  Object.assign(gst, { gen: savedGen(), generated: "", suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined });
+  Object.assign(gst, { gen: savedGen(), generated: "", suggestions: [], history: undefined, alias: undefined, aliasLoadingFor: undefined, aliasBusy: false, error: undefined, customSeparator: false });
 }
 
 /** The edit form's generator: which field it fills, and how the value gets back to the form. */
@@ -281,6 +284,30 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       h("input", { ...props, value: str(g[k]), "aria-label": label, spellcheck: false, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).value) }),
     );
   const custom = g.type === "passphrase" && savedWordlist().length >= 100;
+  // Common separators to pick from; typing one is the last resort.
+  const sepCustom = gst.customSeparator || !SEPARATORS.some(([v]) => v === g.wordSeparator);
+  const separatorRow = () =>
+    h(
+      "div",
+      { class: "row" },
+      h("div", { class: "body" }, h("span", { class: "title" }, t("separator"))),
+      withChevron(
+        h(
+          "select",
+          {
+            "aria-label": t("separator"),
+            onchange: (e: Event) => {
+              const v = (e.target as HTMLSelectElement).value;
+              gst.customSeparator = v === "custom";
+              if (v === "custom") ctx.rerender();
+              else set("wordSeparator", v);
+            },
+          },
+          ...SEPARATORS.map(([v, key]) => h("option", { value: v, selected: !sepCustom && v === g.wordSeparator }, t(key))),
+          h("option", { value: "custom", selected: sepCustom }, t("separatorCustom")),
+        ),
+      ),
+    );
   // The worker keeps the alias settings, encrypted (a token is a secret; no localStorage).
   const aliasVendor: AliasVendor = (ALIAS_VENDORS as readonly string[]).includes(str(g.aliasVendor)) ? (g.aliasVendor as AliasVendor) : "simplelogin";
   if (g.type === "alias" && gst.alias === undefined && gst.aliasLoadingFor !== aliasVendor) void loadAlias(ctx, aliasVendor);
@@ -314,7 +341,8 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       "div",
       { class: "group" },
       slider("numWords", t("words"), 3, 20),
-      text("wordSeparator", t("separator"), { class: "small-input", maxLength: 3 }),
+      separatorRow(),
+      sepCustom ? text("wordSeparator", t("separatorCustom"), { type: "text", class: "small-input", maxLength: 3, "data-autofocus": "1" }) : null,
       toggle("capitalize", t("capitalize")),
       toggle("includeNumber", t("includeNumber")),
       h(

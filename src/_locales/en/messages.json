@@ -339,6 +339,27 @@
   "separator": {
     "message": "Separator"
   },
+  "separatorCustom": {
+    "message": "Custom"
+  },
+  "sepHyphen": {
+    "message": "Hyphen (-)"
+  },
+  "sepSpace": {
+    "message": "Space"
+  },
+  "sepPeriod": {
+    "message": "Period (.)"
+  },
+  "sepComma": {
+    "message": "Comma (,)"
+  },
+  "sepUnderscore": {
+    "message": "Underscore (_)"
+  },
+  "sepNone": {
+    "message": "None"
+  },
   "capitalize": {
     "message": "Capitalize"
   },
