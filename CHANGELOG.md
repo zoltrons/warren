@@ -2,6 +2,30 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.5 — 2026-11-03
+
+### Fixed
+
+- **Passkey sign-ins no longer drop to the system dialog unasked.** When no passkey in the vault answers a
+  site's request (Google's "Verify it's you", for example), Warren syncs once and, if there is still no match,
+  its window says so, tells whether the vault holds other passkeys for that site, and offers "Use another device
+  or browser". Requests for security keys only still go straight to the browser.
+- **One-time code countdown:** the seconds sit in the middle of the ring, whatever the font.
+
+### Added
+
+- **Replace a login's passkey:** the passkey save window also lists the site's logins that already hold one
+  ("has a passkey"); picking one asks before replacing it.
+- **Identity generator by country:** first and family names and cities now come from one country (Türkiye,
+  United States, Canada, Germany, Austria, Switzerland, France, Italy, Spain, Portugal or Poland), with a country
+  picker. The lists are taken from Faker's locale data and load only when the identity generator opens.
+
+### Changed
+
+- **The next one-time code** is a small pill under the current one, tinted in its last seconds.
+- **Identity generator:** the generated name shows in the regular font; the person and the options are separate
+  groups.
+
 ## 0.0.4 — 2026-11-03
 
 ### Fixed
