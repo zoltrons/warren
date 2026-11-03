@@ -395,6 +395,15 @@ const checkRp = async (rpId: string, origin: string) => {
   fido2.checkRpId(rpId, origin, (d) => p.isPublicSuffix(d));
 };
 
+/** A stored credential's id as base64url, or undefined when it is malformed (it then matches nothing). */
+function credentialId(cred: unknown): string | undefined {
+  try {
+    return fido2.b64u(fido2.credentialIdBytes(s(ci(cred, "credentialId"))));
+  } catch {
+    return undefined;
+  }
+}
+
 /** Stored passkeys for `rpId`; with `ids` (base64url) only those, otherwise only discoverable ones. */
 export async function passkeyCandidates(rpId: string, origin: string, ids: string[]): Promise<PasskeyCandidate[]> {
   if (!ciphers) throw new Error("vault not loaded");
@@ -407,12 +416,8 @@ export async function passkeyCandidates(rpId: string, origin: string, ids: strin
     if (Number(ci(c, "type")) !== 1 || !Array.isArray(creds)) continue;
     for (const cred of creds) {
       if (s(ci(cred, "rpId")) !== rpId) continue;
-      let id: string;
-      try {
-        id = fido2.b64u(fido2.credentialIdBytes(s(ci(cred, "credentialId"))));
-      } catch {
-        continue;
-      }
+      const id = credentialId(cred);
+      if (id === undefined) continue;
       if (allow.length ? !allow.includes(id) : s(ci(cred, "discoverable")) === "false") continue;
       out.push({ itemId: s(ci(c, "id")), name: s(ci(c, "name")), userName: s(ci(cred, "userName")), credentialId: id });
     }
@@ -420,12 +425,11 @@ export async function passkeyCandidates(rpId: string, origin: string, ids: strin
   return out;
 }
 
-export async function passkeyAssert(itemId: string, credentialId: string, rpId: string, origin: string, challenge: string) {
+export async function passkeyAssert(itemId: string, wanted: string, rpId: string, origin: string, challenge: string) {
   await checkRp(rpId, origin);
   const creds = ci(o(ci(get(itemId), "login")), "fido2Credentials");
-  const cred = (Array.isArray(creds) ? creds : []).find(
-    (x) => s(ci(x, "rpId")) === rpId && fido2.b64u(fido2.credentialIdBytes(s(ci(x, "credentialId")))) === credentialId,
-  );
+  // A malformed sibling credential must not break the one the user picked.
+  const cred = (Array.isArray(creds) ? creds : []).find((x) => s(ci(x, "rpId")) === rpId && credentialId(x) === wanted);
   if (!cred) throw new Error("passkey not found");
   return fido2.assert(cred as Json, origin, challenge);
 }
