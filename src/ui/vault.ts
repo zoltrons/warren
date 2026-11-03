@@ -1739,7 +1739,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
       st.picking = field;
       ctx.rerender();
     };
-    const generateUsername = d.type === 1 && f.key === "username" ? h("span", { class: "trailing" }, iconButton("dice", t("generateUsername"), () => openGenerator("username"))) : undefined;
+    const generateUsername = d.type === 1 && f.key === "username" ? h("span", { class: "trailing" }, iconButton("generator", t("generateUsername"), () => openGenerator("username"))) : undefined;
     if (!f.secret) return wrap(field(id, label(f.key), text(get, set, { autocomplete: "off", spellcheck: false, area: f.area }), generateUsername));
     const reveal = st.reveal.has(id);
     const control = text(get, set, { type: reveal ? "text" : "password", autocomplete: "new-password", spellcheck: false, class: "mono", onchange, inputMode: cardNumber ? "numeric" : undefined });
@@ -1756,7 +1756,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
           ctx.rerender();
         }),
         d.type === 1 && f.key === "password"
-          ? iconButton("dice", t("generatePassword"), () => openGenerator("password"))
+          ? iconButton("generator", t("generatePassword"), () => openGenerator("password"))
           : null,
         d.type === 1 && f.key === "totp" && barcodeDetector()
           ? h(

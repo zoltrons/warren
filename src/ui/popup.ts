@@ -807,7 +807,7 @@ function unlockedView(s: State): DocumentFragment {
             "nav",
             { class: "nav", "aria-label": t("navigation") },
             navButton("vault", t("vault"), "home"),
-            navButton("generator", t("generator"), "dice"),
+            navButton("generator", t("generator"), "generator"),
             navButton("send", t("send"), "send"),
             navButton("settings", t("settings"), "settings"),
           ),
