@@ -2,6 +2,43 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.4 — 2026-11-03
+
+### Fixed
+
+- **Two-step sign-ins get the inline menu.** A lone email or username box whose form says "Continue", "Next" or
+  "Sign in" (claude.ai, Microsoft and the like) offers your logins instead of identities.
+- **The inline menu no longer vanishes** when two fields are clicked in quick succession.
+- **The save bar no longer asks about a login you already have.** The password step of a two-step sign-in (no
+  username on the page) is compared with the site's logins, and signing in with the right password after a typo
+  drops the save the typo had queued.
+- **Passkeys on Google:** a sign-in page that asks for a passkey as it loads ("Verify it's you") gets Warren's
+  window instead of the system dialog.
+- **The vault list's "On this site" shows right away** instead of after the background sync.
+- **Filter chips scroll sideways with a mouse wheel** and keep their place when one is picked.
+- A field's generator opened before the saved options loaded no longer switches to a password.
+
+### Added
+
+- **Passkeys can join an existing login:** the save window lists the site's logins without a passkey, next to
+  "Save as a new login". A login's passkey is never overwritten.
+- **Quick actions on vault rows:** open the website, copy the username, the password and the one-time code (dimmed
+  when there is none), with Fill on the right. Settings › "Quick actions as menus" gives a copy menu and a "⋮"
+  menu (fill, favorite, website, edit, clone) instead.
+- **Click to copy** in the item view: a field's label or value copies it.
+- **Identity generator:** a made-up name, birth date in an age range, username, city and country; "Create an
+  identity with this" saves it, with the birth date and age as custom fields.
+- **Add a generated username as a custom field** from the item editor's generator, named "Email" or "Username",
+  so it fills the page field of that name.
+- Icons on the locked screen (lock or dial pad) and on "Show as QR code".
+
+### Changed
+
+- **Vault list order:** On this site, Favorites, Recently opened, Cards, Identities, then the rest. A filter keeps
+  the site's matching logins on top.
+- **Generator:** the length can be typed; minimum digits and symbols follow the length (about one in ten).
+- **Dropdowns** open as the app's own menu instead of the browser's plain list.
+
 ## 0.0.3 — 2026-11-03
 
 ### Security and privacy

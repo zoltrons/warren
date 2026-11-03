@@ -200,7 +200,7 @@ function respond(req: Request): Response<unknown> {
 const chromeStub = {
   i18n: { getMessage: (key: string, subs?: string | string[]) => translate(key, typeof subs === "string" ? [subs] : (subs ?? [])) },
   runtime: {
-    getManifest: () => ({ version: "0.0.3", manifest_version: 3, name: "Warren" }),
+    getManifest: () => ({ version: "0.0.4", manifest_version: 3, name: "Warren" }),
     sendMessage: async (req: Request) => {
       if (page.includes("menu") && req.type === "inlineList") return { ok: true, data: menuData };
       if (page.includes("bar") && req.type === "barInfo") return { ok: true, data: { kind: "add", host: "github.com", username: "octo" } };
