@@ -305,7 +305,7 @@ svg.i { width: 18px; height: 18px; flex: none; fill: currentColor; stroke: none;
   position: sticky; top: 0; z-index: 4;
   padding-block: 2px; margin-block: -2px;
 }
-.top h1 { font-size: 16px; font-weight: 600; line-height: 1.3; margin: 0; flex: 1; min-width: 0; }
+.top h1 { font-size: 20px; font-weight: 600; line-height: 1.25; margin: 0; flex: 1; min-width: 0; }
 .top h1.ellipsis { font-size: 16px; }
 .top > svg.i { color: var(--primary); }
 
@@ -336,8 +336,10 @@ svg.i { width: 18px; height: 18px; flex: none; fill: currentColor; stroke: none;
 /* A glyph instead of the app icon (locked, passkey, re-prompt screens): a tinted badge. */
 div.logo { display: grid; place-items: center; border-radius: var(--r-lg); background: var(--tint-strong); color: var(--primary); }
 div.logo > svg.i { width: 28px; height: 28px; }
-.brand h1 { font-size: 18px; font-weight: 600; line-height: 1.2; margin: 0; }
+.brand h1 { font-size: 20px; font-weight: 600; line-height: 1.2; margin: 0; }
 .brand p { margin: 0; color: var(--muted); font-size: 12px; }
+/* Account lines (email, then server) read as one block under the title. */
+.brand p + p { margin-top: -6px; }
 
 /* ---------- fields (8 px radius, 1 px inset border, pink halo on focus) ---------- */
 
@@ -506,6 +508,8 @@ a.row { text-decoration: none; color: var(--text); }
 .row .meta.fav { color: var(--favorite); }
 .row .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .row .title { font-size: 14px; line-height: 1.3; }
+/* Item names in lists carry a little more weight than the details under them. */
+.row-main .title, button.row > .body > .title, [role="listitem"] > .body > .title { font-weight: 500; }
 .row .sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Explanations must be read whole; only names and usernames may be cut. */
 .row .sub.wrap { white-space: normal; }
@@ -760,7 +764,7 @@ a.row { text-decoration: none; color: var(--text); }
 
 .hero { display: flex; align-items: center; gap: 12px; }
 .hero .body { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.hero h1 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.25; word-break: break-word; }
+.hero h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.25; word-break: break-word; }
 .hero .sub { color: var(--muted); font-size: 12px; }
 .quick { display: flex; flex-wrap: wrap; gap: 8px; }
 .quick .btn { border-color: var(--outline); background: var(--surface); color: var(--text); }
