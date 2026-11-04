@@ -918,7 +918,7 @@ function suggestionRow(ctx: Ctx, i: VaultItem): HTMLElement {
       h("div", { class: "body" }, h("span", { class: "title" }, name), i.sub ? h("span", { class: "sub" }, i.sub) : null),
     ),
     ...rowActions(ctx, i, false),
-    h("button", { type: "button", class: "btn small neutral", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill")),
+    h("button", { type: "button", class: "btn small tonal", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill")),
   );
 }
 
