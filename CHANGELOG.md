@@ -2,6 +2,27 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.7 — 2026-11-04
+
+### Changed
+
+- **A calmer vault list.** Rows show the name and username; the website, copy and one-time code buttons
+  appear on the row under the pointer or keyboard focus (always on touch screens), and an action a login
+  has nothing for is left out instead of dimmed. Fill on the current site's logins is a tinted button.
+- **Hairlines between rows** in the vault list, item view, settings and generator. They were meant to be
+  there all along; a CSS rule erased them.
+- **Item view:** the websites follow the credentials; Check for data breaches and the memory practice come
+  after them.
+- **Icons with one meaning each:** a fill arrow for Fill, history for the generator and password history,
+  a calendar for card expiry, a magic wand for the generator, arrows for reordering, and the fingerprint
+  for passkeys everywhere.
+- **Type and color:** 20 px screen titles, item names in a medium weight, switches and the length slider
+  in the brand color, and monogram tiles tinted from the page so none turn muddy in the dark theme.
+- New item and New Send are square + buttons. The generator's type chips stay on one scrolling row.
+- On the lock screen Log out sits apart from the unlock methods.
+- Plainer setting names: "Compact row actions", "Offer cards / identities to fill on the current page",
+  "Minimum of each character type", "Practice typing this password".
+
 ## 0.0.6 — 2026-11-03
 
 ### Fixed
