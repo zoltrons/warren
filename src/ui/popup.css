@@ -482,10 +482,17 @@ a.row { text-decoration: none; color: var(--text); }
   cursor: pointer;
 }
 .row:has(> .row-main:hover) { background-image: linear-gradient(var(--tint), var(--tint)); }
-/* Vault rows: one small button per quick action, packed tight; one that has nothing to do is dimmed. */
-.row > .quick-action { margin-inline: -6px; }
+/* Vault rows: one small button per quick action, packed tight; one that has nothing to do is left out.
+   With a pointer they show only on the hovered or focused row, so the list reads as names first;
+   touch and keyboard still reach them. */
+.row > .quick-action { margin-inline: -6px; transition: opacity var(--fast) var(--ease); }
 .row > .quick-action + .btn { margin-left: 4px; }
-.row > .quick-action:disabled { opacity: 0.35; cursor: default; }
+.row > .quick-action:disabled { display: none; }
+/* Collapsed rather than transparent, so a favorite star sits at the edge; the -6px margins cancel the
+   row gap. Still focusable: tabbing to one opens the row up. */
+@media (hover: hover) {
+  .row:not(:hover, :focus-within) > .quick-action { width: 0; opacity: 0; overflow: hidden; }
+}
 /* Item view: the label and value copy on a click. */
 .body.copyable { cursor: pointer; }
 .row:has(> .body.copyable:hover) { background-image: linear-gradient(var(--tint), var(--tint)); }
