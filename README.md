@@ -58,7 +58,7 @@ How it is put together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). What has t
 
 Warren speaks the Bitwarden client protocol and uses Bitwarden's
 [`bitwarden-crypto`](https://github.com/bitwarden/sdk-internal) crate under its GPL-3.0 option. Icons in the
-interface come from Google's Material Icons (Apache-2.0). Details: [docs/LICENSING.md](docs/LICENSING.md).
+interface come from Lucide (ISC). Details: [docs/LICENSING.md](docs/LICENSING.md).
 
 Warren is free software under the [GNU GPL v3](LICENSE) (GPL-3.0-only); third-party notices are in
 [NOTICE](NOTICE). It is not a fork: it is written from scratch, and other password managers are idea references

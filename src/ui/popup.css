@@ -13,6 +13,7 @@
    ========================================================================== */
 
 :root {
+  --icon-stroke: 1.75px;
   color-scheme: light;
 
   /* surfaces */
@@ -253,8 +254,14 @@ input[type="file"]::file-selector-button:hover { background-image: linear-gradie
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 select { -webkit-appearance: none; appearance: none; }
-/* Material Rounded glyphs are filled paths, not strokes. */
-svg.i { width: 18px; height: 18px; flex: none; fill: currentColor; stroke: none; }
+/* Lucide outlines: one stroke width in screen pixels at every icon size (16-28 px), so small and large
+   glyphs carry the same weight as the 14 px text next to them. */
+svg.i {
+  width: 18px; height: 18px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: round; stroke-linejoin: round;
+}
+svg.i > path { vector-effect: non-scaling-stroke; }
+svg.i.solid { fill: currentColor; }
 /* Focus: a 2 px ring for keyboard users; fields only turn their own border to the brand color. */
 :focus-visible { outline: none; border-radius: var(--r-xs); box-shadow: 0 0 0 2px var(--focus-ring); }
 /* The wrapper already paints the ring; a second one on the control looks like a box in a box. */

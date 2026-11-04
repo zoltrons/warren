@@ -43,7 +43,7 @@ page.js/content.js --CollectedPageDetails--> background/engine.ts --> crates/aut
 - `crates/core-wasm/` — `api.rs`, `cipher.rs`, `send.rs`, `totp.rs`, `generator.rs`; `lib.rs` = wasm_bindgen surface;
   `bitwarden-crypto` at the rev in `upstream.lock`.
 - `src/ui/` — `popup.ts` shell/auth/settings, `vault.ts` list/item/edit (largest), `generator.ts`, `send.ts`,
-  `biometric.ts`, `dom.ts` (`h`, `send`, `t`), `icons.ts` (Material glyphs), `popup.css` (all theme tokens).
+  `biometric.ts`, `dom.ts` (`h`, `send`, `t`), `icons.ts` (Lucide glyphs), `popup.css` (all theme tokens).
 - `src/_locales/{en,tr}` — en has every string; tr only name/description/disclaimer. `src/icons/` — generated PNGs.
 - `brand/` — logo masters, palette, store text. `docs/` — `ARCHITECTURE`, `SECURITY` (numbered invariants),
   `COMPATIBILITY` (server quirks), `UPDATES` (release/self-update), `UPSTREAM_SYNC`, `LICENSING`, `PARITY_REPORT`.
