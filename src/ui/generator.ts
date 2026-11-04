@@ -586,7 +586,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     topBar(pick ? iconButton("back", t("back"), pick.back) : null, h("h1", { class: "grow" }, t("generator")), iconButton("timer", t("generatorHistory"), () => void openHistory(ctx))),
     h(
       "div",
-      { class: "chips", role: "group", "aria-label": t("generator") },
+      { class: "chips scroll", role: "group", "aria-label": t("generator") },
       ...[
         chip("password", t("typePassword")),
         chip("passphrase", t("typePassphrase")),
