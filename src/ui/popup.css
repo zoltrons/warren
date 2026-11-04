@@ -742,6 +742,9 @@ a.row { text-decoration: none; color: var(--text); }
 .fab:hover { background: var(--primary-hover); }
 .fab:active { background: var(--primary-pressed); }
 .fab svg.i { width: 16px; height: 16px; }
+/* Icon only: the name is in its label and tooltip. */
+.fab.icon { width: 44px; height: 44px; padding: 0; justify-content: center; }
+.fab.icon svg.i { width: 24px; height: 24px; }
 
 /* skeletons */
 .skeleton { pointer-events: none; }

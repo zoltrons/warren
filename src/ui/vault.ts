@@ -877,7 +877,7 @@ function listView(ctx: Ctx): HTMLElement {
     ),
     errorBox(),
     st.loading && !st.list ? skeletonList() : listBox,
-    h("button", { type: "button", class: "fab", onclick: () => void newItem(ctx) }, icon("plus"), t("newItem")),
+    h("button", { type: "button", class: "fab icon", "aria-label": t("newItem"), title: t("newItem"), onclick: () => void newItem(ctx) }, icon("plus")),
   );
 }
 
