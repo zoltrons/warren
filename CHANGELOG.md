@@ -2,6 +2,18 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.8 — 2026-11-04
+
+### Changed
+
+- **New icons.** The interface uses Lucide's outline icons, drawn with one 1.75 px stroke at every size so they
+  sit evenly next to the text. Send has a horizontal paper plane and the PIN unlock a password-field glyph.
+
+### Fixed
+
+- **Pure black theme:** monogram tiles were nearly invisible and the tinted Fill button, selected chips and
+  highlighted rows faded into the black; they now keep their color.
+
 ## 0.0.7 — 2026-11-04
 
 ### Changed
