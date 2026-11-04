@@ -419,6 +419,7 @@ div.logo > svg.i { width: 28px; height: 28px; }
 .btn:disabled { opacity: 0.5; cursor: progress; }
 .btn.filled:disabled { opacity: 0.6; }
 .actions { display: flex; flex-direction: column; gap: 8px; }
+.actions.apart { margin-top: 16px; }
 .row-actions { flex-direction: row; justify-content: flex-end; gap: 8px; }
 
 /* ---------- chips (filter pills: 8 px radius, tint when active) ---------- */

@@ -308,7 +308,7 @@ function twoFactorView(s: State): HTMLElement {
       h("button", { type: "button", class: "icon-btn", "aria-label": t("back"), onclick: () => void act({ type: "twoFactorCancel" }) }, icon("back")),
       h("h1", {}, t("twoFactorTitle")),
     ),
-    h("p", { class: "note" }, t("twoFactorSubtitle", s.email ?? "")),
+    h("p", { class: "caption" }, t("twoFactorSubtitle", s.email ?? "")),
     supported.length
       ? h(
           "div",
@@ -446,8 +446,9 @@ function lockedView(s: State): HTMLElement {
       { class: "actions" },
       submitButton(t("unlock")),
       switchMethod,
-      h("button", { type: "button", class: "btn text", disabled: ui.busy, onclick: () => void act({ type: "logout" }) }, t("logOut")),
     ),
+    // Leaving the account is not an unlock method: set apart and quieter.
+    h("div", { class: "actions apart" }, h("button", { type: "button", class: "btn text small", disabled: ui.busy, onclick: () => void act({ type: "logout" }) }, t("logOut"))),
   );
 }
 
