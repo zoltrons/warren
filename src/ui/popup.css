@@ -917,7 +917,6 @@ a.row { text-decoration: none; color: var(--text); }
 .row-details > summary:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .row-details > summary svg.i { color: var(--muted); transition: transform var(--fast) var(--ease); }
 .row-details[open] > summary svg.i { transform: rotate(180deg); }
-.group > .row-details { border-top: 0; }
 .small-input { max-width: 70px; }
 
 /* ---------- toast (card, popover shadow, 8 px radius) ---------- */
