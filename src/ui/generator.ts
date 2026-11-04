@@ -145,7 +145,7 @@ const gst = {
   customSeparator: false,
   /** The type a field's generator opened on before the saved options arrived (see startGeneratorPick). */
   pickType: undefined as string | undefined,
-  /** The password options' "Minimum counts" section is expanded. */
+  /** The password options' "Minimum of each character type" section is expanded. */
   minimumsOpen: false,
 };
 

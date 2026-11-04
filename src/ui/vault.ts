@@ -526,7 +526,7 @@ const iconMode = () => !settingsOf()?.quickActionMenus;
 /**
  * Quick actions of a list row, like the official extension. By default one button each for a login:
  * open the website, copy the username, the password and the code (dimmed when the login has none). With
- * the "Quick actions as menus" setting: a copy button (a menu when there is a choice) and "⋮" with fill,
+ * the "Compact row actions" setting: a copy button (a menu when there is a choice) and "⋮" with fill,
  * favorite, website, edit and clone. Secrets are fetched on use, through the worker's re-prompt check.
  */
 function rowActions(ctx: Ctx, i: VaultItem, withFill: boolean): Child[] {

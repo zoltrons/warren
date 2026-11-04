@@ -1310,16 +1310,16 @@
     "message": "Show identities in the inline menu"
   },
   "showCardsOnTab": {
-    "message": "Show cards in the tab view"
+    "message": "Offer cards to fill on the current page"
   },
   "showIdentitiesOnTab": {
-    "message": "Show identities in the tab view"
+    "message": "Offer identities to fill on the current page"
   },
   "quickActionMenus": {
-    "message": "Quick actions as menus"
+    "message": "Compact row actions"
   },
   "quickActionMenusHint": {
-    "message": "A copy menu and more options on each vault row, instead of a button per action"
+    "message": "A copy menu and a more menu on each vault row, instead of one button per action"
   },
   "clearClipboard": {
     "message": "Clear clipboard"
@@ -1434,7 +1434,7 @@
     "message": "Include"
   },
   "minimums": {
-    "message": "Minimum counts"
+    "message": "Minimum of each character type"
   },
   "increase": {
     "message": "Increase $P1$",
@@ -1531,7 +1531,7 @@
     "message": "Could not reach the breach service. Try again later."
   },
   "memoryTest": {
-    "message": "Test your memory"
+    "message": "Practice typing this password"
   },
   "memoryHint": {
     "message": "Type the password from memory. It is compared with the saved one on this device."
