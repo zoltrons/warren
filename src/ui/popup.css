@@ -981,6 +981,6 @@ body.frame .row { min-height: 44px; padding: 4px 8px; border-radius: var(--r-xs)
 .qr { width: min(280px, 80vw); height: auto; border-radius: var(--r-md); border: 1px solid var(--outline); }
 .caption.center { text-align: center; margin: 0 8px; }
 .row .meta.warn { color: var(--critical); }
-.icon-btn.up svg { transform: rotate(-90deg); }
-.icon-btn.down svg { transform: rotate(90deg); }
+/* Reorder: arrows, so they never read as expand/collapse chevrons. */
+.icon-btn.down svg { transform: rotate(180deg); }
 .caption.warn { color: var(--critical); }

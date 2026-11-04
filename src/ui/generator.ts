@@ -286,7 +286,7 @@ function historyScreen(ctx: Ctx, list: HistoryEntry[]): HTMLElement {
             ),
           ),
         )
-      : h("div", { class: "empty" }, icon("timer"), h("strong", {}, t("generatorHistoryEmpty"))),
+      : h("div", { class: "empty" }, icon("history"), h("strong", {}, t("generatorHistoryEmpty"))),
     list.length
       ? h(
           "button",
@@ -583,7 +583,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   return h(
     "div",
     { class: "page" },
-    topBar(pick ? iconButton("back", t("back"), pick.back) : null, h("h1", { class: "grow" }, t("generator")), iconButton("timer", t("generatorHistory"), () => void openHistory(ctx))),
+    topBar(pick ? iconButton("back", t("back"), pick.back) : null, h("h1", { class: "grow" }, t("generator")), iconButton("history", t("generatorHistory"), () => void openHistory(ctx))),
     h(
       "div",
       { class: "chips scroll", role: "group", "aria-label": t("generator") },

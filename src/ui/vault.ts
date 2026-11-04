@@ -563,7 +563,7 @@ function rowActions(ctx: Ctx, i: VaultItem, withFill: boolean): Child[] {
   const url = i.uris.map(webUrl).find(Boolean);
   const editable = !i.readOnly && st.folder !== "trash";
   const more: MenuItem[] = [
-    ...(withFill ? [{ label: t("fill"), icon: "key" as const, onClick: () => void fill(ctx, i.id) }] : []),
+    ...(withFill ? [{ label: t("fill"), icon: "fill" as const, onClick: () => void fill(ctx, i.id) }] : []),
     ...(editable
       ? [
           {
@@ -950,8 +950,8 @@ const SCHEMA: Record<number, { obj: string; fields: Spec[] }> = {
       { key: "cardholderName", icon: "user" },
       { key: "brand", icon: "card", options: BRANDS },
       { key: "number", icon: "card", secret: true, mono: true },
-      { key: "expMonth", icon: "timer", options: Array.from({ length: 12 }, (_, i) => String(i + 1)) },
-      { key: "expYear", icon: "timer" },
+      { key: "expMonth", icon: "calendar", options: Array.from({ length: 12 }, (_, i) => String(i + 1)) },
+      { key: "expYear", icon: "calendar" },
       { key: "code", icon: "key", secret: true, mono: true },
     ],
   },
@@ -1282,7 +1282,7 @@ function quickActions(ctx: Ctx, id: string, uris: string[]): Child {
   return h(
     "div",
     { class: "quick" },
-    onSite ? h("button", { type: "button", class: "btn tonal", onclick: () => void fill(ctx, id) }, icon("key"), t("fillThisSite")) : null,
+    onSite ? h("button", { type: "button", class: "btn tonal", onclick: () => void fill(ctx, id) }, icon("fill"), t("fillThisSite")) : null,
     url
       ? h(
           "a",
@@ -1349,7 +1349,7 @@ function expiryRow(ctx: Ctx, month: string, year: string): HTMLElement | undefin
   const mm = String(m).padStart(2, "0");
   const left = new Date(y4, m, 1).getTime() - Date.now(); // a card works through the end of its month
   const status = left <= 0 ? "expired" : left < 60 * 86_400_000 ? "expiringSoon" : "";
-  return fieldRow(ctx, "expiry", "timer", t("expiry"), `${mm}/${y4}`, {
+  return fieldRow(ctx, "expiry", "calendar", t("expiry"), `${mm}/${y4}`, {
     copyValue: `${mm}${String(y4).slice(-2)}`,
     menu: [
       { label: t("copyMonth"), icon: "copy", onClick: () => void copy(ctx, mm) },
@@ -1530,7 +1530,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
     ),
     // Password tools come after what the user opened the item for: the credentials and where they go.
     password
-      ? h("div", { class: "group" }, actionRow("shield", t("checkBreaches"), () => void checkBreach(ctx, id, password)), actionRow("key", t("memoryTest"), () => ((st.memory = st.memory ? undefined : {}), ctx.rerender())))
+      ? h("div", { class: "group" }, actionRow("shield", t("checkBreaches"), () => void checkBreach(ctx, id, password)), actionRow("memory", t("memoryTest"), () => ((st.memory = st.memory ? undefined : {}), ctx.rerender())))
       : null,
     st.pwned ? h("div", { class: `notice ${st.pwned.bad ? "warn" : "info"}` }, icon(st.pwned.bad ? "error" : "info"), h("div", {}, st.pwned.text)) : null,
     st.memory && password ? memoryForm(ctx, password) : null,
@@ -1576,7 +1576,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       ...(st.reveal.has("history")
         ? history.map((p, i) => fieldRow(ctx, `history.${i}`, "key", date(p.lastUsedDate), str(p.password), { secret: true, mono: true }))
         : history.length
-          ? [actionRow("timer", t("showPasswordHistory", String(history.length)), () => (st.reveal.add("history"), ctx.rerender()))]
+          ? [actionRow("history", t("showPasswordHistory", String(history.length)), () => (st.reveal.add("history"), ctx.rerender()))]
           : []),
     ),
     ...section(
@@ -1810,7 +1810,7 @@ function uriEditor(ctx: Ctx): Child[] {
           spellcheck: false,
           oninput: (e: Event) => (u.uri = (e.target as HTMLInputElement).value),
         }),
-        iconButton(open ? "settings" : "settings", t("matchDetection"), () => (open ? st.uriOpen.delete(i) : st.uriOpen.add(i), ctx.rerender()), {
+        iconButton("tune", t("matchDetection"), () => (open ? st.uriOpen.delete(i) : st.uriOpen.add(i), ctx.rerender()), {
           class: `icon-btn sm${open ? " on" : ""}`,
           "aria-pressed": String(open),
         }),
@@ -1858,8 +1858,8 @@ function moveItem<T>(list: T[], i: number, by: -1 | 1) {
 }
 
 const moveButtons = (ctx: Ctx, list: unknown[], i: number, reset?: () => void): Child[] => [
-  i > 0 ? iconButton("chevron", t("moveUp"), () => (moveItem(list, i, -1), reset?.(), ctx.rerender()), { class: "icon-btn sm up" }) : null,
-  i < list.length - 1 ? iconButton("chevron", t("moveDown"), () => (moveItem(list, i, 1), reset?.(), ctx.rerender()), { class: "icon-btn sm down" }) : null,
+  i > 0 ? iconButton("arrowUp", t("moveUp"), () => (moveItem(list, i, -1), reset?.(), ctx.rerender()), { class: "icon-btn sm up" }) : null,
+  i < list.length - 1 ? iconButton("arrowUp", t("moveDown"), () => (moveItem(list, i, 1), reset?.(), ctx.rerender()), { class: "icon-btn sm down" }) : null,
 ];
 
 function editView(ctx: Ctx, isNew: boolean): HTMLElement {

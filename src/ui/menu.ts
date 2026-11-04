@@ -22,7 +22,7 @@ async function render() {
   // A website waiting on a conditional passkey request: the stored passkey is one click away.
   const passkey = d.passkey
     ? row(
-        icon("key"),
+        icon("fingerprint"),
         t("passkeySignInTitle"),
         t("appName"),
         async () => {
