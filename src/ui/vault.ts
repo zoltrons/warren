@@ -1514,11 +1514,6 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
     inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : summary?.readOnly ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("readOnlyItem"))) : null,
     rows.length ? h("div", { class: "group" }, ...rows) : null,
     type === 4 ? identityActions(data) : null,
-    password
-      ? h("div", { class: "group" }, actionRow("shield", t("checkBreaches"), () => void checkBreach(ctx, id, password)), actionRow("key", t("memoryTest"), () => ((st.memory = st.memory ? undefined : {}), ctx.rerender())))
-      : null,
-    st.pwned ? h("div", { class: `notice ${st.pwned.bad ? "warn" : "info"}` }, icon(st.pwned.bad ? "error" : "info"), h("div", {}, st.pwned.text)) : null,
-    st.memory && password ? memoryForm(ctx, password) : null,
     reused
       ? h(
           "div",
@@ -1533,6 +1528,12 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       t("websites"),
       ...uriEntries.map(({ uri: u, match }, i) => uriRow(ctx, i, u, match, editable ? (to) => fixUri(u, to) : undefined)),
     ),
+    // Password tools come after what the user opened the item for: the credentials and where they go.
+    password
+      ? h("div", { class: "group" }, actionRow("shield", t("checkBreaches"), () => void checkBreach(ctx, id, password)), actionRow("key", t("memoryTest"), () => ((st.memory = st.memory ? undefined : {}), ctx.rerender())))
+      : null,
+    st.pwned ? h("div", { class: `notice ${st.pwned.bad ? "warn" : "info"}` }, icon(st.pwned.bad ? "error" : "info"), h("div", {}, st.pwned.text)) : null,
+    st.memory && password ? memoryForm(ctx, password) : null,
     ...section(
       t("customFields"),
       ...fields.map((f, i) =>
