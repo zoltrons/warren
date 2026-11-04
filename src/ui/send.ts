@@ -140,7 +140,7 @@ function listView(ctx: Ctx): HTMLElement {
             ),
           )
         : h("div", { class: "empty" }, icon("send"), h("strong", {}, t("noSends"))),
-    h("button", { type: "button", class: "fab", onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus"), t("newSend")),
+    h("button", { type: "button", class: "fab icon", "aria-label": t("newSend"), title: t("newSend"), onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus")),
   );
 }
 
