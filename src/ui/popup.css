@@ -186,7 +186,9 @@
   --surface-sunken: #000000;
   --on-primary: #000000;
   --switch-thumb: #000000;
-  --tile-mix: 30%;
+  /* Mixed into pure black the dark theme's tints vanish: tiles and the primary tint need more of their color. */
+  --tile-mix: 44%;
+  --primary-weak: rgba(255 79 123 / 0.28);
   --outline: rgba(255 211 220 / 0.22);
   --outline-weak: rgba(255 211 220 / 0.14);
 }
