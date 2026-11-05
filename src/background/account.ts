@@ -1,6 +1,6 @@
 // Login, 2FA, unlock, token refresh. Pure orchestration: crypto runs in the offscreen worker,
 // HTTP in src/transport.
-import { KDF_ARGON2ID, TWO_FACTOR } from "../shared/constants.ts";
+import { KDF_ARGON2ID, PIN_KDF, TWO_FACTOR } from "../shared/constants.ts";
 import type { ErrorCode, KdfParams } from "../shared/messages.ts";
 import {
   authorizationCodeToken,
@@ -246,6 +246,12 @@ async function afterUnlock(account: Account): Promise<void> {
   if (account.protectedPin && !account.pinKey && pin?.email !== account.email) {
     const [plain] = await unseal([account.protectedPin]);
     if (plain) await armPin(account, plain);
+  } else if (account.pinKey && account.protectedPin && JSON.stringify(account.pinKdf) !== JSON.stringify(PIN_KDF)) {
+    // A PIN-only key from an older build is wrapped through the account KDF: re-wrap it with PIN_KDF once.
+    const [plain] = await unseal([account.protectedPin]);
+    const key = plain ? await armPin(account, plain) : undefined;
+    const fresh = await getLocal("account");
+    if (key && fresh?.pinKey === account.pinKey) await setLocal("account", { ...fresh, pinKey: key, pinKdf: PIN_KDF });
   } else if (pin?.attempts) await updateSession({ pin: { ...pin, attempts: 0 } });
   // Older builds kept never-save hosts and fill stamps in clear text; a failed move is retried next unlock.
   await migratePrivate().catch(() => undefined);
@@ -316,7 +322,7 @@ export async function confirmReprompt(id: string, password: string): Promise<voi
 const PIN_MAX_ATTEMPTS = 5;
 
 async function armPin(account: Account, pin: string): Promise<string> {
-  const key = await coreCall<string>({ op: "pinProtect", pin, email: account.email, kdf: account.kdf });
+  const key = await coreCall<string>({ op: "pinProtect", pin, email: account.email, kdf: PIN_KDF });
   await updateSession({ pin: { email: account.email, key, attempts: 0 } });
   return key;
 }
@@ -326,7 +332,7 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
   const account = await getLocal("account");
   if (!account) throw new UserError("wrongPhase", "Not logged in");
   if (pin === undefined) {
-    const { protectedPin: _, pinKey: __, ...rest } = account;
+    const { protectedPin: _, pinKey: __, pinKdf: ___, ...rest } = account;
     await setLocal("account", rest);
     await updateSession({ pin: undefined });
     return;
@@ -335,17 +341,23 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
   const key = await armPin(account, pin);
   // shortcut: PIN-only keeps the PIN-wrapped key on disk: the 5-try cap holds only in this browser, a copied profile
   // can be brute-forced offline (a 6-digit PIN through the KDF takes hours to days). Parity with the official clients.
-  const { pinKey: _, ...rest } = account;
-  await setLocal("account", { ...rest, protectedPin: protectedPin!, ...(pinOnly ? { pinKey: key } : {}) });
+  const { pinKey: _, pinKdf: __, ...rest } = account;
+  await setLocal("account", { ...rest, protectedPin: protectedPin!, ...(pinOnly ? { pinKey: key, pinKdf: PIN_KDF } : {}) });
 }
 
 export async function unlockWithPin(pin: string): Promise<void> {
   const account = await getLocal("account");
   const { pin: s } = await getSession();
-  const p = s?.email === account?.email ? s : account?.pinKey ? { email: account.email, key: account.pinKey, attempts: 0 } : undefined;
+  // A key armed this session is always PIN_KDF; one on disk records its KDF (older builds: the account's).
+  const p =
+    s && s.email === account?.email
+      ? { ...s, kdf: s.kdf ?? PIN_KDF }
+      : account?.pinKey
+        ? { email: account.email, key: account.pinKey, attempts: 0, kdf: account.pinKdf ?? account.kdf }
+        : undefined;
   if (!account?.protectedPin || !p) throw new UserError("wrongPhase", "Unlock with the master password");
   try {
-    await coreCall({ op: "unlockPin", pin, email: account.email, kdf: account.kdf, protectedUserKey: p.key, encryptedPrivateKey: account.encryptedPrivateKey });
+    await coreCall({ op: "unlockPin", pin, email: account.email, kdf: p.kdf, protectedUserKey: p.key, encryptedPrivateKey: account.encryptedPrivateKey });
   } catch (e) {
     if (!(e instanceof CoreError)) throw e;
     // Like the official clients: a few wrong PINs end the session instead of allowing a slow brute force.

@@ -24,6 +24,8 @@ export interface Account {
   protectedPin?: string;
   /** PIN-only mode: the PIN-wrapped user key kept on disk so a PIN also unlocks after a browser restart. */
   pinKey?: string;
+  /** The KDF `pinKey` was made with; absent for keys of older builds (made with `kdf`). */
+  pinKdf?: KdfParams;
 }
 
 interface PendingLogin {
@@ -48,8 +50,8 @@ interface Session {
   sso?: { state: string; verifier: string; expiresAt: number };
   /** Why the last SSO login failed (shown when the popup opens next). */
   ssoError?: string;
-  /** PIN unlock: the user key wrapped with the PIN key, and wrong tries so far. */
-  pin?: { email: string; key: string; attempts: number };
+  /** PIN unlock: the user key wrapped with the PIN key, and wrong tries so far. `kdf` absent = PIN_KDF. */
+  pin?: { email: string; key: string; attempts: number; kdf?: KdfParams };
   /** Origin the inline menu's "Create account" wants a new login for; the popup it opens takes it. */
   newLogin?: string;
   /** "Pick from page" running in a tab (background/picker.ts); `done` once the user picked or cancelled. */

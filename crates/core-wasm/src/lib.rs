@@ -49,7 +49,7 @@ pub fn unlock_user_key(
     api::unlock_user_key(handle, protected_user_key, encrypted_private_key.as_deref()).map_err(js)
 }
 
-/// The unlocked user key wrapped with a key derived from `pin` (account KDF, email salt).
+/// The unlocked user key wrapped with a key derived from `pin` (the given KDF, email salt).
 #[wasm_bindgen(js_name = pinProtectUserKey)]
 pub fn pin_protect_user_key(
     pin: &str,

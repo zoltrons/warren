@@ -53,7 +53,7 @@ pub fn kdf_from_params(kind: u8, iterations: u32, memory: u32, parallelism: u32)
         }),
         1 => Ok(Kdf::Argon2id {
             iterations: in_range(iterations, 2, 10, "iterations")?,
-            memory: in_range(memory, 15, 1024, "memory")?,
+            memory: in_range(memory, 16, 1024, "memory")?,
             parallelism: in_range(parallelism, 1, 16, "parallelism")?,
         }),
         k => Err(format!("unsupported kdf type {k}")),
@@ -106,7 +106,7 @@ pub fn unlock_user_key(
     Ok(())
 }
 
-/// Bitwarden PIN unlock: the user key wrapped with a `PinKey` (the PIN through the account KDF,
+/// Bitwarden PIN unlock: the user key wrapped with a `PinKey` (the PIN through the KDF the caller picks,
 /// salted with the email). Needs an unlocked session.
 pub fn pin_protect_user_key(pin: &str, email: &str, kdf: &Kdf) -> Result<String> {
     let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf).map_err(err)?;
@@ -321,6 +321,7 @@ mod tests {
         assert!(kdf_from_params(0, 1, 0, 0).is_err());
         assert!(kdf_from_params(0, u32::MAX, 0, 0).is_err());
         assert!(kdf_from_params(1, 1, 64, 4).is_err());
+        assert!(kdf_from_params(1, 3, 15, 4).is_err());
         assert!(kdf_from_params(1, 3, 1, 4).is_err());
         assert!(kdf_from_params(1, 3, 1_000_000, 4).is_err());
         assert!(kdf_from_params(1, 3, 64, 0).is_err());

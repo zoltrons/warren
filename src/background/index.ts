@@ -1,5 +1,6 @@
 // Service worker entry. Stateless: listeners are registered synchronously at top level, every
 // handler reads its state from chrome.storage.
+import { KDF_ARGON2ID } from "../shared/constants.ts";
 import { type ErrorCode, PASSKEY_PORT, type PageRequest, parseFrameRequest, parsePageRequest, parseRequest, type Request, type Response, type State, type VaultItem } from "../shared/messages.ts";
 import { ValidationError } from "../shared/validate.ts";
 import { getServerInfo } from "../transport/config.ts";
@@ -69,7 +70,7 @@ async function getState(): Promise<State> {
     await updateSession({ unlocked: false });
     unlocked = false;
   }
-  const pin = { pinSet: !!account.protectedPin, pinUnlock: !!account.protectedPin && (!!account.pinKey || session.pin?.email === account.email) };
+  const pin = { weakKdf: account.kdf.type !== KDF_ARGON2ID, pinSet: !!account.protectedPin, pinUnlock: !!account.protectedPin && (!!account.pinKey || session.pin?.email === account.email) };
   const biometric = bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
   // The never-save list is encrypted: it is only there to show (and edit) while the vault is open.
   if (unlocked) base.settings.neverSave = await readPrivate().then((d) => d.neverSave, () => []);

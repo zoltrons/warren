@@ -7,6 +7,12 @@ export const DEVICE_TYPE = 2;
 export const DEVICE_NAME = "chrome";
 
 export const KDF_ARGON2ID = 1;
+/**
+ * The PIN key's KDF, independent of the account's: the PIN-wrapped key never leaves this browser, so the server
+ * does not need to know it. A PIN has little entropy, so it gets 4x the memory of RFC 9106's second recommended
+ * setting (~0.9 s in the WASM worker on an Apple M1).
+ */
+export const PIN_KDF = { type: KDF_ARGON2ID, iterations: 3, memory: 256, parallelism: 4 } as const;
 
 /** Bitwarden TwoFactorProviderType values we handle. */
 export const TWO_FACTOR = { Authenticator: 0, Email: 1, YubiKey: 3, Remember: 5, WebAuthn: 7 } as const;

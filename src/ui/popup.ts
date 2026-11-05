@@ -634,6 +634,7 @@ function settingsTab(s: State): HTMLElement {
       { class: "group" },
       row(s.email ?? "", t("loggedIn")),
       row(host(s.serverUrl), s.serverVersion ? t("serverVersion", s.serverVersion) : undefined),
+      s.weakKdf ? h("div", { class: "notice warn" }, icon("shield"), h("div", {}, t("weakKdf"))) : null,
     ),
     h("h2", { class: "section-title" }, t("security")),
     h(

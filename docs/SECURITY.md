@@ -107,6 +107,13 @@ freed rather than zeroed in place.
     extension origin and a random salt, and refuses authenticators without PRF instead of degrading to
     "biometrics as a UI gate".
 
+8c. **Device approvals show the phrase and use the server's key.** "Log in with device" sends the user key to
+    whoever holds the request's private key, so approving needs the unlocked vault and an explicit click on a
+    screen that shows the fingerprint phrase (account email over the requester's public key, the same phrase the
+    requesting device shows). The key is wrapped for the public key fetched from the server for that request id,
+    never one supplied by a message. A push notification only announces a request; it never approves one.
+    The requesting side keeps its RSA private key in the crypto worker only, single use, gone with the lock.
+
 9. **Origin keys are best effort, never fatal.** One undecryptable organization key must not make the
    personal vault unreadable (`crates/core-wasm/src/api.rs` `set_org_keys`, plus the `try/catch` in
    `loadVault`); affected items surface as undecryptable instead.
@@ -131,6 +138,37 @@ freed rather than zeroed in place.
     survive the lock. The popup/side panel follow the session in `chrome.storage.session` and drop their
     decrypted state on the same event.
 
+## Cryptography direction
+
+Rules for every new or changed piece of cryptography. Within what Vaultwarden can read, they put
+password hardness and post-quantum safety first. A change that breaks one of them needs a written reason here.
+
+1. **Argon2id for every secret derived from something a person types.** Keys only Warren reads (today the PIN key,
+   `PIN_KDF` in `src/shared/constants.ts`) use Argon2id with our own parameters, never the account's. No new PBKDF2,
+   scrypt or bcrypt. Where the protocol fixes the KDF (the account master key, chosen on the server; Send access
+   passwords, PBKDF2 by spec) we follow it and steer the user to Argon2id (the PBKDF2 notice in settings).
+2. **Parameters are tuned for current hardware and only go up.** Use as much memory as an unlock in the WASM worker
+   allows on a current mid-range laptop at about one second, and never less than RFC 9106's second recommended
+   setting (64 MiB, 3 passes). Review them once a year against RFC 9106 and OWASP. The server-side range checks
+   (`kdf_from_params`) follow upstream's floors and are never lowered.
+3. **High-entropy inputs need no slow KDF.** Random keys and WebAuthn PRF output go through HKDF. Argon2 adds nothing
+   there.
+4. **Every stored wrapped secret records how it was made**, for example the `EncString` type or `pinKdf`, so a stronger
+   setting can re-wrap it on the next unlock (see `afterUnlock`). No new storage format without a version marker.
+5. **Symmetric keys are 256 bits, authenticated** (AES-256 with HMAC-SHA256 or an AEAD). A quantum computer only
+   halves them, so they stay safe. No new 128-bit keys.
+6. **No new classical-only public-key cryptography.** New key exchange or encryption is hybrid (X25519 + ML-KEM-768,
+   FIPS 203) or pure ML-KEM. New signatures are hybrid with ML-DSA (FIPS 204), or pure ML-DSA. RSA-2048 (organization
+   and sharing keys) and ES256 (passkeys) remain only because the protocol and relying parties require them.
+7. **Post-quantum comes through `bitwarden-crypto`, never a scheme of our own.** A private format would cut Warren off
+   from Vaultwarden and the other clients. When upstream ships post-quantum account keys (V2 accounts, COSE keys;
+   the pinned crate already has ML-DSA-44 signing), adopt them in the first `UPSTREAM_SYNC` that Vaultwarden
+   supports.
+8. **Transport:** run the server behind a TLS 1.3 proxy that negotiates the hybrid X25519MLKEM768 group. Chromium
+   offers it by default. Plain http is allowed only on loopback (invariant 7).
+9. **No hand-rolled primitives.** Use `bitwarden-crypto` and RustCrypto crates inside `crates/core-wasm`. WebCrypto
+   is used only for hashes that involve no key.
+
 ## Known gaps
 
 - **The refresh token and 2FA remember tokens are on disk in clear text** (`storage.local`), because they must
@@ -141,8 +179,10 @@ freed rather than zeroed in place.
   or an extension update.
 - **PIN-only unlock ("Lock with master password on restart" off) puts the vault behind the PIN on disk.** The user
   key wrapped with the PIN key stays in `storage.local` (`setPin` in `src/background/account.ts`). The 5-try cap only
-  holds inside Warren: from a copied profile the PIN can be tried offline through the account KDF, so a short PIN
-  falls in hours to days and the whole vault with it. The setting's hint says so; the default keeps the cap real.
+  holds inside Warren: from a copied profile the PIN can be tried offline. Each try costs Argon2id at `PIN_KDF`
+  (256 MiB, 3 passes, `src/shared/constants.ts`) whatever the account KDF is, so guessing is slow and memory-bound,
+  but a short numeric PIN still falls and the whole vault with it. The setting's hint says so; the default keeps
+  the cap real. Keys from builds before `PIN_KDF` are re-wrapped on the next unlock.
 - **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code, the
   full item for the popup and for a save-bar update go through the service worker in transit; it does not keep
   them. The popup holds an opened item, including a passkey's private key, because editing sends the whole item

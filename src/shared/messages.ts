@@ -306,6 +306,8 @@ export interface State {
   ssoError?: string;
   /** PIN unlock is turned on for this account. */
   pinSet?: boolean;
+  /** The account's master key comes from PBKDF2, not Argon2id (changed in the web vault). */
+  weakKdf?: boolean;
   /** Biometric unlock is set up; the wrapped key stays in the service worker. */
   biometric?: { credentialId: string; prfSalt: string };
   /** The locked vault can be opened with the PIN (until the browser restarts). */
@@ -443,7 +445,7 @@ export type CoreRequest =
   | { op: "prepareKey"; email: string; password: string; kdf: KdfParams }
   | { op: "authHash"; handle: number }
   | { op: "unlock"; handle: number; protectedUserKey: string; encryptedPrivateKey?: string }
-  // PIN: the user key wrapped with a key derived from the PIN (account KDF and email)
+  // PIN: the user key wrapped with a key derived from the PIN (PIN_KDF, or the account KDF for older keys, and email)
   | { op: "pinProtect"; pin: string; email: string; kdf: KdfParams }
   | { op: "unlockPin"; pin: string; email: string; kdf: KdfParams; protectedUserKey: string; encryptedPrivateKey?: string }
   // biometric: the user key wrapped with a key derived from a WebAuthn PRF output (base64)
