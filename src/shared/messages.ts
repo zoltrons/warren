@@ -138,8 +138,7 @@ export type Request =
   | { type: "startFieldPicker"; draft: string; panel: boolean }
   /** One-shot: the draft to return to after a pick, with the picked field if there is one. */
   | { type: "takeFieldPick" }
-  /** `anyway`: the user confirmed filling a login whose URIs do not match the page. */
-  | { type: "fill"; id: string; anyway?: boolean }
+  | { type: "fill"; id: string }
   | { type: "readPageLogin" };
 
 const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { type: K }>> } = {
@@ -254,7 +253,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   takeNewLogin: obj({ type: literal("takeNewLogin") }),
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
   takeFieldPick: obj({ type: literal("takeFieldPick") }),
-  fill: obj({ type: literal("fill"), id: str, anyway: opt(bool) }),
+  fill: obj({ type: literal("fill"), id: str }),
   readPageLogin: obj({ type: literal("readPageLogin") }),
 };
 

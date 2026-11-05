@@ -535,10 +535,10 @@ const iconMode = () => !settingsOf()?.quickActionMenus;
 /**
  * Quick actions of a list row, like the official extension. By default one button each for a login:
  * open the website, copy the username, the password and the code (dimmed when the login has none). With
- * the "Compact row actions" setting: a copy button (a menu when there is a choice) and "⋮" with fill,
+ * the "Compact row actions" setting: a copy button (a menu when there is a choice) and "⋮" with
  * favorite, website, edit and clone. Secrets are fetched on use, through the worker's re-prompt check.
  */
-function rowActions(ctx: Ctx, i: VaultItem, withFill: boolean): Child[] {
+function rowActions(ctx: Ctx, i: VaultItem): Child[] {
   if (i.failed) return [];
   const field = (o: string, k: string) => (item: Json) => str(obj(item[o])?.[k]);
   const name = i.name || t("untitled");
@@ -572,7 +572,6 @@ function rowActions(ctx: Ctx, i: VaultItem, withFill: boolean): Child[] {
   const url = i.uris.map(webUrl).find(Boolean);
   const editable = !i.readOnly && st.folder !== "trash";
   const more: MenuItem[] = [
-    ...(withFill ? [{ label: t("fill"), icon: "fill" as const, onClick: () => void fill(ctx, i.id) }] : []),
     ...(editable
       ? [
           {
@@ -635,7 +634,8 @@ function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
       i.reused || i.weak ? h("span", { class: "meta warn" }, icon("error", t(i.reused ? "filterReused" : "filterWeak"))) : null,
       i.favorite ? h("span", { class: "meta fav" }, icon("star", t("favorite"))) : null,
     ),
-    ...rowActions(ctx, i, onPage),
+    ...rowActions(ctx, i),
+    onPage ? fillButton(ctx, i) : null,
   );
 }
 
@@ -892,33 +892,16 @@ function listView(ctx: Ctx): HTMLElement {
 
 // ---------- this site ----------
 
-async function fill(ctx: Ctx, id: string, anyway = false) {
-  const r = await send<FillResult>({ type: "fill", id, anyway });
+async function fill(ctx: Ctx, id: string) {
+  const r = await send<FillResult>({ type: "fill", id });
   if (r.ok && r.data.filled) window.close();
   // A flagged item: its view shows the master-password screen (itemView gets "reprompt" from getItem).
   else if (!r.ok && r.code === "reprompt") open(ctx, { kind: "item", id });
-  // A login saved for another site: fill only after the user says so, like the official client.
-  else if (r.ok && r.data.reason === "noMatch" && !anyway && st.page?.host && (await confirmFill(st.page.host))) await fill(ctx, id, true);
   else toast(ctx, r.ok ? t("fillFailed") : r.error);
 }
 
-function confirmFill(host: string): Promise<boolean> {
-  const choose = (v: string) => () => d.close(v);
-  const d = h(
-    "dialog",
-    { class: "confirm", "aria-labelledby": "confirm-fill-text" },
-    h("p", { id: "confirm-fill-text" }, t("fillNoMatch", host)),
-    h(
-      "div",
-      { class: "actions" },
-      h("button", { type: "button", class: "btn text", onclick: choose("") }, t("cancel")),
-      h("button", { type: "button", class: "btn filled", onclick: choose("fill") }, t("fillAnyway")),
-    ),
-  );
-  document.body.append(d);
-  d.showModal();
-  return new Promise((resolve) => d.addEventListener("close", () => (d.remove(), resolve(d.returnValue === "fill"))));
-}
+const fillButton = (ctx: Ctx, i: VaultItem) =>
+  h("button", { type: "button", class: "btn small tonal", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill"));
 
 /** Save what the user typed on the page: update the login with the same username, or create one. */
 async function saveFromPage(ctx: Ctx) {
@@ -946,8 +929,8 @@ function suggestionRow(ctx: Ctx, i: VaultItem): HTMLElement {
       tile(i.name, i.type, i.uris, i.brand),
       h("div", { class: "body" }, h("span", { class: "title" }, name), i.sub ? h("span", { class: "sub" }, i.sub) : null),
     ),
-    ...rowActions(ctx, i, false),
-    h("button", { type: "button", class: "btn small tonal", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill")),
+    ...rowActions(ctx, i),
+    fillButton(ctx, i),
   );
 }
 
@@ -1303,7 +1286,7 @@ async function upload(ctx: Ctx, cipherId: string, file: File | undefined) {
   await vaultAction(ctx, { type: "addAttachment", cipherId, file: { name: file.name, data } }, "saved", false);
 }
 
-/** Fill / open actions for the item, when a web page is open (a login for another site asks first) or the item has a site. */
+/** Fill / open actions for the item, when a web page is open (any login, saved for this site or not) or the item has a site. */
 function quickActions(ctx: Ctx, id: string, uris: string[], login: boolean): Child {
   const onSite = login && !!st.page?.host;
   const url = uris.map(webUrl).find(Boolean);

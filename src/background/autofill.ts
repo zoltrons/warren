@@ -140,7 +140,8 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   return r;
 }
 
-export const fillActiveTab = async (id: string, anyway?: boolean) => fillTab(await activeTab(), id, anyway);
+/** A fill the user picked in the popup: any login, saved for this site or not, like the official client. */
+export const fillActiveTab = async (id: string) => fillTab(await activeTab(), id, true);
 
 /** Toolbar icon per state: full color when unlocked, gray when locked, faded gray when logged out. */
 const actionIcon = (state: "warren" | "locked" | "loggedout") => Object.fromEntries([16, 19, 32, 38].map((s) => [s, `icons/${state}-${s}.png`]));
