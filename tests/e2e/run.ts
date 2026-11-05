@@ -1118,7 +1118,8 @@ try {
     await unlockIfLocked();
     await reopenPopup();
     await page.getByRole("heading", { name: "On localhost:8099" }).waitFor();
-    await page.getByRole("button", { name: "Fill Local app" }).click();
+    // The site section and the vault list both offer Fill: the site section comes first.
+    await page.getByRole("button", { name: "Fill Local app" }).first().click();
     await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
     assert.deepEqual(await fieldValues(), ["local-user", "local-pass"]);
     const codes = () => [totpNow().code, JSON.parse(wasm.totp(TOTP_KEY, Date.now() - 30_000)).code];
@@ -1279,7 +1280,8 @@ try {
     const inner = loginPage.frames().find((f) => f.url() === `${SITE}/login`)!;
     await inner.waitForFunction(() => !!document.getElementById("u"));
     await reopenPopup();
-    await page.getByRole("button", { name: "Fill Local app" }).click();
+    // The site section and the vault list both offer Fill: the site section comes first.
+    await page.getByRole("button", { name: "Fill Local app" }).first().click();
     await inner.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
     assert.deepEqual(await values(inner, ["u", "p"]), ["local-user", "local-pass-2"]);
     // The fill focuses the fields it writes; the inline menu must not open over the fill.
@@ -1417,7 +1419,8 @@ try {
     }, SITE);
     const { data } = await page.evaluate(() => chrome.runtime.sendMessage({ type: "pageMatches" }));
     const id = data.items.find((i: { name: string }) => i.name === "Local app").id;
-    const r = await page.evaluate((id) => chrome.runtime.sendMessage({ type: "fill", id }), id);
+    // A fill names the page the popup showed (pageMatches).
+    const r = await page.evaluate(([id, tabId, origin]) => chrome.runtime.sendMessage({ type: "fill", id, tabId, origin }), [id, data.tabId, data.origin]);
     assert.ok(r.data?.filled, JSON.stringify(r));
     assert.equal(await loginPage.inputValue("#u"), "local-user");
   });
@@ -1439,11 +1442,17 @@ try {
     ];
     const saved = await page.evaluate((item) => chrome.runtime.sendMessage({ type: "saveItem", item }), { ...item, fields });
     assert.ok(saved.ok, JSON.stringify(saved));
-    const r = await page.evaluate((id) => chrome.runtime.sendMessage({ type: "fill", id }), id);
+    // A fill names the page the popup showed (pageMatches).
+    const r = await page.evaluate(([id, tabId, origin]) => chrome.runtime.sendMessage({ type: "fill", id, tabId, origin }), [id, data.tabId, data.origin]);
     assert.ok(r.data?.filled, JSON.stringify(r));
     assert.deepEqual(await Promise.all(["#u", "#p", "#member", "#alias"].map((f) => loginPage.inputValue(f))), [c.login.username, c.login.password, "M-77", c.login.username]);
     assert.equal(await loginPage.isChecked("#terms"), true);
-    await page.evaluate((item) => chrome.runtime.sendMessage({ type: "saveItem", item }), item);
+    // Put the fields back on the current copy: the one read before the save above is stale now, and the server
+    // refuses a stale draft.
+    const { data: fresh } = await page.evaluate((id) => chrome.runtime.sendMessage({ type: "getItem", id }), id);
+    await page.waitForTimeout(1100); // the server's revision dates have 1 s granularity
+    const restored = await page.evaluate((item) => chrome.runtime.sendMessage({ type: "saveItem", item }), { ...fresh, fields: item.fields ?? null });
+    assert.ok(restored.ok, JSON.stringify(restored));
   });
 
   await step("custom fields: a linked field shows what it stands for, and the editor changes it", async () => {
@@ -1787,7 +1796,8 @@ try {
     assert.deepEqual([cd.type, cd.origin, cd.challenge], ["webauthn.create", SITE, challenge.toString("base64url")]);
     const ad = Buffer.from(c.authData, "base64");
     assert.ok(ad.subarray(0, 32).equals(createHash("sha256").update("localhost").digest()), "rpIdHash");
-    assert.equal(ad[32]! & 0x45, 0x45, "UP, UV and AT flags");
+    // UV stays clear: the vault was already unlocked and the site did not require verification (presence only).
+    assert.equal(ad[32]! & 0x45, 0x41, "UP and AT flags, no UV");
     spki = c.spki;
     const s = await apiSession(vaultUser);
     const item = (await s.ciphers()).find((x) => x.login?.fido2Credentials?.length && !x.deletedDate);
@@ -1798,15 +1808,18 @@ try {
 
   await step("passkeys: sign in with the stored passkey, signature verifies", async () => {
     const got = loginPage.evaluate(async (ch) => {
-      const c = (await navigator.credentials.get({ publicKey: { challenge: Uint8Array.from(ch), rpId: "localhost" } })) as PublicKeyCredential;
+      const c = (await navigator.credentials.get({ publicKey: { challenge: Uint8Array.from(ch), rpId: "localhost", userVerification: "required" } })) as PublicKeyCredential;
       const r = c.response as AuthenticatorAssertionResponse;
       const b = (x: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(x)));
       return { clientData: b(r.clientDataJSON), authData: b(r.authenticatorData), sig: b(r.signature), user: b(r.userHandle!) };
     }, [...challenge]);
+    // The site requires user verification: the window asks for the master password before it signs.
     await approve(async (w) => {
+      await w.getByLabel(/verify it is you/).fill(vaultUser.password);
       await w.getByRole("listitem").filter({ hasText: "pk-user" }).click();
     });
     const g = await got;
+    assert.equal(Buffer.from(g.authData, "base64")[32]! & 0x05, 0x05, "UP and UV flags after the master password");
     const clientData = Buffer.from(g.clientData, "base64");
     assert.equal(JSON.parse(clientData.toString()).type, "webauthn.get");
     const signed = Buffer.concat([Buffer.from(g.authData, "base64"), createHash("sha256").update(clientData).digest()]);
