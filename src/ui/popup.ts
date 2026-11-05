@@ -1055,7 +1055,8 @@ void send<State>({ type: "getState" }).then((res) => {
  * The worker owns the session (auto-lock, a lock from another window): follow it. Without this an open
  * side panel would keep showing decrypted item names after the vault locked.
  */
-let refreshSeq = 0;
+/** Locks seen so far: an answer asked for before the latest one must not show the vault unlocked again. */
+let locksSeen = 0;
 chrome.storage.onChanged.addListener((changes, area) => {
   // A push sync stored a newer vault: the open list follows (a sync this popup started updates it itself).
   const vault = area === "local" ? changes.vault : undefined;
@@ -1068,14 +1069,18 @@ chrome.storage.onChanged.addListener((changes, area) => {
   // loggedOut -> locked (SSO finished in another tab) leaves `unlocked` false, so a logged-out view always refreshes.
   if (!requestsChanged && (typeof next?.unlocked !== "boolean" || (next.unlocked === (state.phase === "unlocked") && state.phase !== "loggedOut"))) return;
   // A lock applies at once (the render drops the decrypted view); the state asked for then fills in the rest.
-  if (next?.unlocked === false && state.phase === "unlocked") {
-    state = { ...state, phase: "locked" };
-    render();
+  if (next?.unlocked === false) {
+    locksSeen++;
+    if (state.phase === "unlocked") {
+      state = { ...state, phase: "locked" };
+      render();
+    }
   }
-  // Only the answer to the latest change applies: one asked for before a lock must not unlock the view again.
-  const seq = ++refreshSeq;
+  // Every answer applies, except an unlocked one asked for before a lock that came since. (Not "only the latest":
+  // getState itself touches the session, so each answer would be overtaken by the change it caused.)
+  const asked = locksSeen;
   void send<State>({ type: "getState" }).then((r) => {
-    if (!r.ok || seq !== refreshSeq) return;
+    if (!r.ok || (asked !== locksSeen && r.data.phase === "unlocked")) return;
     state = r.data;
     render();
   });
