@@ -2,7 +2,7 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.10 — 2026-11-05
 
 ### Security
 
@@ -10,9 +10,35 @@ All notable changes to Warren. Versions match the `v*` release tags.
   vault syncs again after the first unlock.
 - "Unlock with PIN" without the master password after a restart needs a PIN of at least 8 characters with one that
   is not a digit. A shorter PIN set this way before asks for the master password after the next restart.
-- A new passkey's private key, an item updated from the save bar and an attachment's item no longer pass through
-  the service worker.
-- Releases need a signed tag (`.github/allowed_signers`).
+- Passkey private keys stay in the crypto worker: the popup never holds one, and a new passkey, an item updated from
+  the save bar and an attachment's item no longer pass through the service worker.
+- Passkeys: the "user verified" flag is set only when the user was verified for that request (unlock or master
+  password in the approval window). A site that requires verification asks for the master password.
+- A popup or side panel fill is bound to the tab and site it showed, and refused once either changed.
+- A lock wins over a login, unlock or re-prompt still in flight. A server can no longer lower the KDF: a weaker one
+  than the account used here is refused unless still safe, and PBKDF2 under 100 000 iterations is never used.
+- Login URIs whose checksum does not match are dropped, so a server cannot point a login at another site.
+- Saves carry the revision they were read at: the server refuses a stale draft instead of overwriting newer data.
+- Autosubmit never presses a destructive button and submits only when the password was written. One-time-code
+  fields never get the account password; page-load autofill skips sign-up forms; fields clipped away count as hidden.
+- Releases: the CRX is signed without any npm package or browser next to the key, and a release needs a signed tag.
+
+### Changed
+
+- Copied values are cleared after 1 minute by default (was 5). A delay you picked stays.
+- Every login, card and identity row has a Fill button while a page is open; a login saved for another site asks
+  first ("Fill anyway").
+- Website icons follow the server's icon service redirects (Vaultwarden `ICON_SERVICE`).
+- Export and import include bank accounts, driver's licenses and passports. An export with an undecryptable personal
+  item is refused instead of incomplete.
+
+### Fixed
+
+- A Send whose text could not be read no longer opens an empty editor that would wipe it on save.
+- An SSH private key keeps its line breaks while hidden.
+- Large Type and the QR code close when a re-prompt grant ends.
+- An invalid TOTP key shows one error instead of retrying on every render.
+- A login request pushed from another device shows in an open popup again.
 
 ## 0.0.9 — 2026-11-05
 
