@@ -124,7 +124,13 @@ freed rather than zeroed in place.
    `loadVault`); affected items surface as undecryptable instead.
 
 10. **Decryption failures are isolated per item.** `decrypt_list`/`decrypt_folders`/`decrypt_send_list`
-    report per-item failures instead of failing the batch, and a failed item is never matched or filled.
+    report per-item failures instead of failing the batch, and a failed item is never matched or filled. An export
+    with an undecryptable personal item is refused rather than silently incomplete.
+
+10a. **A login's URIs are bound to it.** Field MACs do not stop a server from moving one ciphertext of an item into
+    another field. For an item with its own key, a URI whose `uriChecksum` (SHA-256 of the URI, encrypted with the
+    item) does not match is dropped on decrypt, as upstream does (`crates/core-wasm/src/cipher.rs`), so a server
+    cannot point a login at another site.
 
 11. **Passkeys are bound to the origin.** `checkRpId` requires the RP ID to be the origin's host or a
     registrable parent, on a secure origin, and never a public suffix — including when the page's own

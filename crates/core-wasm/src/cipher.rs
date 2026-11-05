@@ -144,13 +144,24 @@ pub fn decrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let key = item.as_ref().unwrap_or(base);
     // `data` is Vaultwarden's legacy duplicate of the typed fields; drop it from the plaintext view.
     obj.retain(|k, _| !k.eq_ignore_ascii_case("data"));
-    apply(obj, &mut |v| decrypt_str(key, v))
+    apply(obj, &mut |v| decrypt_str(key, v))?;
+    // As upstream: with a cipher key, a URI must carry its own checksum, so a server cannot swap in
+    // another ciphertext from the same item (e.g. the username) to point the login at a new site.
+    if item.is_some()
+        && let Some(uris) = login_uris(obj)
+    {
+        uris.retain(|u| {
+            u.as_object().is_some_and(|u| {
+                matches!((str_ci(u, "uri"), str_ci(u, "uriChecksum")),
+                    (Some(uri), Some(sum)) if STANDARD.encode(Sha256::digest(uri.as_bytes())) == sum)
+            })
+        });
+    }
+    Ok(())
 }
 
-/// Sets every login URI's `uriChecksum` (base64 SHA-256 of the URI, bitwarden-vault `generate_checksum`).
-/// The official clients drop a URI whose checksum is missing or stale when the cipher has its own key.
-fn set_uri_checksums(cipher: &mut Map<String, Value>) {
-    let uris = cipher
+fn login_uris(cipher: &mut Map<String, Value>) -> Option<&mut Vec<Value>> {
+    cipher
         .iter_mut()
         .find(|(k, _)| k.eq_ignore_ascii_case("login"))
         .and_then(|(_, login)| login.as_object_mut())
@@ -159,8 +170,17 @@ fn set_uri_checksums(cipher: &mut Map<String, Value>) {
                 .iter_mut()
                 .find(|(k, _)| k.eq_ignore_ascii_case("uris"))
         })
-        .and_then(|(_, uris)| uris.as_array_mut());
-    for uri in uris.into_iter().flatten().filter_map(Value::as_object_mut) {
+        .and_then(|(_, uris)| uris.as_array_mut())
+}
+
+/// Sets every login URI's `uriChecksum` (base64 SHA-256 of the URI, bitwarden-vault `generate_checksum`).
+/// The official clients drop a URI whose checksum is missing or stale when the cipher has its own key.
+fn set_uri_checksums(cipher: &mut Map<String, Value>) {
+    for uri in login_uris(cipher)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_object_mut)
+    {
         let checksum = str_ci(uri, "uri").map(|u| STANDARD.encode(Sha256::digest(u.as_bytes())));
         uri.retain(|k, _| !k.eq_ignore_ascii_case("uriChecksum"));
         if let Some(checksum) = checksum {
@@ -316,6 +336,27 @@ mod tests {
         );
         assert_eq!(uris[0]["uri"], "https://example.com");
         assert!(uris[1]["uriChecksum"].is_string());
+    }
+
+    #[test]
+    fn swapped_uri_is_dropped_when_the_cipher_has_a_key() {
+        let s = session(HashMap::new());
+        let item = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let wrapped = (&OctetStreamBytes::from(item.to_encoded().to_vec()))
+            .encrypt_with_key(&s.user)
+            .unwrap()
+            .to_string();
+        let mut cipher = json!({ "type": 1, "name": "n", "key": wrapped, "login": {
+            "username": "https://evil.example",
+            "uris": [{ "uri": "https://good.example" }, { "uri": "https://kept.example" }] } });
+        encrypt(&s, &mut cipher).unwrap();
+        // The server moves the username ciphertext into the first URI.
+        let swapped = cipher["login"]["username"].clone();
+        cipher["login"]["uris"][0]["uri"] = swapped;
+        decrypt(&s, &mut cipher).unwrap();
+        let uris = cipher["login"]["uris"].as_array().unwrap();
+        assert_eq!(uris.len(), 1);
+        assert_eq!(uris[0]["uri"], "https://kept.example");
     }
 
     #[test]
