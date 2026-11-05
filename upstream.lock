@@ -26,7 +26,7 @@ version = "1.37.5"
 license = "AGPL-3.0-only"
 
 [chromium]
-minimum_chrome_version = "156"   # to be verified in Phase 1 (see docs/COMPATIBILITY.md)
+minimum_chrome_version = "156"   # verified, see docs/COMPATIBILITY.md "Chromium 156"
 
 [publicsuffix]
 repo = "https://github.com/publicsuffix/list"

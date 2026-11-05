@@ -128,7 +128,9 @@ freed rather than zeroed in place.
 
 12. **Rendered data is text, not markup.** No `innerHTML` anywhere; the `h()` helper sets properties
     from static keys and `textContent` for values, so vault, server and page strings cannot become
-    markup. External links are restricted to http(s) (`webUrl`).
+    markup. External links are restricted to http(s) (`webUrl`). The extension pages' CSP requires Trusted
+    Types, so the browser itself refuses an HTML or script sink; the only policy (`warren`, `src/offscreen/offscreen.ts`)
+    creates the crypto worker's URL and refuses any origin but the extension's.
 
 13. **Clipboard copies are cleared on a timer**, and the clear is armed only when the write actually
     happened — never after a failed copy that would otherwise erase the user's clipboard.
@@ -191,6 +193,10 @@ password hardness and post-quantum safety first. A change that breaks one of the
   `releases/latest/download/updates.xml` (`docs/UPDATES.md`). The browser verifies each `.crx` against the
   extension's key, so a build signed with another key is refused, but anyone who can push a `v*` tag and read
   `CRX_KEY` can ship code to every installed copy. Keep that secret and the repository's write access tight.
+  What the pipeline can do about it: every action is pinned by commit SHA and linted by `zizmor`, build tools
+  come from lockfiles, the job that holds `CRX_KEY` runs no install scripts, a release needs a green `ci` and a
+  clean advisory check, and each released file carries signed build provenance (`docs/UPDATES.md`). Provenance
+  shows which commit and run built a file; it cannot tell a malicious tag from a real one.
 
 - **The inline menu's "Sign in with passkey" signs in without a window.** Picking the entry is the
   decision: with exactly one matching passkey `openConditional` (`src/background/passkey.ts`) asserts

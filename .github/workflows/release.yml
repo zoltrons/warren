@@ -43,9 +43,14 @@ jobs:
         with: { node-version-file: .nvmrc }
       - run: rustup toolchain install # from rust-toolchain.toml
       - run: cargo install wasm-bindgen-cli --version "$(sed -n 's/^wasm-bindgen = "\(.*\)".*/\1/p' upstream.lock)" --locked
-      - run: npm ci
-      - run: npm i -g binaryen@132.0.0 && bash tools/build-wasm.sh --simd
+      # binaryen (wasm-opt) comes from package-lock.json, integrity-checked like every other tool.
+      - run: npm ci && echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: bash tools/build-wasm.sh --simd
       - run: node tools/fetch-psl.mjs && npm run typecheck && npm test && npm run build && npm run size
+      # Advisories warn in ci but block a release: nothing with a known high-severity hole ships.
+      - run: npm audit --audit-level=high
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with: { command: check advisories }
       - name: tag matches the manifest version
         run: test "v$(node -p "require('./dist/ext/manifest.json').version")" = "$GITHUB_REF_NAME"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -56,7 +61,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions: { contents: write }
+    # id-token + attestations: signed SLSA build provenance (Sigstore) for every released file.
+    permissions: { contents: write, id-token: write, attestations: write }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -89,6 +95,9 @@ jobs:
             </app>
           </gupdate>
           XML
+      # Verify a download with: gh attestation verify warren-vX.Y.Z.crx --repo zoltrons/warren
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with: { subject-path: "warren-*.crx\nwarren-*.zip\nupdates.xml" }
       - run: gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip updates.xml --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

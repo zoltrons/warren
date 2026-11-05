@@ -40,7 +40,7 @@ to date. For a quick look, unzip `warren-vX.Y.Z.zip` and use **Load unpacked** o
 
 ## Build
 
-Needs Node 24, rustup, `wasm-bindgen-cli` at the version in `upstream.lock` and binaryen (`wasm-opt`).
+Needs Node 24, rustup, `wasm-bindgen-cli` at the version in `upstream.lock` and binaryen (`wasm-opt`, installed by `npm ci`).
 
 ```sh
 npm ci

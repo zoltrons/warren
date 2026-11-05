@@ -19,6 +19,10 @@ makes the request.
 - **The extension id is fixed by the `CRX_KEY` secret.** The workflow derives the id from it (SHA-256 of the
   public key, first 128 bits, written with `a`-`p`), so a new key means a new extension that cannot update the
   old one. Never regenerate it. Warren's id is `nkaabaakdmjjoplnpijkcnpmenphaikf`.
+- **Every released file carries signed build provenance.** The release job attests the `.crx`, `.zip` and
+  `updates.xml` (SLSA provenance via Sigstore, `actions/attest`), so a download can be traced to the commit and
+  workflow run that built it: `gh attestation verify warren-vX.Y.Z.crx --repo zoltrons/warren`. A release also
+  refuses to build while `npm audit` (high) or `cargo deny check advisories` fails.
 - **Only builds that contain `update_url` can update themselves.** An older install has to be replaced by hand
   once.
 - **The browser decides whether an off-store extension may update.** Chromium honours `update_url` for extensions

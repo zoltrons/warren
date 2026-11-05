@@ -1,13 +1,25 @@
 // Offscreen document: owns the crypto worker and relays requests from the service worker only.
 import { type CoreResult, OFFSCREEN_TARGET, parseCoreRequest } from "../shared/messages.ts";
 
+// Trusted Types (manifest CSP): the worker is the only script URL our pages build, and it must stay in the extension.
+// TypeScript's DOM lib lacks Trusted Types; a TrustedScriptURL is typed as the string it stands for.
+declare const trustedTypes: {
+  createPolicy(name: string, rules: { createScriptURL(url: string): string }): { createScriptURL(url: string): string };
+};
+const scriptUrls = trustedTypes.createPolicy("warren", {
+  createScriptURL: (url: string) => {
+    if (new URL(url).origin !== location.origin) throw new TypeError("script URL outside the extension");
+    return url;
+  },
+});
+
 let worker: Worker | undefined;
 let nextId = 0;
 const pending = new Map<number, (r: CoreResult) => void>();
 
 function getWorker(): Worker {
   if (worker) return worker;
-  worker = new Worker(new URL("worker.js", import.meta.url), { type: "module", name: "warren-core" });
+  worker = new Worker(scriptUrls.createScriptURL(new URL("worker.js", import.meta.url).href), { type: "module", name: "warren-core" });
   worker.onmessage = (ev: MessageEvent<{ id: number; result: CoreResult }>) => {
     pending.get(ev.data.id)?.(ev.data.result);
     pending.delete(ev.data.id);
