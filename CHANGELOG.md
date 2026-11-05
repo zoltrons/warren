@@ -2,6 +2,18 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Security
+
+- The refresh token is stored sealed with the user key, no longer in clear text. After a browser restart a locked
+  vault syncs again after the first unlock.
+- "Unlock with PIN" without the master password after a restart needs a PIN of at least 8 characters with one that
+  is not a digit. A shorter PIN set this way before asks for the master password after the next restart.
+- A new passkey's private key, an item updated from the save bar and an attachment's item no longer pass through
+  the service worker.
+- Releases need a signed tag (`.github/allowed_signers`).
+
 ## 0.0.9 — 2026-11-05
 
 ### Added

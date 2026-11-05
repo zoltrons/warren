@@ -93,10 +93,12 @@ export async function list(): Promise<VaultList> {
   return { ...l, syncedAt: (await getLocal("vault"))?.syncedAt, opened: await readPrivate().then((d) => d.opened, () => ({})) };
 }
 
-export async function save(item: Record<string, unknown>): Promise<VaultList> {
+export const save = async (item: Record<string, unknown>): Promise<VaultList> => saveEncrypted(await coreCall<Record<string, unknown>>({ op: "prepareSave", item }));
+
+/** Sends an item the worker already encrypted (prepareSave, preparePassword, passkeyCreate). */
+export async function saveEncrypted(enc: Record<string, unknown>): Promise<VaultList> {
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
-  const enc = await coreCall<Record<string, unknown>>({ op: "prepareSave", item });
   const saved = await saveCipher(await server(), await accessToken(), { ...enc, encryptedFor: account.userId });
   const cache = await getLocal("vault");
   if (cache) {
@@ -185,11 +187,8 @@ export async function importVault(text: string): Promise<{ imported: number; ski
 
 export async function downloadAttachment(cipherId: string, attachmentId: string): Promise<{ fileName: string; data: string }> {
   if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: cipherId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
-  const item = await coreCall<{ attachments?: { id: string; fileName?: string }[] }>({ op: "getCipher", id: cipherId });
-  const att = item.attachments?.find((a) => a.id === attachmentId);
-  if (!att) throw new UserError("invalid", "Attachment not found");
   const body = await apiDownloadAttachment(await server(), await accessToken(), cipherId, attachmentId);
-  return { fileName: att.fileName ?? "attachment", data: await coreCall<string>({ op: "decryptAttachment", cipherId, attachmentId, data: body.toBase64() }) };
+  return coreCall<{ fileName: string; data: string }>({ op: "decryptAttachment", cipherId, attachmentId, data: body.toBase64() });
 }
 
 export async function addAttachment(cipherId: string, file: { name: string; data: string }): Promise<VaultList> {

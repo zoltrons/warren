@@ -1064,7 +1064,7 @@
     "message": "Ask for master password after browser restart"
   },
   "pinLockOnRestartHint": {
-    "message": "Recommended. When off, the PIN alone unlocks the vault after a restart, and anyone who copies your browser profile can try PINs until one opens it."
+    "message": "Recommended. When off, the PIN alone unlocks the vault after a restart, and anyone who copies your browser profile can try PINs until one opens it, so the PIN then needs at least 8 characters and one that is not a digit."
   },
   "setPin": {
     "message": "Set PIN"

@@ -504,6 +504,8 @@ export type CoreRequest =
   /** The list entry of one item: no secrets. Enough for a re-prompt or type check. */
   | { op: "cipherSummary"; id: string }
   | { op: "prepareSave"; item: Record<string, unknown> }
+  /** Save bar: the item with a new password, encrypted; the service worker never sees the item. */
+  | { op: "preparePassword"; id: string; password: string }
   | { op: "totp"; id: string }
   | { op: "generate"; options: Record<string, unknown> }
   // free text encrypted with the user key (like a folder name)
@@ -530,7 +532,8 @@ export type CoreRequest =
   // passkeys (all ids and binary values base64url)
   | { op: "passkeyCandidates"; rpId: string; origin: string; ids: string[] }
   | { op: "passkeyAssert"; itemId: string; credentialId: string; rpId: string; origin: string; challenge: string; uv: boolean }
-  | { op: "passkeyCreate"; input: PasskeyCreateInput }
+  /** Result: the item to save, already encrypted (the new private key never leaves the worker), and the page's response. */
+  | { op: "passkeyCreate"; input: PasskeyCreateInput; itemId?: string }
   // handled by the offscreen document itself, not the worker
   | { op: "writeClipboard"; text: string };
 
@@ -593,6 +596,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   getCipher: obj({ op: literal("getCipher"), id: str }),
   cipherSummary: obj({ op: literal("cipherSummary"), id: str }),
   prepareSave: obj({ op: literal("prepareSave"), item: record }),
+  preparePassword: obj({ op: literal("preparePassword"), id: str, password: str }),
   totp: obj({ op: literal("totp"), id: str }),
   generate: obj({ op: literal("generate"), options: record }),
   encryptText: obj({ op: literal("encryptText"), values: arr(str) }),
@@ -615,7 +619,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   removeSend: obj({ op: literal("removeSend"), id: str }),
   passkeyCandidates: obj({ op: literal("passkeyCandidates"), rpId: str, origin: str, ids: arr(str) }),
   passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str, uv: bool }),
-  passkeyCreate: obj({ op: literal("passkeyCreate"), input: passkeyCreateInput }),
+  passkeyCreate: obj({ op: literal("passkeyCreate"), input: passkeyCreateInput, itemId: opt(str) }),
   writeClipboard: obj({ op: literal("writeClipboard"), text: str }),
 };
 

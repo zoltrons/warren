@@ -19,7 +19,7 @@ import { UserError, verifyMasterPassword } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { getLocal, getSettings } from "./store.ts";
-import { ensureLoaded, isUnlocked, requireUnlocked, save, sync } from "./vault.ts";
+import { ensureLoaded, isUnlocked, requireUnlocked, saveEncrypted, sync } from "./vault.ts";
 
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
 /**
@@ -317,27 +317,23 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       if (o.exclude.length && (await candidates(p, o.exclude)).length)
         return (p.done(error("InvalidStateError", "A passkey for this account already exists in Warren")), null);
       // Joining an existing login: only one offered for this site, and a flagged one is confirmed in the popup first.
-      let item: Record<string, any> | undefined;
       if (itemId) {
         const target = (await joinable(p)).find((c) => c.itemId === itemId);
         if (!target) throw new UserError("invalid", "Choose one of the logins for this site");
         // Never overwrite a passkey the window did not ask the user about.
         if (target.replaces && !replace) throw new UserError("invalid", "This login already has a passkey: confirm replacing it");
-        item = await coreCall<Record<string, any>>({ op: "getCipher", id: itemId });
-        if (repromptPending(item)) throw new UserError("reprompt", REPROMPT_MESSAGE);
+        if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
       }
-      const r = await coreCall<{ fido2Credential: Record<string, unknown>; response: Record<string, unknown> }>({
+      // The worker returns the item already encrypted: the new private key never passes through here.
+      const r = await coreCall<{ cipher: Record<string, unknown>; response: Record<string, unknown> }>({
         op: "passkeyCreate",
         input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv },
+        ...(itemId ? { itemId } : {}),
       });
       // The page aborted (or the vault locked) meanwhile: the site never gets this credential, so it must not replace one.
       if (pending.get(id) !== p) return null;
       await requireUnlocked();
-      await save(
-        item
-          ? { ...item, login: { ...item.login, fido2Credentials: [r.fido2Credential] } }
-          : { type: 1, name: o.rpName || p.rpId, login: { username: o.user.name, uris: [{ uri: p.origin, match: null }], fido2Credentials: [r.fido2Credential] } },
-      );
+      await saveEncrypted(r.cipher);
       p.done({ credential: r.response });
     }
   } catch (e) {

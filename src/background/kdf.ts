@@ -28,3 +28,10 @@ export const kdfDowngrade = (next: KdfParams, floor: KdfParams | undefined): boo
 
 /** The floor to keep after `next` was accepted: never lower. */
 export const raiseFloor = (next: KdfParams, floor: KdfParams | undefined): KdfParams => (!floor || weaker(floor, next) ? next : floor);
+
+/**
+ * A PIN that unlocks alone after a restart sits on disk wrapped by PIN_KDF and can be tried offline from a copied
+ * profile: it must not be a short number (a 6-digit PIN falls in hours to days).
+ */
+export const PIN_ONLY_MIN = 8;
+export const pinOnlyStrong = (pin: string): boolean => [...pin].length >= PIN_ONLY_MIN && /\D/.test(pin);

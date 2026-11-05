@@ -19,7 +19,10 @@ export interface Account {
   kdf: KdfParams;
   protectedUserKey: string;
   encryptedPrivateKey?: string;
+  /** Older builds: the refresh token in clear text, sealed into `refreshTokenEnc` on the next unlock. */
   refreshToken?: string;
+  /** The refresh token, sealed with the user key (EncString). */
+  refreshTokenEnc?: string;
   /** PIN unlock is on: the PIN, encrypted with the user key (to re-arm it after a browser restart). */
   protectedPin?: string;
   /** PIN-only mode: the PIN-wrapped user key kept on disk so a PIN also unlocks after a browser restart. */
@@ -45,7 +48,7 @@ interface Session {
   unlockedUntil?: number;
   accessToken?: string;
   accessExpiresAt?: number;
-  /** With "log out" as the timeout action the refresh token lives here only (memory), never on disk. */
+  /** The refresh token in memory; on disk only sealed, and with "log out" as the timeout action not at all. */
   refreshToken?: string;
   pending?: PendingLogin;
   /** Log in with device: our request waiting for another device. Its RSA key lives in the crypto worker. */

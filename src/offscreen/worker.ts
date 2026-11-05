@@ -73,6 +73,8 @@ function run(req: CoreRequest): unknown {
       return vault.cipherSummary(req.id);
     case "prepareSave":
       return vault.prepareSave(req.item);
+    case "preparePassword":
+      return vault.preparePassword(req.id, req.password);
     case "totp":
       return vault.totp(req.id);
     case "generate":
@@ -118,7 +120,7 @@ function run(req: CoreRequest): unknown {
     case "passkeyAssert":
       return vault.passkeyAssert(req.itemId, req.credentialId, req.rpId, req.origin, req.challenge, req.uv);
     case "passkeyCreate":
-      return vault.passkeyCreate(req.input);
+      return vault.passkeyCreate(req.input, req.itemId);
   }
 }
 

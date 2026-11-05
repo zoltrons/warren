@@ -33,7 +33,7 @@ const noop = async () => undefined;
     // The crypto worker, scripted: every op succeeds.
     sendMessage: async ({ req }: { req: { op: string } }) => {
       coreOps.push(req.op);
-      const value = req.op === "prepareKey" ? { handle: 1, authHash: "hash" } : null;
+      const value = req.op === "prepareKey" ? { handle: 1, authHash: "hash" } : req.op === "encryptText" ? (req as { values?: string[] }).values : null;
       return { ok: true, value };
     },
   },
@@ -82,6 +82,9 @@ test("a login nothing interrupts unlocks", async () => {
   await answer("/identity/connect/token", tokens("user-a", "r1"));
   await running;
   assert.equal((session.session as { unlocked?: boolean }).unlocked, true);
+  const account = local.account as { refreshToken?: string; refreshTokenEnc?: string };
+  assert.equal(account.refreshToken, undefined, "no clear-text refresh token on disk");
+  assert.ok(account.refreshTokenEnc, "the refresh token is sealed with the user key");
 });
 
 test("a lock while the master password is being checked: no re-prompt grant", async () => {
@@ -103,16 +106,14 @@ test("a server that lowers the KDF gets no password hash", async () => {
 });
 
 test("a refresh answer for an account that was replaced meanwhile is dropped", async () => {
-  session.session = { ...(session.session as object), accessToken: "old", accessExpiresAt: 0 };
-  local.account = { ...(local.account as object), refreshToken: "refresh-a" };
+  session.session = { ...(session.session as object), accessToken: "old", accessExpiresAt: 0, refreshToken: "refresh-a" };
   const refreshing = accessToken();
   await arrived("/identity/connect/token");
   // Another account logs in while the refresh is out.
-  local.account = { ...(local.account as object), refreshToken: "refresh-b" };
-  session.session = { ...(session.session as object), accessToken: "token-b", accessExpiresAt: Date.now() + 3_600_000 };
+  session.session = { ...(session.session as object), accessToken: "token-b", accessExpiresAt: Date.now() + 3_600_000, refreshToken: "refresh-b" };
   await answer("/identity/connect/token", tokens("user-a", "refresh-a2"));
   await assert.rejects(refreshing, /account changed/);
-  assert.equal((local.account as { refreshToken?: string }).refreshToken, "refresh-b");
+  assert.equal((session.session as { refreshToken?: string }).refreshToken, "refresh-b");
   assert.equal((session.session as { accessToken?: string }).accessToken, "token-b");
 });
 
@@ -120,9 +121,9 @@ test("a refused refresh for a replaced account does not log the new one out", as
   session.session = { ...(session.session as object), accessExpiresAt: 0 };
   const refreshing = accessToken();
   await arrived("/identity/connect/token");
-  local.account = { ...(local.account as object), refreshToken: "refresh-c" };
+  session.session = { ...(session.session as object), refreshToken: "refresh-c" };
   await answer("/identity/connect/token", { error: "invalid_grant" }, 400);
   await assert.rejects(refreshing);
   assert.ok(local.account, "still logged in");
-  assert.equal((local.account as { refreshToken?: string }).refreshToken, "refresh-c");
+  assert.equal((session.session as { refreshToken?: string }).refreshToken, "refresh-c");
 });

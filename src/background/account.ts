@@ -23,7 +23,7 @@ import {
 import { ApiError } from "../transport/http.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
-import { kdfDowngrade, PBKDF2_MIN, raiseFloor, tooWeak } from "./kdf.ts";
+import { kdfDowngrade, PBKDF2_MIN, PIN_ONLY_MIN, pinOnlyStrong, raiseFloor, tooWeak } from "./kdf.ts";
 import { lockEpoch, lockNow, touchAutoLock } from "./lock.ts";
 import { migratePrivate } from "./private.ts";
 import { stopPush } from "./push.ts";
@@ -309,19 +309,29 @@ async function afterUnlock(account: Account, epoch: number): Promise<void> {
   await touchAutoLock();
   // After a browser restart the PIN-wrapped key is gone: re-arm it from the stored PIN.
   const { pin } = await getSession();
-  if (account.protectedPin && !account.pinKey && pin?.email !== account.email) {
-    const [plain] = await unseal([account.protectedPin]);
-    if (plain) await armPin(account, plain);
-  } else if (account.pinKey && account.protectedPin && JSON.stringify(account.pinKdf) !== JSON.stringify(PIN_KDF)) {
-    // A PIN-only key from an older build is wrapped through the account KDF: re-wrap it with PIN_KDF once.
-    const [plain] = await unseal([account.protectedPin]);
-    const key = plain ? await armPin(account, plain) : undefined;
+  const [plain] = account.protectedPin ? await unseal([account.protectedPin]) : [];
+  if (plain && account.pinKey && !pinOnlyStrong(plain)) {
+    // A PIN-only key set before the strength rule, behind a short number: the PIN keeps working until the browser
+    // restarts, and after one the master password is asked again.
+    await armPin(account, plain);
     const fresh = await getLocal("account");
-    if (key && fresh?.pinKey === account.pinKey) await setLocal("account", { ...fresh, pinKey: key, pinKdf: PIN_KDF });
+    if (fresh?.pinKey === account.pinKey) {
+      const { pinKey: _, pinKdf: __, ...rest } = fresh;
+      await setLocal("account", rest);
+    }
+  } else if (plain && !account.pinKey && pin?.email !== account.email) {
+    await armPin(account, plain);
+  } else if (plain && account.pinKey && JSON.stringify(account.pinKdf) !== JSON.stringify(PIN_KDF)) {
+    // A PIN-only key from an older build is wrapped through the account KDF: re-wrap it with PIN_KDF once.
+    const key = await armPin(account, plain);
+    const fresh = await getLocal("account");
+    if (fresh?.pinKey === account.pinKey) await setLocal("account", { ...fresh, pinKey: key, pinKdf: PIN_KDF });
   } else if (pin?.attempts) await updateSession({ pin: { ...pin, attempts: 0 } });
   // Older builds kept never-save hosts and fill stamps in clear text; a failed move is retried next unlock.
   await migratePrivate().catch(() => undefined);
   await resealLegacy().catch(() => undefined);
+  // Seals a token that came while locked, and the clear-text one of older builds.
+  await relocateRefreshToken().catch(() => undefined);
 }
 
 // ---------- Log in with device (Bitwarden auth requests) ----------
@@ -500,10 +510,12 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
     await updateSession({ pin: undefined });
     return;
   }
+  // PIN-only keeps the PIN-wrapped key on disk, where the 5-try cap does not hold: only a PIN that is not a short
+  // number may open the vault alone.
+  if (pinOnly && !pinOnlyStrong(pin))
+    throw new UserError("invalid", `Without the master password after a restart, the PIN needs at least ${PIN_ONLY_MIN} characters and one that is not a digit`);
   const [protectedPin] = await seal([pin], BLOCK.secret);
   const key = await armPin(account, pin);
-  // shortcut: PIN-only keeps the PIN-wrapped key on disk: the 5-try cap holds only in this browser, a copied profile
-  // can be brute-forced offline (a 6-digit PIN through the KDF takes hours to days). Parity with the official clients.
   const { pinKey: _, pinKdf: __, ...rest } = account;
   await setLocal("account", { ...rest, protectedPin: protectedPin!, ...(pinOnly ? { pinKey: key, pinKdf: PIN_KDF } : {}) });
 }
@@ -543,21 +555,38 @@ export async function logout(): Promise<void> {
   await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined });
 }
 
-const currentRefreshToken = async (): Promise<string | undefined> => (await getSession()).refreshToken ?? (await getLocal("account"))?.refreshToken;
+/**
+ * The token in memory (this browser session), else the disk copy, which only an unlocked vault can open: after a
+ * restart a locked vault does not reach the server until the first unlock.
+ */
+async function currentRefreshToken(): Promise<string | undefined> {
+  const s = await getSession();
+  if (s.refreshToken) return s.refreshToken;
+  const account = await getLocal("account");
+  if (account?.refreshToken) return account.refreshToken; // clear text of older builds, sealed on the next unlock
+  if (!account?.refreshTokenEnc) return undefined;
+  if (!s.unlocked) throw new UserError("wrongPhase", "Unlock to connect to the server");
+  const [plain] = await unseal([account.refreshTokenEnc]);
+  if (plain) await updateSession({ refreshToken: plain });
+  return plain || undefined;
+}
 
 /**
- * Like the official clients: with "log out" as the timeout action the refresh token is kept in memory only
- * (storage.session), so a copied profile holds none and the session ends with the browser. Otherwise it is on
- * disk, where it lets a locked vault sync after a restart without a new login and 2FA.
+ * The token is always in memory (storage.session). On disk it is sealed with the user key, so a copied profile
+ * cannot use it; with "log out" as the timeout action (like the official clients) it is not on disk at all.
+ * Sealing needs the vault unlocked: a token that arrives while locked (SSO login, rotation) is sealed at the next
+ * unlock, and until then the previous disk copy stays.
  */
 async function storeRefreshToken(token: string | undefined): Promise<void> {
-  const inMemory = (await getSettings()).timeoutAction === "logout";
+  const onDisk = !!token && (await getSettings()).timeoutAction !== "logout";
+  const [sealed] = onDisk ? await seal([token!], BLOCK.secret).catch(() => [undefined]) : [undefined];
   const account = await getLocal("account");
   if (account) {
-    const { refreshToken: _, ...rest } = account;
-    await setLocal("account", token && !inMemory ? { ...rest, refreshToken: token } : rest);
+    const { refreshToken: _, refreshTokenEnc: previous, ...rest } = account;
+    const enc = onDisk ? (sealed ?? previous) : undefined;
+    await setLocal("account", enc ? { ...rest, refreshTokenEnc: enc } : rest);
   }
-  await updateSession({ refreshToken: token && inMemory ? token : undefined });
+  await updateSession({ refreshToken: token });
 }
 
 /** After the timeout action changed: moves the token to where that action keeps it. */

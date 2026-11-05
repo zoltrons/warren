@@ -62,18 +62,48 @@ test("overlapping settings writes keep every change, and never store the never-s
   assert.equal("neverSave" in saved, false);
 });
 
-test("with 'log out' as timeout action the refresh token is kept in memory only, and moves back", async () => {
+test("the refresh token is on disk only sealed with the user key, and not at all with 'log out'", async () => {
+  // The crypto worker, scripted: "encrypts" by base64 with a marker; fails while `locked`.
+  let locked = false;
+  const enc = (s: string) => `2.${Buffer.from(s).toString("base64")}`;
+  const dec = (s: string) => (s.startsWith("2.") ? Buffer.from(s.slice(2), "base64").toString() : "");
   (globalThis as any).chrome.offscreen = { hasDocument: async () => true };
+  (globalThis as any).chrome.runtime = {
+    sendMessage: async ({ req }: { req: { op: string; values: string[] } }) =>
+      locked ? { ok: false, error: "locked" } : { ok: true, value: req.values.map(req.op === "encryptText" ? enc : dec) },
+  };
   const { relocateRefreshToken } = await import("./account.ts");
+  const account = () => local.account as Record<string, unknown>;
+  // Clear text from an older build: sealed, never left in clear.
   local.account = { email: "a@b.c", refreshToken: "rt" };
-  local.settings = { timeoutAction: "logout" };
-  await relocateRefreshToken();
-  assert.equal((local.account as Record<string, unknown>).refreshToken, undefined);
-  assert.equal((session.session as Record<string, unknown>).refreshToken, "rt");
+  session.session = { unlocked: true };
   local.settings = { timeoutAction: "lock" };
   await relocateRefreshToken();
-  assert.equal((local.account as Record<string, unknown>).refreshToken, "rt");
-  assert.equal((session.session as Record<string, unknown>).refreshToken, undefined);
+  assert.equal(account().refreshToken, undefined);
+  assert.equal(dec(account().refreshTokenEnc as string).includes("rt"), true);
+  // After a restart: locked, nothing in memory, the sealed copy cannot be opened.
+  session.session = { unlocked: false };
+  locked = true;
+  await assert.rejects(relocateRefreshToken(), /Unlock/);
+  // Unlocked again: the sealed copy opens and comes back to memory.
+  session.session = { unlocked: true };
+  locked = false;
+  await relocateRefreshToken();
+  assert.equal((session.session as Record<string, unknown>).refreshToken, "rt");
+  // "Log out": memory only.
+  local.settings = { timeoutAction: "logout" };
+  await relocateRefreshToken();
+  assert.equal(account().refreshToken, undefined);
+  assert.equal(account().refreshTokenEnc, undefined);
+  assert.equal((session.session as Record<string, unknown>).refreshToken, "rt");
+  // Back to "lock" while locked: cannot seal, so nothing goes to disk in clear.
+  local.settings = { timeoutAction: "lock" };
+  locked = true;
+  await relocateRefreshToken();
+  assert.equal(account().refreshToken, undefined);
+  assert.equal(account().refreshTokenEnc, undefined);
+  locked = false;
+  session.session = {};
 });
 
 test("a missing refresh token logs out only when it was meant to be in memory", async () => {

@@ -11,7 +11,7 @@ import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
-import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save } from "./vault.ts";
+import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
 import { readPrivate, updatePrivate } from "./private.ts";
 
 export interface InlineContext {
@@ -187,9 +187,9 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
       await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
     } else if (req.action === "save") {
       if (p.kind === "update" && p.itemId) {
-        const item = await coreCall<Record<string, any>>({ op: "getCipher", id: p.itemId });
-        if (repromptPending(item)) throw new Error(REPROMPT_MESSAGE); // flagged after the prompt was queued
-        await save({ ...item, login: { ...item.login, password: p.password } });
+        // flagged after the prompt was queued
+        if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: p.itemId }))) throw new Error(REPROMPT_MESSAGE);
+        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: p.itemId, password: p.password }));
       } else {
         const u = new URL(p.url);
         await save({ type: 1, name: u.hostname, login: { username: p.username, password: p.password, uris: [{ uri: u.origin, match: null }] } });

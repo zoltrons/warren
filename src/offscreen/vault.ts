@@ -171,6 +171,12 @@ export function prepareSave(input: Json): Json {
   return enc;
 }
 
+/** Save bar: the item with a new password, encrypted for the server. */
+export function preparePassword(id: string, password: string): Json {
+  const item = getCipher(id);
+  return prepareSave({ ...item, login: { ...o(item.login), password } });
+}
+
 /** The current code, and the next one so a code about to expire is not a race. */
 export function totp(id: string): { code: string; next: string; period: number; remaining: number } {
   const secret = s(ci(o(ci(get(id), "login")), "totp"));
@@ -348,8 +354,13 @@ export function prepareImport(text: string): ImportRequest {
 
 // ---------- Attachments ----------
 
-export const decryptAttachment = (cipherId: string, attachmentId: string, data: string): string =>
-  core.decryptAttachment(JSON.stringify(get(cipherId)), attachmentId, Uint8Array.fromBase64(data)).toBase64();
+/** The file and its name: the service worker never needs the item for it. */
+export function decryptAttachment(cipherId: string, attachmentId: string, data: string): { fileName: string; data: string } {
+  const c = get(cipherId);
+  const att = (ci(c, "attachments") as Json[] | undefined)?.find((a) => ci(a, "id") === attachmentId);
+  if (!att) throw new Error("Attachment not found");
+  return { fileName: s(ci(att, "fileName")) || "attachment", data: core.decryptAttachment(JSON.stringify(c), attachmentId, Uint8Array.fromBase64(data)).toBase64() };
+}
 
 /** Editable items only, like editing. Result: { key, fileName, data } for the upload. */
 export function encryptAttachment(cipherId: string, fileName: string, data: string): Json {
@@ -462,9 +473,15 @@ export async function passkeyAssert(itemId: string, wanted: string, rpId: string
   return fido2.assert(cred as Json, origin, challenge, uv);
 }
 
-export async function passkeyCreate(input: fido2.CreateInput) {
+/**
+ * A new passkey, saved into the login `itemId` (replacing its passkey) or a new login, and encrypted here: the
+ * private key goes to the server only inside the item's ciphertext, never to the service worker.
+ */
+export async function passkeyCreate(input: fido2.CreateInput, itemId?: string): Promise<{ cipher: Json; response: Json }> {
   await checkRp(input.rpId, input.origin);
-  return fido2.createCredential(input);
+  const base: Json = itemId ? getCipher(itemId) : { type: 1, name: input.rpName || input.rpId, login: { username: input.user.name, uris: [{ uri: input.origin, match: null }] } };
+  const { fido2Credential, response } = await fido2.createCredential(input);
+  return { cipher: prepareSave({ ...base, login: { ...o(base.login), fido2Credentials: [fido2Credential] } }), response };
 }
 
 // ---------- card / identity fill ----------

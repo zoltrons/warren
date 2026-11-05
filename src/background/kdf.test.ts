@@ -1,7 +1,7 @@
 // The KDF downgrade guard: a server cannot make the master password hash cheap to crack.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { kdfDowngrade, raiseFloor, safeKdf, tooWeak } from "./kdf.ts";
+import { kdfDowngrade, pinOnlyStrong, raiseFloor, safeKdf, tooWeak } from "./kdf.ts";
 
 const pbkdf2 = (iterations: number) => ({ type: 0, iterations, memory: 0, parallelism: 0 });
 const argon = (memory: number, iterations: number) => ({ type: 1, iterations, memory, parallelism: 4 });
@@ -30,4 +30,9 @@ test("the floor only goes up", () => {
   assert.deepEqual(raiseFloor(pbkdf2(600_000), undefined), pbkdf2(600_000));
   assert.deepEqual(raiseFloor(argon(64, 3), pbkdf2(600_000)), argon(64, 3));
   assert.deepEqual(raiseFloor(pbkdf2(600_000), argon(64, 3)), argon(64, 3));
+});
+
+test("a PIN that unlocks alone after a restart is not a short number", () => {
+  for (const pin of ["123456", "12345678901234", "abc12", ""]) assert.equal(pinOnlyStrong(pin), false, pin);
+  for (const pin of ["1234567a", "correct horse", "şifre-123"]) assert.equal(pinOnlyStrong(pin), true, pin);
 });

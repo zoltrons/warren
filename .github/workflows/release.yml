@@ -30,9 +30,24 @@ jobs:
             esac
           done
 
+  # Push access alone cannot ship a release: the tag must be signed by a key in .github/allowed_signers, read from
+  # the tagged commit, which CI only passes on main (see ci-passed).
+  tag-signed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      # A shallow tag checkout can turn an annotated tag into a lightweight one: fetch the tag object itself.
+      - run: |
+          git fetch --no-tags --depth=1 origin "+refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          test "$(git rev-parse "refs/tags/$GITHUB_REF_NAME^{commit}")" = "$GITHUB_SHA"
+          bash tools/verify-tag.sh "$GITHUB_REF_NAME"
+
   # Runs third-party install and build scripts, so it never sees CRX_KEY.
   build:
-    needs: ci-passed
+    needs: [ci-passed, tag-signed]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions: { contents: read }
@@ -100,7 +115,8 @@ jobs:
       # a shallow tag checkout can turn an annotated tag into a lightweight one. A lightweight tag fails here.
       - run: |
           sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')"
-          gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.message' > notes.md
+          # A signed tag's message ends in its signature block, which is not part of the notes.
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.message' | sed '/^-----BEGIN SSH SIGNATURE-----$/,$d' > notes.md
           gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip updates.xml --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}

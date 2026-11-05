@@ -74,8 +74,8 @@ freed rather than zeroed in place.
    `sender.tab` absent (`src/offscreen/offscreen.ts`). Conversely the worker answers only its parent.
 
 6. **Vault secrets are never written unencrypted to disk.** `storage.local` holds the encrypted cache, the
-   protected user key, the wrapped PIN, an encrypted generator history and encrypted alias settings. The refresh token and the 2FA
-   remember tokens are the exception, see Known gaps. Access tokens, and a typed password waiting in the
+   protected user key, the wrapped PIN, an encrypted generator history, encrypted alias settings and the refresh token
+   sealed with the user key (`storeRefreshToken`). The 2FA remember tokens are the exception, see Known gaps. Access tokens, and a typed password waiting in the
    save bar until it expires or the vault locks, live in `storage.session` (memory only); the decrypted
    vault lives in the crypto worker. Both stores are set to `TRUSTED_CONTEXTS` on *every* worker start, so
    content scripts cannot read them.
@@ -148,7 +148,8 @@ freed rather than zeroed in place.
     registrable parent, on a secure origin, and never a public suffix — including when the page's own
     host *is* the public suffix. Signing happens in the worker, and the private key never leaves it: `getCipher`
     hands out items without `keyValue` and `prepareSave` restores it from the same item only
-    (`src/offscreen/passkey-keys.ts`), so a clone does not copy a passkey.
+    (`src/offscreen/passkey-keys.ts`), so a clone does not copy a passkey. A new passkey is put into its item and
+    encrypted in the worker (`passkeyCreate` answers with the ciphertext), so its key is never in the service worker.
 
 11a. **The UV flag is honest.** The RP's `userVerification` is carried, and the authenticator data says "user
     verified" only when the user was verified for that request: the vault was unlocked for it, or the master
@@ -204,26 +205,33 @@ password hardness and post-quantum safety first. A change that breaks one of the
 
 ## Known gaps
 
-- **The refresh token and 2FA remember tokens are on disk in clear text** (`storage.local`), because they must
-  survive a browser restart without the master password. Anyone who can copy the browser profile can use them to
-  fetch the still-encrypted vault and to change or delete items on the server, but not to read anything. Like the
-  official clients, choosing "Log out" as the timeout action keeps the refresh token in `storage.session` only
-  (`storeRefreshToken` in `src/background/account.ts`): nothing on disk, and the session ends with the browser
-  or an extension update.
+- **The refresh token is on disk only sealed with the user key** (`storeRefreshToken` in
+  `src/background/account.ts`), so a copied profile cannot reach the server with it. The price: after a browser
+  restart a locked vault neither syncs nor receives push until the first unlock. A token that arrives while locked
+  (SSO login, rotation) is kept in memory and sealed at the next unlock. With "Log out" as the timeout action it is
+  never on disk, like the official clients.
+- **The 2FA remember tokens are on disk in clear text**, because a login needs them before any key exists. With a
+  copied profile *and* the master password, someone can skip the second factor once; the master password alone
+  already opens the copied vault cache.
 - **PIN-only unlock ("Lock with master password on restart" off) puts the vault behind the PIN on disk.** The user
   key wrapped with the PIN key stays in `storage.local` (`setPin` in `src/background/account.ts`). The 5-try cap only
   holds inside Warren: from a copied profile the PIN can be tried offline. Each try costs Argon2id at `PIN_KDF`
   (256 MiB, 3 passes, `src/shared/constants.ts`) whatever the account KDF is, so guessing is slow and memory-bound,
-  but a short numeric PIN still falls and the whole vault with it. The setting's hint says so; the default keeps
-  the cap real. Keys from builds before `PIN_KDF` are re-wrapped on the next unlock.
-- **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code, the
-  full item for the popup and for a save-bar update go through the service worker in transit; it does not keep
-  them. The popup holds an opened item (never a passkey's private key, invariant 11) because editing sends the whole
+  but a short numeric PIN would fall and the whole vault with it. So PIN-only needs at least 8 characters and one
+  that is not a digit (`pinOnlyStrong`, `src/background/kdf.ts`); a weaker PIN-only key from an older build is
+  removed from disk on the next unlock (the PIN keeps working until the browser restarts). The default keeps the
+  cap real. Keys from builds before `PIN_KDF` are re-wrapped on the next unlock.
+- **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code and the
+  full item for the popup go through the service worker in transit; it does not keep them. A password changed from
+  the save bar, a new passkey and an attachment's name are handled in the worker (`preparePassword`,
+  `passkeyCreate`, `decryptAttachment`), so the item does not pass. The popup holds an opened item (never a passkey's private key, invariant 11) because editing sends the whole
   item back. Checks that need no secret use `cipherSummary`.
 - **Updates are only as trustworthy as the release pipeline.** Installed copies follow
   `releases/latest/download/updates.xml` (`docs/UPDATES.md`). The browser verifies each `.crx` against the
   extension's key, so a build signed with another key is refused, but anyone who can push a `v*` tag and read
-  `CRX_KEY` can ship code to every installed copy. Keep that secret and the repository's write access tight.
+  `CRX_KEY` could ship code to every installed copy, so a release also needs a tag signed by a key in
+  `.github/allowed_signers` (`tools/verify-tag.sh`, the `tag-signed` job). That file is read from the tagged commit,
+  which only passes on `main`: whoever can change `main` can still add a key, but not without a visible commit. Keep that secret and the repository's write access tight.
   What the pipeline can do about it: every action is pinned by commit SHA and linted by `zizmor`, build tools
   come from lockfiles, the job that holds `CRX_KEY` installs nothing and runs no package code or browser (the CRX is
   signed by `tools/pack-crx.mjs` on `node:crypto`) and refuses a key that does not give Warren's extension id, a release needs a green `ci` and a
