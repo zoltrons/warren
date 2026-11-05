@@ -177,6 +177,18 @@ pub fn totp(input: &str, unix_ms: f64) -> Result<String, JsError> {
     totp::totp(input, unix_ms).map_err(js)
 }
 
+/// A saved URI's "Regular expression" match against a page URL, case-insensitive. The pattern is the
+/// user's, the URL the page's: regex-lite runs in linear time, where a backtracking engine could hang on
+/// `(a+)+$`. An invalid pattern matches nothing.
+#[wasm_bindgen(js_name = regexTest)]
+pub fn regex_test(pattern: &str, text: &str) -> bool {
+    regex_lite::RegexBuilder::new(pattern)
+        .case_insensitive(true)
+        .size_limit(1 << 20)
+        .build()
+        .is_ok_and(|r| r.is_match(text))
+}
+
 #[wasm_bindgen(js_name = generatePassword)]
 pub fn generate_password(options_json: &str) -> Result<String, JsError> {
     generator::generate(options_json).map_err(js)
@@ -186,4 +198,21 @@ pub fn generate_password(options_json: &str) -> Result<String, JsError> {
 #[wasm_bindgen(js_name = makeRegistrationKeys)]
 pub fn make_registration_keys(handle: u32) -> Result<String, JsError> {
     api::make_registration_keys(handle).map_err(js)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::regex_test;
+
+    #[test]
+    fn regex_test_is_linear_case_insensitive_and_fails_closed() {
+        assert!(regex_test(
+            r"^https://([a-z]+\.)?example\.com/",
+            "HTTPS://www.Example.com/x"
+        ));
+        assert!(!regex_test("([", "https://example.com"));
+        // Exponential for a backtracking engine; regex-lite answers at once.
+        let url = format!("https://example.com/{}!", "a".repeat(5000));
+        assert!(!regex_test("^https://example.com/(a+)+$", &url));
+    }
 }

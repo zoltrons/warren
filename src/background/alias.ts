@@ -65,12 +65,12 @@ export async function saveAliasSettings(settings: AliasSettings): Promise<void> 
   await setLocal("aliasSettings", enc!);
 }
 
-/** The page the alias is being made for: the active tab, never a URL from the message. Query and fragment stay home (reset tokens, session ids). */
+/** The site the alias is being made for: the active tab, never a URL from the message. Only its origin leaves: paths carry reset tokens and account ids too. */
 async function activeWebsite(): Promise<string> {
   const tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
   try {
     const url = new URL(tab?.url ?? "");
-    return url.protocol === "https:" || url.protocol === "http:" ? url.origin + url.pathname : "";
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
   } catch {
     return "";
   }

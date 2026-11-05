@@ -95,7 +95,7 @@ freed rather than zeroed in place.
    attachment download URL must be on the configured server (`src/transport/vault.ts`). Response bodies
    are bounded (`readBytes` in `src/transport/http.ts`).
 
-8. **2FA state is scoped and short-lived.** Remember-device tokens are keyed by `<server>|<email>` so
+8. **2FA state is scoped and short-lived.** Remember-device tokens are keyed by a SHA-256 of `<server>|<email>` (no clear-text email left after logout) so
    they are never replayed to another server; a pending 2FA login holds a master-key handle, so an
    abandoned attempt is freed when it expires, by an alarm that needs no open popup (`PENDING_ALARM`).
 
@@ -139,6 +139,10 @@ freed rather than zeroed in place.
   official clients, choosing "Log out" as the timeout action keeps the refresh token in `storage.session` only
   (`storeRefreshToken` in `src/background/account.ts`): nothing on disk, and the session ends with the browser
   or an extension update.
+- **PIN-only unlock ("Lock with master password on restart" off) puts the vault behind the PIN on disk.** The user
+  key wrapped with the PIN key stays in `storage.local` (`setPin` in `src/background/account.ts`). The 5-try cap only
+  holds inside Warren: from a copied profile the PIN can be tried offline through the account KDF, so a short PIN
+  falls in hours to days and the whole vault with it. The setting's hint says so; the default keeps the cap real.
 - **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code, the
   full item for the popup and for a save-bar update go through the service worker in transit; it does not keep
   them. The popup holds an opened item, including a passkey's private key, because editing sends the whole item
@@ -159,8 +163,13 @@ freed rather than zeroed in place.
   padded responses, no cookies, no referrer; `src/ui/pwned.ts`). It needs no new permission (the broad
   host permission already covers it) and nothing runs automatically. Maps links go to OpenStreetMap
   only when the user opens them.
+- **Website icons tell the server which sites the vault holds.** Off by default. When on, the popup asks
+  `<server>/icons/<host>/icon.png` for every login, so the server (and a proxy in front of it) sees those hosts in
+  clear text, which the encrypted URIs otherwise hide. Redirects are refused (`src/ui/favicon.ts`): an icon
+  service configured to redirect (Vaultwarden's `ICON_SERVICE=google`, `duckduckgo`, ...) shows no icons instead
+  of handing the list to a third party.
 - **Forwarded email aliases call a third-party service, on an explicit click only.** The generator sends
-  the service's API token plus the current page's origin and path (no query or fragment) to the selected forwarding service
+  the service's API token plus the current page's origin (no path, query or fragment) to the selected forwarding service
   (`src/background/alias.ts`); nothing runs automatically and no vault data is included. Tokens are kept
   per service in `storage.local`, encrypted with the user key (readable only while unlocked), so switching the
   selected service cannot send one service's token to another, and they are removed on logout. A self-hosted base URL must be https, or

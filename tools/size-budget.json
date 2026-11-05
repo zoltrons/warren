@@ -1,5 +1,5 @@
 {
-  "dist/wasm/core_wasm_bg.wasm": 716800,
+  "dist/wasm/core_wasm_bg.wasm": 737280,
   "dist/wasm/core_wasm.js": 32768,
   "dist/ext/passkey-page.js": 10240,
   "dist/ext/passkey-relay.js": 10240,

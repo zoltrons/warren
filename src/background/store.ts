@@ -116,7 +116,7 @@ interface LocalSchema {
   server: Server;
   settings: Settings;
   account: Account;
-  /** `<serverUrl>|<email>` -> TwoFactorToken returned when "remember me" was ticked. Never replayed to
+  /** SHA-256 hex of `<serverUrl>|<email>` -> TwoFactorToken returned when "remember me" was ticked. Never replayed to
    * another server: the token is only valid for the server that issued it. */
   rememberTokens: Record<string, string>;
   /** Copied generator values, encrypted with the user key, newest first. */
@@ -180,7 +180,7 @@ export async function getSettings(): Promise<Settings> {
     inlineMenu: true,
     savePrompt: true,
     defaultManager: false,
-    favicons: true,
+    favicons: false,
     autoCopyTotp: true,
     defaultUriMatch: 0,
     clearClipboardDelay: "fiveMinutes",

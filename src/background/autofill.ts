@@ -61,14 +61,13 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   // Items flagged for a master-password re-prompt never fill on page load (no user to ask).
   const pick = pickPageLoadLogin((await matches(url)).filter((i) => !i.reprompt), settings.autofillOnPageLoadDefault, (await readPrivate()).lastUsed);
   if (!pick) return { filled: false, reason: "noMatch" };
-  const { username, password, totp } = await coreCall<{ username: string; password: string; totp?: string }>({ op: "fillData", id: pick.id });
+  const { username, password } = await coreCall<{ username: string; password: string }>({ op: "fillData", id: pick.id });
   const customFields = await customFieldsOf(pick.id);
   const [res] = await fillInFrames(tabId, { frameIds: [frameId] }, { mode: "login", origin: url.origin, username, password, customFields, onlyEmpty: true });
   const r = res?.result ?? { filled: false };
   if (r.filled) await closeInlineMenu(tabId, frameId);
-  // The user did not pick this login, but the official client still copies the code.
-  // No touchAutoLock: a page load is not user activity, and a page that reloads itself must not keep the vault open.
-  if (r.filled && totp && settings.autoCopyTotp) await copyToClipboard(totp);
+  // Unlike the official client, no TOTP copy: nobody asked for this fill, and a code on the clipboard reaches
+  // clipboard managers and synced clipboards. No touchAutoLock either: a page load is not user activity.
   return r;
 }
 

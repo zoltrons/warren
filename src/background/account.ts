@@ -50,7 +50,9 @@ export const PENDING_ALARM = "pendingLogin";
  * A 2FA "remember me" token is only valid for the server that issued it, so it is stored per server:
  * changing the configured server (or pointing at another one) must never replay it there.
  */
-const rememberKey = (serverUrl: string, email: string) => `${serverUrl}|${email}`;
+const rememberKey = async (serverUrl: string, email: string) =>
+  // Hashed: the token outlives a logout, and the account's email address should not stay on disk with it.
+  new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${serverUrl}|${email}`))).toHex();
 
 async function requireServer(): Promise<string> {
   const server = await getLocal("server");
@@ -97,7 +99,7 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, h
   await storeRefreshToken(tokens.refreshToken);
   if (t.TwoFactorToken) {
     const remember = (await getLocal("rememberTokens")) ?? {};
-    await setLocal("rememberTokens", { ...remember, [rememberKey(serverUrl, email)]: t.TwoFactorToken });
+    await setLocal("rememberTokens", { ...remember, [await rememberKey(serverUrl, email)]: t.TwoFactorToken });
   }
   await updateSession({
     unlocked: true,
@@ -126,7 +128,15 @@ export async function login(rawEmail: string, password: string): Promise<void> {
   const kdf = await prelogin(base, email);
   const { handle, authHash } = await prepareKey(email, password, kdf);
   const deviceId = await getDeviceId();
-  const remembered = (await getLocal("rememberTokens"))?.[rememberKey(base, email)];
+  const key = await rememberKey(base, email);
+  const tokens = (await getLocal("rememberTokens")) ?? {};
+  const legacy = `${base}|${email}`; // clear-text key of older builds
+  if (tokens[legacy]) {
+    tokens[key] ??= tokens[legacy];
+    delete tokens[legacy];
+    await setLocal("rememberTokens", tokens);
+  }
+  const remembered = tokens[key];
   try {
     const t = await passwordToken(base, {
       email,
@@ -140,7 +150,7 @@ export async function login(rawEmail: string, password: string): Promise<void> {
       if (remembered) {
         // The server rejected (or expired) our remember token: forget it and ask for a real code.
         const all = (await getLocal("rememberTokens")) ?? {};
-        delete all[rememberKey(base, email)];
+        delete all[key];
         await setLocal("rememberTokens", all);
       }
       const expiresAt = Date.now() + PENDING_TTL_MS;
@@ -323,7 +333,8 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
   }
   const [protectedPin] = await seal([pin], BLOCK.secret);
   const key = await armPin(account, pin);
-  // shortcut: PIN-only keeps the wrapped key on disk, so the attempt cap is per browser run, not global.
+  // shortcut: PIN-only keeps the PIN-wrapped key on disk: the 5-try cap holds only in this browser, a copied profile
+  // can be brute-forced offline (a 6-digit PIN through the KDF takes hours to days). Parity with the official clients.
   const { pinKey: _, ...rest } = account;
   await setLocal("account", { ...rest, protectedPin: protectedPin!, ...(pinOnly ? { pinKey: key } : {}) });
 }

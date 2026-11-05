@@ -45,7 +45,7 @@ interface FillPlan {
   submit?: { kind: "click"; fieldId: number; fallbackFieldId: number } | { kind: "enter"; fieldId: number };
 }
 
-type Target = { frameIds: number[] } | { allFrames: true };
+type Target = { frameIds: number[] } | { allFrames: true } | { documentIds: string[] };
 
 const callInPage = (name: keyof PageApi, arg: unknown) => {
   const page = (globalThis as { warren?: Record<string, (a: unknown) => unknown> }).warren;
@@ -56,14 +56,14 @@ const callInPage = (name: keyof PageApi, arg: unknown) => {
  * Calls page.js in the target frames. A page opened before the extension was installed or updated does
  * not have it yet: it gets injected there, and the frames are asked again.
  */
-export async function pageCall<T>(target: { tabId: number } & Target, name: keyof PageApi, arg: unknown): Promise<{ frameId: number; result: T }[]> {
+export async function pageCall<T>(target: { tabId: number } & Target, name: keyof PageApi, arg: unknown): Promise<{ frameId: number; documentId: string; result: T }[]> {
   const call = () => chrome.scripting.executeScript({ target, func: callInPage, args: [name, arg ?? null] });
   let res = await call();
   if (res.some((r) => r.result === "missing")) {
     await chrome.scripting.executeScript({ target, files: ["page.js"] });
     res = await call();
   }
-  return res.flatMap((r) => (r.result && r.result !== "missing" ? [{ frameId: r.frameId, result: (r.result as { value: T }).value }] : []));
+  return res.flatMap((r) => (r.result && r.result !== "missing" ? [{ frameId: r.frameId, documentId: r.documentId, result: (r.result as { value: T }).value }] : []));
 }
 
 const isResult = (v: unknown): v is FillResult => typeof (v as FillResult | null)?.filled === "boolean";
@@ -90,19 +90,19 @@ function intentOf(req: FillRequest): unknown {
 export async function fillInFrames(tabId: number, target: Target, req: FillRequest): Promise<{ frameId: number; result: FillResult }[]> {
   const collected = await pageCall<CollectedPageDetails | FillResult>({ tabId, ...target }, "collect", { origin: req.origin, mode: "FullPage" });
   await engine();
-  const plans = collected.map(({ frameId, result }): { frameId: number; refused?: FillResult; plan?: FillPlan } => {
-    if (isResult(result)) return { frameId, refused: result };
+  const plans = collected.map(({ frameId, documentId, result }): { frameId: number; documentId: string; refused?: FillResult; plan?: FillPlan } => {
+    if (isResult(result)) return { frameId, documentId, refused: result };
     try {
-      return { frameId, plan: JSON.parse(plan(JSON.stringify({ details: parsePageDetails(result), intent: intentOf(req) }))) as FillPlan };
+      return { frameId, documentId, plan: JSON.parse(plan(JSON.stringify({ details: parsePageDetails(result), intent: intentOf(req) }))) as FillPlan };
     } catch (e) {
       console.warn("autofill plan", e);
-      return { frameId, refused: { filled: false, reason: "error" } };
+      return { frameId, documentId, refused: { filled: false, reason: "error" } };
     }
   });
   // A submit nobody looked at goes to one form at most.
   const planned = plans.filter((p) => p.plan?.ops.length).length;
   return Promise.all(
-    plans.map(async ({ frameId, refused, plan: p }) => {
+    plans.map(async ({ frameId, documentId, refused, plan: p }) => {
       if (refused) return { frameId, result: refused };
       if (!p?.ops.length) return { frameId, result: { filled: false, reason: "noFields" } satisfies FillResult };
       const execute: ExecuteFill = {
@@ -114,7 +114,8 @@ export async function fillInFrames(tabId: number, target: Target, req: FillReque
         onlyEmpty: req.mode === "login" && req.onlyEmpty,
         submit: planned === 1 ? p.submit : undefined,
       };
-      const [res] = await pageCall<FillResult>({ tabId, frameIds: [frameId] }, "execute", execute);
+      // The document that passed the origin check, not the frame: a frame that navigated since never gets the values.
+      const [res] = await pageCall<FillResult>({ tabId, documentIds: [documentId] }, "execute", execute).catch(() => []);
       return { frameId, result: res?.result ?? { filled: false } };
     }),
   );

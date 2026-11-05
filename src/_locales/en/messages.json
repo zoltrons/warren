@@ -993,7 +993,7 @@
     "message": "Show website icons"
   },
   "faviconsHint": {
-    "message": "Loaded through your server's icon service"
+    "message": "Your server sees the address of every website in your vault"
   },
   "autoCopyTotp": {
     "message": "Copy one-time code after filling"
@@ -1044,7 +1044,7 @@
     "message": "Ask for master password after browser restart"
   },
   "pinLockOnRestartHint": {
-    "message": "Recommended. When off, the PIN alone unlocks the vault after a restart."
+    "message": "Recommended. When off, the PIN alone unlocks the vault after a restart, and anyone who copies your browser profile can try PINs until one opens it."
   },
   "setPin": {
     "message": "Set PIN"

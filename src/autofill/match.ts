@@ -50,7 +50,17 @@ function parseUri(uri: string): URL | undefined {
   }
 }
 
-export function uriMatches(saved: string, match: number | null | undefined, page: URL, psl: Psl, defaultMatch: number = MATCH.Domain): boolean {
+/** JavaScript's RegExp backtracks: the worker passes a linear-time matcher (core-wasm `regexTest`). */
+type RegexTest = (pattern: string, text: string) => boolean;
+const jsRegexTest: RegexTest = (pattern, text) => {
+  try {
+    return new RegExp(pattern, "i").test(text);
+  } catch {
+    return false;
+  }
+};
+
+export function uriMatches(saved: string, match: number | null | undefined, page: URL, psl: Psl, defaultMatch: number = MATCH.Domain, regexTest: RegexTest = jsRegexTest): boolean {
   if (page.protocol !== "https:" && page.protocol !== "http:") return false;
   // A login saved for https must not be offered on a cleartext page (downgrade / SSL stripping).
   if (page.protocol === "http:" && /^https:\/\//i.test(saved) && !isLoopback(page.hostname)) return false;
@@ -68,11 +78,7 @@ export function uriMatches(saved: string, match: number | null | undefined, page
     case MATCH.Exact:
       return page.href === saved;
     case MATCH.RegularExpression:
-      try {
-        return new RegExp(saved, "i").test(page.href);
-      } catch {
-        return false;
-      }
+      return regexTest(saved, page.href);
     default: // Never, unknown
       return false;
   }

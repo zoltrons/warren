@@ -46,8 +46,11 @@ function place() {
   if (!r.width || r.bottom < 0 || r.top > innerHeight) return close();
   // The host's `all:initial!important` outranks anything set here without !important.
   const set = (name: string, value: string) => host!.style.setProperty(name, value, "important");
-  set("top", `${r.bottom + 4}px`);
-  set("left", `${Math.max(4, Math.min(r.left, innerWidth - 324))}px`);
+  const [top, left] = [`${r.bottom + 4}px`, `${Math.max(4, Math.min(r.left, innerWidth - 324))}px`];
+  // A page can move the menu under the cursor: the frame restarts its click guard (guardClicks) on every move.
+  if (host.style.top && (host.style.top !== top || host.style.left !== left)) frame?.contentWindow?.postMessage("moved", "*");
+  set("top", top);
+  set("left", left);
   set("width", `${Math.max(r.width, 300)}px`);
 }
 
@@ -59,11 +62,16 @@ function close() {
   removeEventListener("resize", place);
 }
 
+/** The field a request is in flight for: the click that focused it must not ask again. */
+let opening: HTMLInputElement | undefined;
+
 async function open(el: HTMLInputElement) {
-  if (anchor === el || dismissed === el || Date.now() < quietUntil) return;
+  if (anchor === el || opening === el || dismissed === el || Date.now() < quietUntil) return;
   const mine = ++gen;
   const details = api.collectActive(el);
+  opening = el;
   const r = ((await chrome.runtime.sendMessage({ type: "inlineFocus", nonce, details }).catch(() => undefined)) as { data?: { rows: number; kind?: string } } | undefined)?.data;
+  if (opening === el) opening = undefined;
   if (r?.kind === "login") api.setFocused((focusedLogin = el)); // read by the fill
   if (mine !== gen) return;
   // rows = 0: nothing to offer (no matches, not logged in, not a field we fill), so stay out of the way.
@@ -88,12 +96,22 @@ async function open(el: HTMLInputElement) {
   addEventListener("resize", place);
 }
 
+/**
+ * The user's own last pointer press or Tab. A page can focus a field from script and measure the menu it gets
+ * (how many cards, locked or not): only a focus the user caused opens one.
+ */
+let gesture: { target: Element | undefined; at: number } = { target: undefined, at: 0 };
+addEventListener("pointerdown", (e) => e.isTrusted && (gesture = { target: e.composedPath()[0] as Element, at: Date.now() }), true);
+addEventListener("keydown", (e) => e.isTrusted && e.key === "Tab" && (gesture = { target: undefined, at: Date.now() }), true);
+const userFocused = (el: HTMLInputElement) =>
+  Date.now() - gesture.at < 1000 && (!gesture.target || el.contains(gesture.target) || [...(el.labels ?? [])].some((l) => l.contains(gesture.target!)));
+
 addEventListener(
   "focusin",
   (e) => {
     const el = e.composedPath()[0] as Element; // fields inside open shadow roots too
     if (el === host || picking()) return; // focus moved into our menu, or the user is pointing at fields
-    if (askable(el)) void open(el);
+    if (askable(el) && userFocused(el)) void open(el);
     else if (el !== anchor) close();
   },
   true,
@@ -127,10 +145,10 @@ addEventListener(
   (e) => {
     if (picking()) return;
     const el = e.composedPath()[0] as Element;
-    if (el === dismissed) {
+    if (el === dismissed && e.isTrusted) {
       dismissed = undefined;
       if (askable(el)) void open(el);
-    }
+    } else if (e.isTrusted && el !== anchor && askable(el) && active() === el) void open(el); // focused by the page (autofocus): the user's click opens it
     // Submit buttons (a <button> without a type is one), and the plain buttons single-page apps use when
     // they say what they do; not "show password" toggles and the like. The click may land on a child.
     const b = el.closest<HTMLButtonElement>("button,input[type=submit],[role=button]");

@@ -2657,6 +2657,7 @@ dependencies = [
  "bitwarden-crypto",
  "getrandom 0.4.3",
  "hmac",
+ "regex-lite",
  "serde_json",
  "sha1",
  "sha2",

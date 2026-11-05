@@ -36,6 +36,10 @@ export function guardClicks(): void {
     // trackVisibility / delay are Chromium-only and missing from lib.dom.
     { threshold: 0.5, trackVisibility: true, delay: 100 } as IntersectionObserverInit,
   ).observe(document.body);
+  // The menu moved (content.ts place()): visible, but not where it was. Anyone may send this; it only delays clicks.
+  addEventListener("message", () => {
+    if (since) since = Date.now();
+  });
   addEventListener(
     "click",
     (e) => {

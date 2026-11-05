@@ -121,6 +121,13 @@ function get(id: string): Json {
   return c;
 }
 
+/** An item that may be filled or signed with: never one in the trash. */
+function live(id: string): Json {
+  const c = ciphers?.get(id);
+  if (!c) throw new Error("item not found");
+  return c;
+}
+
 /** Full decrypted item (incl. secrets) for the item view / edit form. */
 export const getCipher = (id: string): Json => get(id);
 
@@ -230,7 +237,7 @@ export async function matchUri(url: string, defaultMatch: number): Promise<Vault
     .filter((c) => Number(ci(c, "type")) === 1)
     .filter((c) => {
       const uris = ci(o(ci(c, "login")), "uris");
-      return Array.isArray(uris) && uris.some((u) => uriMatches(s(ci(u, "uri")), ci(u, "match") as number | null, page, psl!, defaultMatch));
+      return Array.isArray(uris) && uris.some((u) => uriMatches(s(ci(u, "uri")), ci(u, "match") as number | null, page, psl!, defaultMatch, core.regexTest));
     })
     .map(summary)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -245,7 +252,7 @@ export function decryptText(values: string[]): string[] {
 
 /** `totp` is the current code, for copying after the fill. */
 export function fillData(id: string): { username: string; password: string; totp?: string } {
-  const login = o(ci(get(id), "login"));
+  const login = o(ci(live(id), "login"));
   const secret = s(ci(login, "totp"));
   return { username: s(ci(login, "username")), password: s(ci(login, "password")), ...(secret ? { totp: JSON.parse(core.totp(secret, Date.now())).code as string } : {}) };
 }
@@ -267,7 +274,7 @@ const LINKED_OBJECT: Record<number, string> = { 1: "login", 3: "card", 4: "ident
 
 /** The item's custom fields as a fill uses them, in order: an empty name matches nothing and keeps its place. */
 export function customFieldValues(id: string): { name: string; value: string }[] {
-  const c = get(id);
+  const c = live(id);
   const type = Number(ci(c, "type"));
   const fields = ci(c, "fields");
   return (Array.isArray(fields) ? (fields as Json[]) : []).map((f) => {
@@ -434,7 +441,7 @@ export async function passkeyCandidates(rpId: string, origin: string, ids: strin
 
 export async function passkeyAssert(itemId: string, wanted: string, rpId: string, origin: string, challenge: string) {
   await checkRp(rpId, origin);
-  const creds = ci(o(ci(get(itemId), "login")), "fido2Credentials");
+  const creds = ci(o(ci(live(itemId), "login")), "fido2Credentials");
   // A malformed sibling credential must not break the one the user picked.
   const cred = (Array.isArray(creds) ? creds : []).find((x) => s(ci(x, "rpId")) === rpId && credentialId(x) === wanted);
   if (!cred) throw new Error("passkey not found");
@@ -450,7 +457,7 @@ export async function passkeyCreate(input: fido2.CreateInput) {
 
 /** Values keyed by HTML autocomplete token, for fillForm in the page. */
 export function formValues(id: string): Record<string, string> {
-  const c = get(id);
+  const c = live(id);
   const type = Number(ci(c, "type"));
   const f = (k: string, obj: Json | undefined) => s(ci(obj, k));
   if (type === 3) {

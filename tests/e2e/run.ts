@@ -651,8 +651,13 @@ try {
     assert.equal(await rows().count(), 3);
   });
 
-  await step("website icons come from the server's icon service and can be turned off", async () => {
+  await step("website icons are off by default, come from the server's icon service and can be turned off", async () => {
     const icon = () => rows().filter({ hasText: "GitHub" }).locator(".tile img");
+    // Off by default: the hosts would reach the server in clear text.
+    assert.equal(await icon().count(), 0);
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByLabel("Show website icons").check();
+    await page.getByRole("button", { name: "Vault", exact: true }).click();
     // Fetched once from the server's icon service (to check its tone), then shown from a blob URL.
     await icon().waitFor();
     assert.match((await icon().getAttribute("src")) ?? "", /^blob:/);
