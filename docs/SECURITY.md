@@ -225,7 +225,8 @@ password hardness and post-quantum safety first. A change that breaks one of the
   extension's key, so a build signed with another key is refused, but anyone who can push a `v*` tag and read
   `CRX_KEY` can ship code to every installed copy. Keep that secret and the repository's write access tight.
   What the pipeline can do about it: every action is pinned by commit SHA and linted by `zizmor`, build tools
-  come from lockfiles, the job that holds `CRX_KEY` runs no install scripts, a release needs a green `ci` and a
+  come from lockfiles, the job that holds `CRX_KEY` installs nothing and runs no package code or browser (the CRX is
+  signed by `tools/pack-crx.mjs` on `node:crypto`) and refuses a key that does not give Warren's extension id, a release needs a green `ci` and a
   clean advisory check, and each released file carries signed build provenance (`docs/UPDATES.md`). Provenance
   shows which commit and run built a file; it cannot tell a malicious tag from a real one.
 

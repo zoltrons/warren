@@ -20,7 +20,11 @@ makes the request.
 
 - **The extension id is fixed by the `CRX_KEY` secret.** The workflow derives the id from it (SHA-256 of the
   public key, first 128 bits, written with `a`-`p`), so a new key means a new extension that cannot update the
-  old one. Never regenerate it. Warren's id is `nkaabaakdmjjoplnpijkcnpmenphaikf`.
+  old one. Never regenerate it. Warren's id is `nkaabaakdmjjoplnpijkcnpmenphaikf`; the release fails on any other.
+- **The signing job runs no third-party code.** `tools/pack-crx.mjs` writes the CRX3 file (the released `.zip`,
+  signed) with `node:crypto` only and reads it back before publishing; the job installs no npm package and starts no
+  browser, so a compromised dependency never sees `CRX_KEY`. `node tools/pack-crx.mjs --verify <file.crx>` checks a
+  download and prints its extension id.
 - **Every released file carries signed build provenance.** The release job attests the `.crx`, `.zip` and
   `updates.xml` (SLSA provenance via Sigstore, `actions/attest`), so a download can be traced to the commit and
   workflow run that built it: `gh attestation verify warren-vX.Y.Z.crx --repo zoltrons/warren`. A release also
