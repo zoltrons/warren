@@ -113,9 +113,15 @@ freed rather than zeroed in place.
 
 8b. **Every unlock path ends in the same place.** Master password, PIN and biometrics all go through
     `afterUnlock` (`src/background/account.ts`), which sets `unlocked` and arms the auto-lock, so no path
-    can unlock without the lock timer. A lock always wins over an unlock in flight: `lockNow` bumps `lockEpoch`
-    first, and every login, unlock and re-prompt grant checks the epoch it started with right before it writes
-    `unlocked` (or grants); one a lock overtook locks again instead. PIN and biometric material is stored only as a *wrapped* user key
+    can unlock without the lock timer. A lock always wins over work in flight (`src/background/lock.ts`): `lockNow`
+    bumps `lockEpoch` first, and every login, unlock, re-prompt grant, fill, save bar, field picker, passkey save and
+    vault cache write takes the epoch before its first await and checks it synchronously right before each write or
+    send (`assertEpoch`, `checkEpoch`), so no lock slips in between; an unlock a lock overtook locks again instead.
+    Account changes (login, SSO, logout, server change) bump a second counter, `ownerEpoch`: server credentials and
+    caches outlive a lock but not their account, so a refresh, the push hub and an SSO callback check it before they
+    send or store. Every server call takes the server and the access token together from `auth()`, read under one
+    owner, so a token never goes to a server or account it was not issued for. A logout or login also ends an SSO
+    login still waiting for its callback. PIN and biometric material is stored only as a *wrapped* user key
     (`storage.local`, removed on logout); the PIN is additionally limited to 5 attempts per session.
     Biometric unlock uses WebAuthn's PRF extension with `userVerification: "required"`, an RP ID of the
     extension origin and a random salt, and refuses authenticators without PRF instead of degrading to
@@ -230,8 +236,10 @@ password hardness and post-quantum safety first. A change that breaks one of the
   `releases/latest/download/updates.xml` (`docs/UPDATES.md`). The browser verifies each `.crx` against the
   extension's key, so a build signed with another key is refused, but anyone who can push a `v*` tag and read
   `CRX_KEY` could ship code to every installed copy, so a release also needs a tag signed by a key in
-  `.github/allowed_signers` (`tools/verify-tag.sh`, the `tag-signed` job). That file is read from the tagged commit,
-  which only passes on `main`: whoever can change `main` can still add a key, but not without a visible commit. Keep that secret and the repository's write access tight.
+  `.github/allowed_signers` (`tools/verify-tag.sh`, the `tag-signed` job). That file is read from the tagged commit
+  only after `ci-passed` showed the commit is in `main`'s history and the `ci` workflow's run for its push to `main`
+  passed (a check merely named `ci` would not do: a pull request's run posts one on its own commits): whoever can
+  change `main` can still add a key, but not without a visible commit. Keep that secret and the repository's write access tight.
   What the pipeline can do about it: every action is pinned by commit SHA and linted by `zizmor`, build tools
   come from lockfiles, the job that holds `CRX_KEY` installs nothing and runs no package code or browser (the CRX is
   signed by `tools/pack-crx.mjs` on `node:crypto`) and refuses a key that does not give Warren's extension id, a release needs a green `ci` and a

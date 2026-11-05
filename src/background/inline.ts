@@ -5,7 +5,7 @@ import type { FillResult } from "../autofill/types.ts";
 import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest, VaultItem } from "../shared/messages.ts";
 import { coreCall } from "./core.ts";
 import { analyzeFocus, customFieldsOf, fillInFrames } from "./engine.ts";
-import { touchAutoLock } from "./lock.ts";
+import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional } from "./passkey.ts";
@@ -30,6 +30,8 @@ export interface PendingSave {
   username: string;
   password: string;
   itemId?: string;
+  /** Update: the item's revision (epoch ms) the prompt was made against. Saving refuses a copy that changed since. */
+  revisionDate?: number;
   /** Secret handed to the bar frame, so a bar the page frames itself cannot save (see showBar). */
   token: string;
   /** epoch ms */
@@ -111,6 +113,7 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
 }
 
 async function loginSubmitted(tabId: number, url: string, username: string, password: string) {
+  const epoch = lockEpoch();
   const settings = await getSettings();
   const host = new URL(url).host;
   if (!settings.savePrompt || !(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
@@ -129,10 +132,14 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   const expiresAt = Date.now() + SAVE_TTL_MS;
   let pending: PendingSave;
   if (!editable.length) pending = { kind: "add", url, username, password, token: "", expiresAt };
-  else if (editable.length === 1) pending = { kind: "update", url, username: username || editable[0]!.sub, password, itemId: editable[0]!.id, token: "", expiresAt };
-  else return; // several logins (even with the same username), none with this password: no telling which one changed
+  else if (editable.length === 1) {
+    const [m] = editable as [VaultItem];
+    pending = { kind: "update", url, username: username || m.sub, password, itemId: m.id, revisionDate: m.revisionDate, token: "", expiresAt };
+  } else return; // several logins (even with the same username), none with this password: no telling which one changed
+  // A lock while this was decided cleared the pending saves: the typed password must not come back after it.
+  if (epoch !== lockEpoch()) return;
   await setTabState("save", tabId, pending);
-  await showBar(tabId);
+  await showBar(tabId, epoch);
 }
 
 /** A pending save, dropping it once its TTL passed so a typed password never outlives it. */
@@ -146,8 +153,11 @@ async function pendingSave(tabId: number): Promise<PendingSave | undefined> {
   return p;
 }
 
-/** Also called when the tab finishes loading: logins are usually submitted right before a navigation. */
-export async function showBar(tabId: number): Promise<void> {
+/**
+ * Also called when the tab finishes loading: logins are usually submitted right before a navigation. `epoch`:
+ * lockEpoch() from before the pending save was read.
+ */
+export async function showBar(tabId: number, epoch = lockEpoch()): Promise<void> {
   const p = await pendingSave(tabId);
   if (!p) return;
   // The pending login was typed on `p.url`: never offer it on a page of another site (the tab may have
@@ -156,6 +166,8 @@ export async function showBar(tabId: number): Promise<void> {
   // A fresh token per show, carried by the bar frame it opens and required back from it: a copy of
   // bar.html framed by the page has no token and cannot save.
   const token = crypto.randomUUID();
+  // Written back only if no lock cleared it meanwhile (checked in the tick the write goes out).
+  if (epoch !== lockEpoch()) return;
   await setTabState("save", tabId, { ...p, token });
   await chrome.tabs.sendMessage(tabId, { type: "barShow", token }, { frameId: 0 }).catch(() => undefined);
 }
@@ -176,6 +188,8 @@ async function dropSave(tabId: number) {
 
 /** menu.html / bar.html, framed into the tab `sender.tab`. */
 export async function handleFrame(req: FrameRequest, tabId: number): Promise<unknown> {
+  // Before anything is read: a fill that a lock overtakes reaches no frame (engine.ts).
+  const epoch = lockEpoch();
   if (req.type === "barInfo" || req.type === "barAction") {
     const p = await pendingSave(tabId);
     if (!p) return dropSave(tabId).then(() => null);
@@ -189,7 +203,8 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
       if (p.kind === "update" && p.itemId) {
         // flagged after the prompt was queued
         if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: p.itemId }))) throw new Error(REPROMPT_MESSAGE);
-        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: p.itemId, password: p.password }));
+        // Against the revision the prompt was made for: an older prompt never undoes a newer password.
+        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: p.itemId, password: p.password, revisionDate: p.revisionDate }));
       } else {
         const u = new URL(p.url);
         await save({ type: 1, name: u.hostname, login: { username: p.username, password: p.password, uris: [{ uri: u.origin, match: null }] } });
@@ -239,14 +254,14 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
   if (ctx.kind === "login") {
     const { username, password, totp } = await coreCall<{ username: string; password: string; totp?: string }>({ op: "fillData", id: req.id });
     const { autosubmit } = await getSettings();
-    res = (await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "login", origin, username, password, totp, autosubmit, customFields: await customFieldsOf(req.id) }))[0]?.result;
+    res = (await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "login", origin, username, password, totp, autosubmit, customFields: await customFieldsOf(req.id), epoch }))[0]?.result;
     if (res?.filled) {
       await markUsed(req.id);
-      if (totp && (await getSettings()).autoCopyTotp) await copyToClipboard(totp);
+      if (totp && (await getSettings()).autoCopyTotp && epoch === lockEpoch()) await copyToClipboard(totp);
     }
   } else {
     const values = await coreCall<Record<string, string>>({ op: "formValues", id: req.id });
-    res = (await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "form", origin, values, customFields: await customFieldsOf(req.id) }))[0]?.result;
+    res = (await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "form", origin, values, customFields: await customFieldsOf(req.id), epoch }))[0]?.result;
   }
   await setTabState("inline", tabId, undefined);
   return res ?? { filled: false };

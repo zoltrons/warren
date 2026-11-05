@@ -118,13 +118,14 @@ export function executeFill(req: ExecuteFill): FillResult {
   }
   // Submit only a form whose password really got written: a username alone is not a login.
   const submit = req.submit;
-  if (submit && filled.has(submit.kind === "click" ? submit.fallbackFieldId : submit.fieldId)) {
-    const button = submit.kind === "click" ? allButtons().find((b) => idOf(b) === submit.fieldId && b.checkVisibility()) : undefined;
-    if (button) button.click();
-    else {
-      const field = byId.get(submit.kind === "click" ? submit.fallbackFieldId : submit.fieldId);
-      if (field?.isConnected) simulateEnterSubmit(field);
-    }
+  if (submit?.kind === "click" && filled.has(submit.passwordFieldId)) {
+    // The button the engine checked, or none: if the fill made it go away, Enter could press one nobody looked at.
+    allButtons().find((b) => idOf(b) === submit.fieldId && b.checkVisibility())?.click();
+  } else if (submit?.kind === "enter" && filled.has(submit.fieldId)) {
+    const field = byId.get(submit.fieldId);
+    if (field?.isConnected) simulateEnterSubmit(field);
   }
-  return n || !req.onlyEmpty ? { filled: true } : { filled: false, reason: "noFields" };
+  // Nothing written is no fill, however the fields were skipped (gone, disabled, no such option): the caller then
+  // tries other frames, keeps the popup open and copies no code.
+  return n ? { filled: true } : { filled: false, reason: "noFields" };
 }

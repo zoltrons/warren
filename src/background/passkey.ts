@@ -7,6 +7,7 @@
 // signs in directly when one passkey matches (see openConditional).
 // Crypto runs in the worker (offscreen/fido2.ts); credentials are stored as Bitwarden's
 // `login.fido2Credentials[]`, so they round-trip through the SDK model and sync with the official apps.
+import { ci } from "../shared/validate.ts";
 import {
   type PasskeyCall,
   type PasskeyCandidate,
@@ -17,9 +18,10 @@ import {
 } from "../shared/messages.ts";
 import { UserError, verifyMasterPassword } from "./account.ts";
 import { coreCall } from "./core.ts";
+import { assertEpoch, lockEpoch } from "./lock.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { getLocal, getSettings } from "./store.ts";
-import { ensureLoaded, isUnlocked, requireUnlocked, saveEncrypted, sync } from "./vault.ts";
+import { ensureLoaded, isUnlocked, putCipher, requireUnlocked, sync } from "./vault.ts";
 
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
 /**
@@ -294,6 +296,7 @@ export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
 }
 
 export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false, password?: string): Promise<null> {
+  const epoch = lockEpoch();
   const p = get(id);
   if (action === "fallback") return (p.done({ fallback: true }), null);
   await requireUnlocked();
@@ -325,16 +328,21 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
         if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
       }
       // The worker returns the item already encrypted: the new private key never passes through here.
-      const r = await coreCall<{ cipher: Record<string, unknown>; response: Record<string, unknown> }>({
+      const r = await coreCall<{ cipher: Record<string, unknown>; response: Record<string, unknown>; undo?: Record<string, unknown> }>({
         op: "passkeyCreate",
         input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv },
         ...(itemId ? { itemId } : {}),
       });
-      // The page aborted (or the vault locked) meanwhile: the site never gets this credential, so it must not replace one.
-      if (pending.get(id) !== p) return null;
-      await requireUnlocked();
-      await saveEncrypted(r.cipher);
-      p.done({ credential: r.response });
+      // The page aborted (or the vault locked) before the save went out: the site never gets this credential, so it
+      // must not replace one. Checked right before the request, after every await on the way.
+      const saved = await putCipher(r.cipher, () => {
+        if (pending.get(id) !== p) throw new UserError("sessionExpired", "The site cancelled the passkey request");
+        assertEpoch(epoch);
+      });
+      if (pending.get(id) === p) return (p.done({ credential: r.response }), null);
+      // Cancelled while the save was out: the site will never use the new passkey, so the one it replaced comes
+      // back, saved over the server's copy just made (its revision).
+      if (r.undo) await putCipher({ ...r.undo, lastKnownRevisionDate: ci(saved, "revisionDate") ?? null });
     }
   } catch (e) {
     if (e instanceof UserError && (e.code === "invalid" || e.code === "reprompt")) throw e;

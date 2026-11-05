@@ -32,8 +32,10 @@ export function checkRpId(rpId: string, origin: string, isPublicSuffix: (d: stri
   const id = rpId.toLowerCase();
   // A public suffix ("com", "co.uk", "github.io") is never a registrable domain, so nothing may be
   // scoped to it - not even when it is the page's own host. Loopback names are the exception: they are
-  // their own host and no rule lists them.
-  if (!secure || !(host === id || host.endsWith(`.${id}`)) || (isPublicSuffix(id) && !isLoopback(id)))
+  // their own host and no rule lists them. An empty label ("com.", a dotted host's "co.uk.") would slip past the
+  // suffix list, which knows only the dotless names: such an id is refused outright.
+  const labelled = id.split(".").every(Boolean);
+  if (!secure || !labelled || !(host === id || host.endsWith(`.${id}`)) || (isPublicSuffix(id) && !isLoopback(id)))
     throw new Error("SecurityError: the relying party id is not valid for this origin");
 }
 

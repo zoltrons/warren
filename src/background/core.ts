@@ -17,8 +17,13 @@ async function ensureOffscreen(): Promise<void> {
   await creating;
 }
 
-export async function coreCall<T>(req: CoreRequest): Promise<T> {
+/**
+ * `guard` runs once the document is up, right before the request goes out, and throws to call it off: a lock
+ * that closed the document meanwhile would otherwise get the request (a draft, a vault) into a new, empty worker.
+ */
+export async function coreCall<T>(req: CoreRequest, guard?: () => void): Promise<T> {
   await ensureOffscreen();
+  guard?.();
   const r = (await chrome.runtime.sendMessage({ target: OFFSCREEN_TARGET, req })) as CoreResult | undefined;
   if (!r) throw new Error("offscreen document did not answer");
   if (!r.ok) throw new CoreError(r.error);

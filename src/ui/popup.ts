@@ -1,11 +1,11 @@
 // Popup. Talks only to the service worker through the typed message bus: no crypto, no network.
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, TWO_FACTOR, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
-import type { LoginRequest, Request, State } from "../shared/messages.ts";
+import type { LoginRequest, Request, Response, State } from "../shared/messages.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
-import { applyTheme, type Child, h, inPanel, savedTheme, send, t, THEMES, when, withChevron } from "./dom.ts";
+import { applyTheme, type Child, h, inPanel, newSession, savedTheme, send, sessionNow, t, THEMES, when, withChevron } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvailable } from "./biometric.ts";
-import { passkeyRequestId, passkeyScreen } from "./passkey.ts";
+import { passkeyRequestId, passkeyScreen, resetPasskey } from "./passkey.ts";
 import { resetSend, sendScreen, startTextSend } from "./send.ts";
 import { generatorScreen } from "./generator.ts";
 import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, reloadList, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
@@ -39,14 +39,38 @@ const draft = { server: "", email: "", password: "", code: "", pin: "", remember
 const ui: Ui = { busy: false, tab: "vault", editServer: false, reveal: false };
 let state: State | undefined;
 
+/** Unlocks the screen has gone through (locks and account changes: dom.ts sessionNow). */
+let unlocks = 0;
+
+/**
+ * Every State the popup shows comes through here, with when it was asked for. An answer asked before a lock never
+ * opens the vault again, and one asked before an unlock never closes it (which would wipe what was done since, an
+ * edited item): either way a newer answer is here already or on its way. A lock or another account also makes the
+ * answers to everything else asked before it stale (dom.ts send).
+ */
+function setState(next: State, asked = { locks: sessionNow(), unlocks }): void {
+  const open = next.phase === "unlocked";
+  if (open ? asked.locks !== sessionNow() : asked.unlocks !== unlocks) return;
+  if (state?.phase === "unlocked" && (!open || state.email !== next.email)) newSession();
+  else if (state && state.phase !== "unlocked" && open) unlocks++;
+  state = next;
+}
+
+/** A request answered with a State, applied through setState. */
+async function stateRequest(req: Request): Promise<Response<State>> {
+  const asked = { locks: sessionNow(), unlocks };
+  const res = await send<State>(req, true);
+  if (res.ok) setState(res.data, asked);
+  return res;
+}
+
 async function act(req: Request, busyLabel?: string): Promise<boolean> {
   Object.assign(ui, { busy: true, busyLabel, error: undefined, info: undefined });
   render();
-  const res = await send<State>(req);
+  const res = await stateRequest(req);
   ui.busy = false;
   ui.busyLabel = undefined;
-  if (res.ok) state = res.data;
-  else ui.error = res.error;
+  if (!res.ok) ui.error = res.error;
   render();
   return res.ok;
 }
@@ -227,13 +251,11 @@ function pollDeviceLogin(): void {
   devicePoll = setTimeout(async () => {
     // Cancelled (Back) while this waited: nothing to ask.
     if (state?.phase !== "deviceLogin") return void (devicePoll = undefined);
-    const r = await send<State>({ type: "deviceLoginCheck" });
+    const r = await stateRequest({ type: "deviceLoginCheck" });
     devicePoll = undefined;
-    if (r.ok) state = r.data;
-    else {
+    if (!r.ok) {
       ui.error = r.error;
-      const s = await send<State>({ type: "getState" });
-      if (s.ok) state = s.data;
+      await stateRequest({ type: "getState" });
     }
     render();
   }, 3000);
@@ -309,8 +331,7 @@ async function loadRequests(): Promise<void> {
 }
 
 async function refreshState(): Promise<void> {
-  const st = await send<State>({ type: "getState" });
-  if (st.ok) state = st.data;
+  await stateRequest({ type: "getState" });
   render();
 }
 
@@ -361,8 +382,7 @@ async function submitWebAuthn(token: string) {
   webauthnFrame = undefined;
   if (await act({ type: "twoFactorSubmit", provider: TWO_FACTOR.WebAuthn, token, remember: draft.remember }, t("busyVerifying"))) return;
   // A failed attempt makes the server issue a new challenge; pick it up before the next try.
-  const r = await send<State>({ type: "getState" });
-  if (r.ok) state = r.data;
+  await stateRequest({ type: "getState" });
   ui.webauthnPaused = true;
   render();
 }
@@ -604,8 +624,7 @@ async function syncNow() {
   ui.busyLabel = undefined;
   if (!r.ok) ui.error = r.error;
   else {
-    const next = await send<State>({ type: "getState" });
-    if (next.ok) state = next.data;
+    await stateRequest({ type: "getState" });
     ui.info = t("syncComplete");
     resetVault();
   }
@@ -974,6 +993,7 @@ function render(): void {
     ui.tab = "vault"; // a new session always starts on the vault
     resetVault(); // and holds no decrypted data from the previous one
     resetSend();
+    resetPasskey(); // nor a master password typed for a passkey request
     scrollMemory.clear(); // a locked or logged-out screen never restores a vault position
     ui.requests = undefined;
   }
@@ -1032,9 +1052,8 @@ if (!inPanel)
     render();
   });
 
-void send<State>({ type: "getState" }).then((res) => {
-  if (res.ok) state = res.data;
-  else {
+void stateRequest({ type: "getState" }).then((res) => {
+  if (!res.ok) {
     state = {
       phase: "setup",
       settings: {
@@ -1046,8 +1065,8 @@ void send<State>({ type: "getState" }).then((res) => {
     };
     ui.error = res.error;
   }
-  draft.email = state.email ?? "";
-  ui.error ??= state.ssoError;
+  draft.email = state?.email ?? "";
+  ui.error ??= state?.ssoError;
   render();
 });
 
@@ -1055,8 +1074,6 @@ void send<State>({ type: "getState" }).then((res) => {
  * The worker owns the session (auto-lock, a lock from another window): follow it. Without this an open
  * side panel would keep showing decrypted item names after the vault locked.
  */
-/** Locks seen so far: an answer asked for before the latest one must not show the vault unlocked again. */
-let locksSeen = 0;
 chrome.storage.onChanged.addListener((changes, area) => {
   // A push sync stored a newer vault: the open list follows (a sync this popup started updates it itself).
   const vault = area === "local" ? changes.vault : undefined;
@@ -1069,19 +1086,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
   // loggedOut -> locked (SSO finished in another tab) leaves `unlocked` false, so a logged-out view always refreshes.
   if (!requestsChanged && (typeof next?.unlocked !== "boolean" || (next.unlocked === (state.phase === "unlocked") && state.phase !== "loggedOut"))) return;
   // A lock applies at once (the render drops the decrypted view); the state asked for then fills in the rest.
-  if (next?.unlocked === false) {
-    locksSeen++;
-    if (state.phase === "unlocked") {
-      state = { ...state, phase: "locked" };
-      render();
-    }
-  }
-  // Every answer applies, except an unlocked one asked for before a lock that came since. (Not "only the latest":
-  // getState itself touches the session, so each answer would be overtaken by the change it caused.)
-  const asked = locksSeen;
-  void send<State>({ type: "getState" }).then((r) => {
-    if (!r.ok || (asked !== locksSeen && r.data.phase === "unlocked")) return;
-    state = r.data;
+  if (next?.unlocked === false && state.phase === "unlocked") {
+    setState({ ...state, phase: "locked" });
     render();
-  });
+  }
+  // Applies unless setState finds the screen has moved past it since it was asked.
+  void stateRequest({ type: "getState" }).then((r) => r.ok && render());
 });

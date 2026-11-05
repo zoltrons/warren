@@ -1,7 +1,7 @@
 // Vault orchestration in the service worker: encrypted cache in storage.local, sync, and writes.
 // Decryption happens in the offscreen worker; the SW only moves encrypted JSON around.
 import { CLEAR_CLIPBOARD_MS } from "../shared/constants.ts";
-import type { HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import type { CoreRequest, HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
 import { revisionDate } from "../transport/auth.ts";
 import {
   addAttachment as apiAddAttachment,
@@ -23,8 +23,9 @@ import {
   verifyPassword,
 } from "../transport/vault.ts";
 import { ApiError } from "../transport/http.ts";
-import { accessToken, UserError, verifyMasterPassword } from "./account.ts";
+import { auth, UserError, verifyMasterPassword } from "./account.ts";
 import { coreAlive, coreCall } from "./core.ts";
+import { assertEpoch, lockEpoch, ownerEpoch } from "./lock.ts";
 import { readPrivate, updatePrivate } from "./private.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { BLOCK, seal, unseal } from "./seal.ts";
@@ -44,17 +45,50 @@ async function server(): Promise<string> {
   return s.url;
 }
 
-const load = (c: VaultCache) =>
-  coreCall({ op: "loadVault", ciphers: c.ciphers, folders: c.folders, sends: c.sends ?? [], orgKeys: c.orgKeys, collections: c.collections ?? [], orgs: c.orgs ?? [] });
+/** Into the worker, only while `epoch` holds: after a lock it would land in a new, keyless worker as undecryptable items. */
+const load = (c: VaultCache, epoch: number) =>
+  coreCall(
+    { op: "loadVault", ciphers: c.ciphers, folders: c.folders, sends: c.sends ?? [], orgKeys: c.orgKeys, collections: c.collections ?? [], orgs: c.orgs ?? [] },
+    () => assertEpoch(epoch),
+  );
+
+/** Changes this browser made on the server, counted as each one is answered: a sync asked before one may lack it. */
+let changes = 0;
+let commits: Promise<unknown> = Promise.resolve();
+
+/**
+ * Every write to the vault cache and the worker's copy, one at a time and only in the session (`epoch`) it began
+ * in: a read-then-write must not drop another write, and a lock or another account must not get it.
+ */
+function commit(epoch: number, run: (cache: VaultCache | undefined) => Promise<unknown>): Promise<void> {
+  const step = async () => {
+    const cache = await getLocal("vault");
+    assertEpoch(epoch);
+    await run(cache);
+  };
+  const done = commits.then(step, step);
+  commits = done.catch(() => undefined);
+  return done.then(() => undefined);
+}
+
+/**
+ * After the server took a change: updating the local copy may fail (offline, locked meanwhile), but that must not
+ * read as a failed change, or a retry would make it twice. The next sync catches up.
+ */
+const refreshAfter = (p: Promise<unknown>): Promise<void> => p.then(
+  () => undefined,
+  (e: unknown) => console.warn("refresh after a saved change", e),
+);
 
 /** Full sync when the server's revision date moved (or `force`). Returns true if data changed. */
 export async function sync(force: boolean): Promise<boolean> {
-  const base = await server();
-  const token = await accessToken();
+  const epoch = lockEpoch();
+  const seen = changes;
+  const { base, token } = await auth();
   const cache = await getLocal("vault");
   const revision = await revisionDate(base, token);
   if (!force && cache && cache.revision >= revision) {
-    await setLocal("vault", { ...cache, syncedAt: Date.now() });
+    await commit(epoch, async (c) => c && setLocal("vault", { ...c, syncedAt: Date.now() }));
     return false;
   }
   const r = await fullSync(base, token);
@@ -62,8 +96,14 @@ export async function sync(force: boolean): Promise<boolean> {
   // shortcut: whole vault in one storage.local key (10 MB quota, no unlimitedStorage); move to IndexedDB if vaults outgrow it.
   const orgs = (r.profile.organizations ?? []).map((o) => ({ id: o.id, name: o.name ?? "" }));
   const next: VaultCache = { revision, syncedAt: Date.now(), ciphers: r.ciphers, folders: r.folders, sends: r.sends ?? [], orgKeys, collections: r.collections ?? [], orgs };
-  await setLocal("vault", next);
-  await load(next);
+  let again = false;
+  await commit(epoch, async () => {
+    // A change of ours was answered while this was out, and this answer may predate it: ask again, never undo it.
+    if (changes !== seen) return void (again = true);
+    await setLocal("vault", next);
+    await load(next, epoch);
+  });
+  if (again) return sync(true);
   // Forget fill and open stamps of items that no longer exist. Sync also runs locked (no key): skip then.
   const ids = new Set(r.ciphers.map((c) => (c as { id?: unknown }).id));
   const keep = <T>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => ids.has(id)));
@@ -79,9 +119,10 @@ let loading: Promise<void> | undefined;
  */
 export function ensureLoaded(): Promise<void> {
   return (loading ??= (async () => {
+    const epoch = lockEpoch();
     if (await coreCall<boolean>({ op: "vaultLoaded" })) return;
     const cache = await getLocal("vault");
-    if (cache) await load(cache);
+    if (cache) await load(cache, epoch);
     else await sync(true);
   })().finally(() => (loading = undefined)));
 }
@@ -95,24 +136,40 @@ export async function list(): Promise<VaultList> {
 
 export const save = async (item: Record<string, unknown>): Promise<VaultList> => saveEncrypted(await coreCall<Record<string, unknown>>({ op: "prepareSave", item }));
 
-/** Sends an item the worker already encrypted (prepareSave, preparePassword, passkeyCreate). */
-export async function saveEncrypted(enc: Record<string, unknown>): Promise<VaultList> {
+/**
+ * Sends an item the worker already encrypted (prepareSave, preparePassword, passkeyCreate) and returns the
+ * server's copy. `guard` runs right before the request and throws to call the save off (a cancelled passkey).
+ */
+export async function putCipher(enc: Record<string, unknown>, guard?: () => void): Promise<Record<string, unknown>> {
+  const epoch = lockEpoch();
+  const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
-  const saved = await saveCipher(await server(), await accessToken(), { ...enc, encryptedFor: account.userId });
-  const cache = await getLocal("vault");
-  if (cache) {
-    const others = cache.ciphers.filter((c) => (c as { id?: unknown }).id !== saved.id);
-    await setLocal("vault", { ...cache, ciphers: [...others, saved] });
-  }
-  await coreCall({ op: "upsertCipher", cipher: saved });
+  // The item, the account it is for and the token are one account's (auth checks `owner` once all are read).
+  const { base, token } = await auth(owner);
+  guard?.();
+  const saved = await saveCipher(base, token, { ...enc, encryptedFor: account.userId });
+  changes++;
+  await refreshAfter(
+    commit(epoch, async (cache) => {
+      if (cache) await setLocal("vault", { ...cache, ciphers: [...cache.ciphers.filter((c) => (c as { id?: unknown }).id !== saved.id), saved] });
+      await coreCall({ op: "upsertCipher", cipher: saved }, () => assertEpoch(epoch));
+    }),
+  );
+  return saved;
+}
+
+export async function saveEncrypted(enc: Record<string, unknown>, guard?: () => void): Promise<VaultList> {
+  await putCipher(enc, guard);
   return list();
 }
 
 /** Trash, restore, permanent delete and folder changes re-sync instead of patching the cache by hand. */
 async function thenSync(change: (base: string, token: string) => Promise<void>): Promise<VaultList> {
-  await change(await server(), await accessToken());
-  await sync(true);
+  const { base, token } = await auth();
+  await change(base, token);
+  changes++;
+  await refreshAfter(sync(true));
   return list();
 }
 
@@ -169,6 +226,7 @@ export async function exportVault(password: string): Promise<string> {
 }
 
 export async function importVault(text: string): Promise<{ imported: number; skipped: number }> {
+  const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
   await ensureLoaded();
@@ -177,8 +235,11 @@ export async function importVault(text: string): Promise<{ imported: number; ski
   });
   if (!r.ciphers.length) throw new UserError("invalid", "Nothing to import");
   const ciphers = r.ciphers.map((c) => ({ ...c, encryptedFor: account.userId }));
-  await importCiphers(await server(), await accessToken(), { ciphers, folders: r.folders, folderRelationships: r.folderRelationships });
-  await sync(true);
+  const { base, token } = await auth(owner);
+  await importCiphers(base, token, { ciphers, folders: r.folders, folderRelationships: r.folderRelationships });
+  changes++;
+  // Imported is imported: a failed refresh must not invite a second import of the same items.
+  await refreshAfter(sync(true));
   return { imported: ciphers.length, skipped: r.skipped };
 }
 
@@ -187,7 +248,8 @@ export async function importVault(text: string): Promise<{ imported: number; ski
 
 export async function downloadAttachment(cipherId: string, attachmentId: string): Promise<{ fileName: string; data: string }> {
   if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: cipherId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
-  const body = await apiDownloadAttachment(await server(), await accessToken(), cipherId, attachmentId);
+  const { base, token } = await auth();
+  const body = await apiDownloadAttachment(base, token, cipherId, attachmentId);
   return coreCall<{ fileName: string; data: string }>({ op: "decryptAttachment", cipherId, attachmentId, data: body.toBase64() });
 }
 
@@ -228,20 +290,25 @@ export async function sendList(): Promise<SendItem[]> {
   return entries.map(({ accessId, urlKey, ...e }) => ({ ...e, link: `${base}/#/send/${accessId}/${urlKey}` }));
 }
 
-async function cacheSends(update: (sends: unknown[]) => unknown[]): Promise<void> {
-  const cache = await getLocal("vault");
-  if (cache) await setLocal("vault", { ...cache, sends: update(cache.sends ?? []) });
+/** After the server took a send change: the cache and the worker follow, best effort (see refreshAfter). */
+function cacheSends(epoch: number, update: (sends: unknown[]) => unknown[], worker: CoreRequest): Promise<void> {
+  changes++;
+  return refreshAfter(
+    commit(epoch, async (cache) => {
+      if (cache) await setLocal("vault", { ...cache, sends: update(cache.sends ?? []) });
+      await coreCall(worker, () => assertEpoch(epoch));
+    }),
+  );
 }
 
 /** Creates a text send, or a file send when `file` is given (content base64); a send with an id is edited. */
 export async function saveSend(send: Json, file?: { name: string; data: string }): Promise<SendItem[]> {
-  const base = await server();
-  const token = await accessToken();
+  const epoch = lockEpoch();
+  const { base, token } = await auth();
   let saved: Json;
   if (typeof send.id === "string") {
     saved = await updateSend(base, token, send.id, await coreCall<Json>({ op: "prepareSend", send }));
-    await cacheSends((s) => s.map((x) => ((x as Json).id === saved.id ? saved : x)));
-    await coreCall({ op: "upsertSend", send: saved });
+    await cacheSends(epoch, (s) => s.map((x) => ((x as Json).id === saved.id ? saved : x)), { op: "upsertSend", send: saved });
     return sendList();
   }
   if (file) {
@@ -258,24 +325,23 @@ export async function saveSend(send: Json, file?: { name: string; data: string }
   } else {
     saved = await createSend(base, token, await coreCall<Json>({ op: "prepareSend", send: { ...send, type: 0 } }));
   }
-  await cacheSends((s) => [...s, saved]);
-  await coreCall({ op: "upsertSend", send: saved });
+  await cacheSends(epoch, (s) => [...s, saved], { op: "upsertSend", send: saved });
   return sendList();
 }
 
 /** Removes the access password in place; the link and the content stay the same. */
 export async function removeSendPassword(id: string): Promise<SendItem[]> {
-  const base = await server();
-  const token = await accessToken();
+  const epoch = lockEpoch();
+  const { base, token } = await auth();
   const saved = await apiRemoveSendPassword(base, token, id);
-  await cacheSends((s) => s.map((x) => ((x as Json).id === saved.id ? saved : x)));
-  await coreCall({ op: "upsertSend", send: saved });
+  await cacheSends(epoch, (s) => s.map((x) => ((x as Json).id === saved.id ? saved : x)), { op: "upsertSend", send: saved });
   return sendList();
 }
 
 export async function deleteSend(id: string): Promise<SendItem[]> {
-  await apiDeleteSend(await server(), await accessToken(), id);
-  await cacheSends((s) => s.filter((x) => (x as { id?: unknown }).id !== id));
-  await coreCall({ op: "removeSend", id });
+  const epoch = lockEpoch();
+  const { base, token } = await auth();
+  await apiDeleteSend(base, token, id);
+  await cacheSends(epoch, (s) => s.filter((x) => (x as { id?: unknown }).id !== id), { op: "removeSend", id });
   return sendList();
 }

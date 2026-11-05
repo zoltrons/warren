@@ -13,6 +13,8 @@ type Json = Record<string, unknown>;
 
 let ciphers: Map<string, Json> | undefined;
 let folders: Folder[] = [];
+/** Folders that did not decrypt: the list goes on without them, an export does not (see exportJson). */
+let brokenFolders = 0;
 let collections: Folder[] = [];
 let organizations: Folder[] = [];
 let sends = new Map<string, Json>();
@@ -51,7 +53,8 @@ export function loadVault(encCiphers: unknown[], encFolders: unknown[], encSends
     const c = enc.get(f.id);
     ciphers.set(f.id, { id: f.id, type: 0, name: "", failed: true, personal: !ci(c, "organizationId") && !ci(c, "deletedDate") });
   }
-  const fr = JSON.parse(core.decryptFolders(JSON.stringify(encFolders))) as { folders: Json[] };
+  const fr = JSON.parse(core.decryptFolders(JSON.stringify(encFolders))) as { folders: Json[]; failed: unknown[] };
+  brokenFolders = fr.failed.length;
   const sr = JSON.parse(core.decryptSendList(JSON.stringify(encSends))) as { sends: Json[]; failed: { id: string }[] };
   sends = new Map([...sr.sends, ...sr.failed.map((f) => ({ id: f.id, failed: true }))].map((x) => [s(ci(x, "id")), x]));
   const named = (r: { folders: Json[] }) => r.folders.map((f) => ({ id: s(ci(f, "id")), name: s(ci(f, "name")) })).sort((a, b) => a.name.localeCompare(b.name));
@@ -171,9 +174,13 @@ export function prepareSave(input: Json): Json {
   return enc;
 }
 
-/** Save bar: the item with a new password, encrypted for the server. */
-export function preparePassword(id: string, password: string): Json {
+/**
+ * Save bar: the item with a new password, encrypted for the server, as of the revision the prompt was made for. A
+ * copy that changed since (a sync, an edit elsewhere) is not overwritten, here or on the server (lastKnownRevisionDate).
+ */
+export function preparePassword(id: string, password: string, revisionDate: number | undefined): Json {
   const item = getCipher(id);
+  if (summary(item).revisionDate !== revisionDate) throw new Error("This login changed after the prompt was shown, so nothing was saved");
   return prepareSave({ ...item, login: { ...o(item.login), password } });
 }
 
@@ -310,6 +317,8 @@ export function exportJson(): string {
   if (!ciphers) throw new Error("vault not loaded");
   const broken = [...ciphers.values()].filter((c) => c.failed && c.personal).length;
   if (broken) throw new Error(`${broken} item(s) could not be decrypted, so the export would be incomplete. Nothing was exported.`);
+  // Items would keep a folderId the export has no folder for: the backup would lose names and grouping.
+  if (brokenFolders) throw new Error(`${brokenFolders} folder(s) could not be decrypted, so the export would be incomplete. Nothing was exported.`);
   const items = [...ciphers.values()]
     .filter((c) => !c.failed && !ci(c, "organizationId"))
     .map((c) => ({ ...Object.fromEntries(EXPORT_KEYS.map((k) => [k, ci(c, k) ?? null])), organizationId: null, collectionIds: null, deletedDate: null }));
@@ -392,6 +401,19 @@ export function listSends(): SendEntry[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * The edit `send` on top of the stored send `cur`. `cur.password` is the server's own hash and the server hashes
+ * whatever `password` it receives, so sending it back would double-hash it and lock everyone out. Leaving
+ * `password` out keeps the stored one (vaultwarden `update_send_from_data`); only a newly typed password is sent,
+ * hashed by the core. Keys compare case-insensitively: the stored send keeps the server's casing (`Password`,
+ * `Text`), and the core takes either spelling, so a stored one next to the edit's could win.
+ */
+export function sendEdit(cur: Json, send: Json): Json {
+  const edited = new Set(Object.keys(send).map((k) => k.toLowerCase()));
+  const kept = Object.entries(cur).filter(([k]) => k.toLowerCase() !== "password" && !edited.has(k.toLowerCase()));
+  return { ...Object.fromEntries(kept), ...send };
+}
+
 /** A send with an `id` is an edit: the changes go on top of the stored send, with its key (the link stays). */
 export function prepareSend(send: Json): Json {
   const id = s(ci(send, "id"));
@@ -399,11 +421,7 @@ export function prepareSend(send: Json): Json {
   if (id) {
     const cur = sends.get(id);
     if (!cur || cur.failed) throw new Error("send not found");
-    // `cur.password` is the server's own hash and the server hashes whatever `password` it receives, so
-    // sending it back would double-hash it and lock everyone out. Leaving `password` out keeps the stored
-    // one (vaultwarden `update_send_from_data`); only a newly typed password is sent, hashed by the core.
-    const { password: _stored, ...rest } = cur;
-    plain = { ...rest, ...send };
+    plain = sendEdit(cur, send);
   }
   return JSON.parse(core.encryptSend(JSON.stringify(plain))) as Json;
 }
@@ -475,13 +493,15 @@ export async function passkeyAssert(itemId: string, wanted: string, rpId: string
 
 /**
  * A new passkey, saved into the login `itemId` (replacing its passkey) or a new login, and encrypted here: the
- * private key goes to the server only inside the item's ciphertext, never to the service worker.
+ * private key goes to the server only inside the item's ciphertext, never to the service worker. Replacing one also
+ * gives `undo`, the item as it is now: if the site never gets the new passkey, the old one goes back.
  */
-export async function passkeyCreate(input: fido2.CreateInput, itemId?: string): Promise<{ cipher: Json; response: Json }> {
+export async function passkeyCreate(input: fido2.CreateInput, itemId?: string): Promise<{ cipher: Json; response: Json; undo?: Json }> {
   await checkRp(input.rpId, input.origin);
   const base: Json = itemId ? getCipher(itemId) : { type: 1, name: input.rpName || input.rpId, login: { username: input.user.name, uris: [{ uri: input.origin, match: null }] } };
   const { fido2Credential, response } = await fido2.createCredential(input);
-  return { cipher: prepareSave({ ...base, login: { ...o(base.login), fido2Credentials: [fido2Credential] } }), response };
+  const cipher = prepareSave({ ...base, login: { ...o(base.login), fido2Credentials: [fido2Credential] } });
+  return { cipher, response, ...(itemId && summary(get(itemId)).hasPasskey ? { undo: prepareSave(base) } : {}) };
 }
 
 // ---------- card / identity fill ----------

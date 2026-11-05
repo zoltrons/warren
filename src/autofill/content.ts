@@ -134,7 +134,9 @@ addEventListener(
       dismissed = anchor;
       close();
     }
-    if (e.key === "Enter" && (e.composedPath()[0] as HTMLInputElement).type === "password") report();
+    // The form Enter submits, like a click or a submit event: not a filled form next to it (a password change).
+    const field = e.composedPath()[0] as HTMLInputElement;
+    if (e.key === "Enter" && field.type === "password") report(field.form);
   },
   true,
 );

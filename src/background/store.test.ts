@@ -107,17 +107,18 @@ test("the refresh token is on disk only sealed with the user key, and not at all
 });
 
 test("a missing refresh token logs out only when it was meant to be in memory", async () => {
-  const { accessToken } = await import("./account.ts");
+  const { auth } = await import("./account.ts");
   (globalThis as any).chrome.alarms = { clear: async () => true };
+  (globalThis as any).chrome.scripting = { unregisterContentScripts: async () => undefined };
   (globalThis as any).chrome.offscreen.hasDocument = async () => false;
   (globalThis as any).chrome.tabs = { query: async () => [] };
   local.server = { url: "https://vault.example", version: "1", name: "t" };
   local.account = { email: "a@b.c" };
   session.session = { unlocked: true };
   local.settings = { timeoutAction: "lock" };
-  await assert.rejects(accessToken(), /log in again/);
+  await assert.rejects(auth(), /log in again/);
   assert.ok(local.account, "an account without a stored token (lock action) must stay");
   local.settings = { timeoutAction: "logout" };
-  await assert.rejects(accessToken(), /log in again/);
+  await assert.rejects(auth(), /log in again/);
   assert.equal(local.account, undefined);
 });

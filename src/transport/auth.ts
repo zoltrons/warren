@@ -1,10 +1,13 @@
 // Identity endpoints (mirrors vaultwarden src/api/identity.rs, see upstream-map.yaml).
 import { CLIENT_NAME, DEVICE_NAME, DEVICE_TYPE, TWO_FACTOR } from "../shared/constants.ts";
 import type { KdfParams, TwoFactorChallenge } from "../shared/messages.ts";
-import { arr, bool, ci, num, obj, opt, parse, str } from "../shared/validate.ts";
+import { arr, bool, ci, literal, num, obj, opt, parse, str, u32 } from "../shared/validate.ts";
 import { ApiError, call } from "./http.ts";
 
-const preloginResponse = obj({ kdf: num, kdfIterations: num, kdfMemory: opt(num), kdfParallelism: opt(num) });
+// PBKDF2 or Argon2id, and whole numbers the crypto core's u32 parameters hold: anything else is refused here,
+// before kdf.ts compares it (2^32 + 5000 would reach the core as 5000).
+const kdfType = literal(0, 1);
+const preloginResponse = obj({ kdf: kdfType, kdfIterations: u32, kdfMemory: opt(u32), kdfParallelism: opt(u32) });
 
 export async function prelogin(base: string, email: string): Promise<KdfParams> {
   const r = parse(preloginResponse, await call(base, "POST", "/identity/accounts/prelogin", { json: { email } }));
@@ -17,10 +20,10 @@ const tokenResponse = obj({
   refresh_token: opt(str),
   Key: opt(str),
   PrivateKey: opt(str),
-  Kdf: opt(num),
-  KdfIterations: opt(num),
-  KdfMemory: opt(num),
-  KdfParallelism: opt(num),
+  Kdf: opt(kdfType),
+  KdfIterations: opt(u32),
+  KdfMemory: opt(u32),
+  KdfParallelism: opt(u32),
   TwoFactorToken: opt(str),
 });
 export type TokenResponse = ReturnType<typeof tokenResponse>;

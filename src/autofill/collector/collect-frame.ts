@@ -146,11 +146,14 @@ export function collectFrame(active: Element | undefined, mode: CollectMode): Co
   }
   const forms = new Set<HTMLFormElement>();
   for (const el of found) if (el.form && forms.size < MAX_FORMS) forms.add(el.form);
+  const buttons = deepAll(document, BUTTONS) as HTMLElement[];
   return {
     origin: location.origin,
     forms: [...forms].map(extractForm),
     fields: found.map((el) => extractFieldDetails(el, el === active, mode)),
-    buttons: (deepAll(document, BUTTONS) as HTMLElement[]).slice(0, MAX_BUTTONS).map(extractButton),
+    buttons: buttons.slice(0, MAX_BUTTONS).map(extractButton),
+    // The engine then never plans Enter: it would press whatever submit button was left out.
+    buttonsTruncated: buttons.length > MAX_BUTTONS || undefined,
   };
 }
 

@@ -1,9 +1,15 @@
 // Boundary validation: anything a page, a server or a file controls is shape- and size-checked.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseFrameRequest, parsePasskeyCall, parsePageRequest, parseRequest } from "./messages.ts";
+import { parseCoreRequest, parseFrameRequest, parsePasskeyCall, parsePageRequest, parseRequest } from "./messages.ts";
 
 const throws = (fn: () => unknown, what: RegExp) => assert.throws(fn, what);
+
+test("core requests: a KDF reaches the worker only as values its u8/u32 parameters hold", () => {
+  const prepare = (kdf: Record<string, number>) => parseCoreRequest({ op: "prepareKey", email: "a@b.test", password: "p", kdf: { type: 0, iterations: 600_000, memory: 0, parallelism: 0, ...kdf } });
+  prepare({});
+  for (const bad of [{ iterations: 2 ** 32 + 5000 }, { iterations: 1.5 }, { memory: -1 }, { type: 257 }]) throws(() => prepare(bad), /expected/);
+});
 
 test("page requests: a submitted login is size-capped", () => {
   const ok = parsePageRequest({ type: "loginSubmitted", username: "u", password: "p" });

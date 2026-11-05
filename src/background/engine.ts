@@ -4,6 +4,7 @@ import init, { analyze_page, plan } from "../../dist/wasm/autofill_core.js";
 import type { ExecuteFill, FillResult, ValueFormat } from "../autofill/types.ts";
 import type { PageApi } from "../autofill/page.ts";
 import { coreCall } from "./core.ts";
+import { assertEpoch } from "./lock.ts";
 import { type CollectedPageDetails, type FieldKind, parsePageDetails } from "../shared/messages.ts";
 
 // A global, but one that rebuilds itself: after the service worker restarts this just loads again.
@@ -30,7 +31,11 @@ export async function analyzeFocus(details: CollectedPageDetails): Promise<{ kin
 export type FillRequest = (
   | { mode: "login"; origin: string; username: string; password: string; totp?: string; onlyEmpty?: boolean; passwordOnly?: boolean; autosubmit?: boolean }
   | { mode: "form"; origin: string; values: Record<string, string> }
-) & { customFields?: { name: string; value: string }[] };
+) & {
+  customFields?: { name: string; value: string }[];
+  /** lockEpoch() from before the values were read: a lock since then stops them before any frame gets one. */
+  epoch: number;
+};
 
 export const customFieldsOf = (id: string) => coreCall<{ name: string; value: string }[]>({ op: "customFieldValues", id });
 
@@ -42,7 +47,7 @@ interface PlanOp {
 
 interface FillPlan {
   ops: PlanOp[];
-  submit?: { kind: "click"; fieldId: number; fallbackFieldId: number } | { kind: "enter"; fieldId: number };
+  submit?: ExecuteFill["submit"];
 }
 
 type Target = { frameIds: number[] } | { allFrames: true } | { documentIds: string[] };
@@ -54,10 +59,11 @@ const callInPage = (name: keyof PageApi, arg: unknown) => {
 
 /**
  * Calls page.js in the target frames. A page opened before the extension was installed or updated does
- * not have it yet: it gets injected there, and the frames are asked again.
+ * not have it yet: it gets injected there, and the frames are asked again. `guard` runs right before each call
+ * goes out (the retry too) and throws to call it off.
  */
-export async function pageCall<T>(target: { tabId: number } & Target, name: keyof PageApi, arg: unknown): Promise<{ frameId: number; documentId: string; result: T }[]> {
-  const call = () => chrome.scripting.executeScript({ target, func: callInPage, args: [name, arg ?? null] });
+export async function pageCall<T>(target: { tabId: number } & Target, name: keyof PageApi, arg: unknown, guard?: () => void): Promise<{ frameId: number; documentId: string; result: T }[]> {
+  const call = () => (guard?.(), chrome.scripting.executeScript({ target, func: callInPage, args: [name, arg ?? null] }));
   let res = await call();
   if (res.some((r) => r.result === "missing")) {
     await chrome.scripting.executeScript({ target, files: ["page.js"] });
@@ -115,7 +121,9 @@ export async function fillInFrames(tabId: number, target: Target, req: FillReque
         submit: planned === 1 ? p.submit : undefined,
       };
       // The document that passed the origin check, not the frame: a frame that navigated since never gets the values.
-      const [res] = await pageCall<FillResult>({ tabId, documentIds: [documentId] }, "execute", execute).catch(() => []);
+      // A lock while the page was collected or the plan made stops them here: the guard's error passes the catch.
+      const guard = () => assertEpoch(req.epoch);
+      const [res] = await pageCall<FillResult>({ tabId, documentIds: [documentId] }, "execute", execute, guard).catch(() => (guard(), []));
       return { frameId, result: res?.result ?? { filled: false } };
     }),
   );

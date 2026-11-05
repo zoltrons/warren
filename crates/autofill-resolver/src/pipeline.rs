@@ -312,7 +312,7 @@ mod tests {
                 })
                 .collect(),
             fields,
-            buttons: vec![],
+            ..Default::default()
         }
     }
 

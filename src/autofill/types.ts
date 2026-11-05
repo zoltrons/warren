@@ -19,5 +19,6 @@ export interface ExecuteFill {
   ops: { fieldId: number; value: string; format?: ValueFormat }[];
   /** Page load: only empty fields. */
   onlyEmpty?: boolean;
-  submit?: { kind: "click"; fieldId: number; fallbackFieldId: number } | { kind: "enter"; fieldId: number };
+  /** Each only once its password field got a value. A click target that is gone by then submits nothing. */
+  submit?: { kind: "click"; fieldId: number; passwordFieldId: number } | { kind: "enter"; fieldId: number };
 }

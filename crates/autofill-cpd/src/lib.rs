@@ -10,6 +10,8 @@ pub struct CollectedPageDetails {
     pub forms: Vec<FormDetails>,
     pub fields: Vec<FieldDetails>,
     pub buttons: Vec<ButtonDetails>,
+    /// The page has more buttons than `buttons` reports: one not seen may be the form's own submit button.
+    pub buttons_truncated: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

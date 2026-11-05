@@ -11,9 +11,10 @@ export class Psl {
     this.rules = new Set(rules);
   }
 
-  /** True for "com", "co.uk", "github.io": nobody owns them, so nothing may be scoped to them. */
+  /** True for "com", "co.uk", "github.io" (and "com.": read like baseDomain reads it): nobody owns them. */
   isPublicSuffix(domain: string): boolean {
-    return this.baseDomain(`x.${domain}`) === `x.${domain}`;
+    const d = domain.toLowerCase().replace(/\.$/, "");
+    return this.baseDomain(`x.${d}`) === `x.${d}`;
   }
 
   /** Registrable domain ("eTLD+1"); IPs, single labels and public suffixes themselves map to the host. */

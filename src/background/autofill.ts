@@ -5,7 +5,7 @@ import { pickPageLoadLogin } from "../shared/pageload.ts";
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { customFieldsOf, type FillRequest, fillInFrames, pageCall } from "./engine.ts";
-import { touchAutoLock } from "./lock.ts";
+import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { getLocal, getSettings } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, markUsed } from "./vault.ts";
@@ -53,6 +53,7 @@ export async function pageMatches(): Promise<PageMatches> {
  * for the site wins (else the first by name), and only empty fields are filled.
  */
 export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promise<FillResult> {
+  const epoch = lockEpoch();
   const settings = await getSettings();
   const tabId = sender.tab?.id;
   const frameId = sender.frameId;
@@ -64,7 +65,7 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   if (!pick) return { filled: false, reason: "noMatch" };
   const { username, password } = await coreCall<{ username: string; password: string }>({ op: "fillData", id: pick.id });
   const customFields = await customFieldsOf(pick.id);
-  const [res] = await fillInFrames(tabId, { frameIds: [frameId] }, { mode: "login", origin: url.origin, username, password, customFields, onlyEmpty: true });
+  const [res] = await fillInFrames(tabId, { frameIds: [frameId] }, { mode: "login", origin: url.origin, username, password, customFields, onlyEmpty: true, epoch });
   const r = res?.result ?? { filled: false };
   if (r.filled) await closeInlineMenu(tabId, frameId);
   // Unlike the official client, no TOTP copy: nobody asked for this fill, and a code on the clipboard reaches
@@ -103,6 +104,8 @@ function closeInlineMenu(tabId: number, frameId?: number) {
 
 /** Fills `id` (or the first match) into the tab. Only items saved for this site are filled. */
 async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = false): Promise<FillResult> {
+  // Before any value is read: a lock from here on stops the fill before a frame gets one (engine.ts).
+  const epoch = lockEpoch();
   const url = httpUrl(tab);
   if (!url || tab?.id === undefined) throw new UserError("invalid", "This page cannot be filled");
   let item: VaultItem | undefined;
@@ -127,16 +130,17 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   let r: FillResult;
   let totp: string | undefined;
   if (values) {
-    r = await fillFrames(tab.id, { mode: "form", origin: url.origin, values, customFields: await customFieldsOf(id) });
+    r = await fillFrames(tab.id, { mode: "form", origin: url.origin, values, customFields: await customFieldsOf(id), epoch });
   } else {
     const filled = await coreCall<{ username: string; password: string; totp?: string }>({ op: "fillData", id });
     totp = filled.totp;
     const { autosubmit } = await getSettings();
-    r = await fillFrames(tab.id, { mode: "login", origin: url.origin, username: filled.username, password: filled.password, totp, autosubmit, customFields: await customFieldsOf(id) });
+    r = await fillFrames(tab.id, { mode: "login", origin: url.origin, username: filled.username, password: filled.password, totp, autosubmit, customFields: await customFieldsOf(id), epoch });
   }
   if (r.filled) {
     await markUsed(id);
-    if (totp && (await getSettings()).autoCopyTotp) await copyToClipboard(totp);
+    // Not onto the clipboard of a vault that locked after the fill.
+    if (totp && (await getSettings()).autoCopyTotp && epoch === lockEpoch()) await copyToClipboard(totp);
   }
   return r;
 }

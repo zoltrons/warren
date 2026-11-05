@@ -7,7 +7,7 @@ import { type Ctx, tile } from "./vault.ts";
 
 export const passkeyRequestId = new URLSearchParams(location.search).get("passkey");
 
-const pk = {
+const fresh = () => ({
   prompt: undefined as PasskeyPrompt | undefined,
   loading: false,
   busy: false,
@@ -16,11 +16,17 @@ const pk = {
   confirm: undefined as PasskeyCandidate | undefined,
   /** The master password, when the site requires user verification (prompt.verify). */
   password: "",
-};
+});
+let pk = fresh();
+
+/** A lock or another account: no typed master password or prompt of the session before stays (popup.ts render). */
+export const resetPasskey = (): void => void (pk = fresh());
 
 async function load(ctx: Ctx) {
-  pk.loading = true;
+  const mine = pk;
+  mine.loading = true;
   const r = await send<PasskeyPrompt>({ type: "passkeyPrompt", id: passkeyRequestId! });
+  if (pk !== mine) return; // reset meanwhile: the next screen asks again
   pk.loading = false;
   if (r.ok) pk.prompt = r.data;
   else pk.error = r.error;
@@ -28,6 +34,7 @@ async function load(ctx: Ctx) {
 }
 
 async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false) {
+  const mine = pk;
   pk.busy = true;
   pk.confirm = undefined;
   ctx.rerender();
@@ -35,6 +42,7 @@ async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, cre
   if (password === "") return ((pk.busy = false), (pk.error = t("passkeyVerifyHint")), ctx.rerender());
   const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}), ...(password !== undefined ? { password } : {}) });
   if (r.ok) return window.close();
+  if (pk !== mine) return;
   pk.password = "";
   pk.busy = false;
   pk.error = r.error;

@@ -48,11 +48,12 @@ pub struct FillOp {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Submit {
-    /// Press Enter in `fallback_field_id` if the button is gone by the time of the click.
+    /// Clicked only once `password_field_id` got its value, and only this button: one that is gone by then is not
+    /// replaced by Enter, which could press a button nobody looked at.
     #[serde(rename_all = "camelCase")]
     Click {
         field_id: u32,
-        fallback_field_id: u32,
+        password_field_id: u32,
     },
     #[serde(rename_all = "camelCase")]
     Enter { field_id: u32 },
@@ -127,9 +128,10 @@ fn plan_login(
         .and_then(|p| match best_submit_button(&page.buttons, p.details) {
             Some(b) => Some(Submit::Click {
                 field_id: b.field_id,
-                fallback_field_id: p.details.field_id,
+                password_field_id: p.details.field_id,
             }),
-            None if refuses_enter(&page.buttons, p.details) => None,
+            // A button the report left out may be the form's own: Enter would press it unseen.
+            None if page.buttons_truncated || refuses_enter(&page.buttons, p.details) => None,
             None => Some(Submit::Enter {
                 field_id: p.details.field_id,
             }),
@@ -172,8 +174,16 @@ fn plan_form(page: &CollectedPageDetails, keys: &[String]) -> FillPlan {
     FillPlan { ops, submit: None }
 }
 
+/// In the login's form, or without any form in the same block of the page (like autosubmit's buttons).
+fn same_login(field: &FieldDetails, login: &FieldDetails) -> bool {
+    match login.form_id {
+        Some(_) => field.form_id == login.form_id,
+        None => field.form_id.is_none() && field.shares_block(&login.block_path),
+    }
+}
+
 pub fn plan_fill(page: &CollectedPageDetails, intent: &FillIntent) -> FillPlan {
-    let (mut plan, names, only_with_login) = match intent {
+    let (mut plan, names, only_with_login, page_load) = match intent {
         FillIntent::Login {
             only_empty,
             password_only,
@@ -184,19 +194,35 @@ pub fn plan_fill(page: &CollectedPageDetails, intent: &FillIntent) -> FillPlan {
             plan_login(page, *only_empty, *password_only, *has_totp, *autosubmit),
             custom_fields,
             *only_empty || *password_only,
+            *only_empty,
         ),
         FillIntent::Form {
             keys,
             custom_fields,
-        } => (plan_form(page, keys), custom_fields, false),
+        } => (plan_form(page, keys), custom_fields, false, false),
     };
     // Page load, and a frame tried for its password form: custom fields come along with a login, never
     // instead of one. Otherwise a match in the top frame would stop the search for a login in an iframe.
     if only_with_login && plan.ops.is_empty() {
         return plan;
     }
+    // Nobody asked for a page-load fill, so it stays inside the login it chose: a name that also matches a box of
+    // a sign-up or password-change form next to it (the same `password` name) does not reach that box.
+    let login = page_load
+        .then(|| plan.ops.iter().find(|o| o.source == "password"))
+        .flatten()
+        .and_then(|o| page.fields.iter().find(|f| f.field_id == o.field_id));
     // The user named these fields, so they go first, and nothing else writes to them.
-    let custom = match_custom_fields(page, names);
+    let custom: Vec<_> = match_custom_fields(page, names)
+        .into_iter()
+        .filter(|(id, _)| {
+            login.is_none_or(|p| {
+                page.fields
+                    .iter()
+                    .any(|f| f.field_id == *id && same_login(f, p))
+            })
+        })
+        .collect();
     plan.ops
         .retain(|o| !custom.iter().any(|(id, _)| *id == o.field_id));
     plan.ops.splice(
@@ -234,7 +260,7 @@ mod tests {
                 ..Default::default()
             }],
             fields,
-            buttons: vec![],
+            ..Default::default()
         }
     }
 
@@ -361,7 +387,7 @@ mod tests {
             plan_fill(&p, &login(false, true)).submit,
             Some(Submit::Click {
                 field_id: 3,
-                fallback_field_id: 2
+                password_field_id: 2
             })
         ));
         p.buttons[0].text = Some("Reset password".into());
@@ -373,6 +399,12 @@ mod tests {
         assert!(
             plan_fill(&step, &login(false, true)).submit.is_none(),
             "a username step has only begun"
+        );
+        p.buttons.clear();
+        p.buttons_truncated = true;
+        assert!(
+            plan_fill(&p, &login(false, true)).submit.is_none(),
+            "the form's own button may be one the report left out"
         );
     }
 
@@ -467,6 +499,34 @@ mod tests {
         assert_eq!(
             sources(&with_custom(&login, true, false, &["pin"])),
             [(1, "custom:0"), (2, "password")]
+        );
+    }
+
+    #[test]
+    fn page_load_custom_fields_stay_in_the_login_it_fills() {
+        // A login form, and a password-change form whose new password box has the same name.
+        let mut new = input(4, "password", "password");
+        new.form_id = Some(2);
+        new.block_path = vec![2];
+        new.autocomplete_type = Some("new-password".into());
+        let mut p = page(vec![
+            input(1, "text", "username"),
+            input(2, "password", "password"),
+            new,
+        ]);
+        p.forms.push(FormDetails {
+            form_id: 2,
+            ..Default::default()
+        });
+        let ids = |plan: FillPlan| plan.ops.iter().map(|o| o.field_id).collect::<Vec<_>>();
+        let page_load = ids(with_custom(&p, true, false, &["password"]));
+        assert!(
+            page_load.contains(&2) && !page_load.contains(&4),
+            "{page_load:?}"
+        );
+        assert!(
+            ids(with_custom(&p, false, false, &["password"])).contains(&4),
+            "a fill the user asked for goes wherever the name matches"
         );
     }
 

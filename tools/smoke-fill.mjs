@@ -88,6 +88,12 @@ const fixtures = {
   autosubmit: `<form onsubmit="return false"><input id="u" name="username"><input id="p" type="password" name="password">
     <button type="button" id="show">Show password</button><button id="go" onclick="window.submitted='button'">Sign in</button></form>`,
   autosubmitEnter: `<form onsubmit="window.submitted='enter';return false"><input id="u" name="username"><input id="p" type="password" name="password"></form>`,
+  // The login button goes away while the password is written (a re-render): Enter must not stand in for it.
+  autosubmitGone: `<form onsubmit="window.submitted='enter';return false"><input id="u" name="username">
+    <input id="p" type="password" name="password" oninput="document.getElementById('go')?.remove()"><button id="go" onclick="window.submitted='button'">Sign in</button></form>`,
+  // More buttons than the report holds, then a form whose own (unreported) submit deletes the account.
+  manyButtons: `${'<button type="button">More</button>'.repeat(64)}<form onsubmit="window.submitted='enter';return false">
+    <input id="u" name="username"><input id="p" type="password" name="password"><button>Delete account</button></form>`,
   cardShapes: `<form onsubmit="return false"><input id="c" autocomplete="cc-number" maxlength="19"><input id="compact" autocomplete="cc-exp" maxlength="4">
     <input id="long" autocomplete="cc-exp" placeholder="MM/YYYY"><input id="year" autocomplete="cc-exp-year" maxlength="2"></form>`,
   long: `<form>${"x".repeat(3000)}<input name="${"n".repeat(1000)}"></form>`,
@@ -485,6 +491,26 @@ await scenario("autosubmit clicks the login button", "autosubmit", async (page) 
 await scenario("without a login button autosubmit presses Enter and submits the form", "autosubmitEnter", async (page) => {
   await fill(page, { autosubmit: true });
   assert.equal(await page.evaluate(() => window.submitted), "enter");
+});
+
+await scenario("a login button that went away during the fill is not replaced by Enter", "autosubmitGone", async (page) => {
+  assert.deepEqual(await fill(page, { autosubmit: true }), { filled: true });
+  assert.equal(await page.evaluate(() => window.submitted ?? false), false);
+});
+
+await scenario("a page with more buttons than the report gets no Enter", "manyButtons", async (page) => {
+  assert.equal((await collect(page)).buttonsTruncated, true);
+  assert.deepEqual(await fill(page, { autosubmit: true }), { filled: true });
+  assert.equal(await page.evaluate(() => window.submitted ?? false), false);
+});
+
+await scenario("a fill that writes nothing is no fill", "autosubmitEnter", async (page) => {
+  const intent = { kind: "login", onlyEmpty: false, passwordOnly: false, hasTotp: false, autosubmit: false, customFields: [] };
+  const plan = JSON.parse(engine.plan(JSON.stringify({ details: await collect(page), intent })));
+  // Disabled between the plan and the write: nothing takes a value, so the popup stays open and no code is copied.
+  await page.evaluate(() => document.querySelectorAll("input").forEach((i) => (i.disabled = true)));
+  const ops = plan.ops.map((o) => ({ fieldId: o.fieldId, value: "x" }));
+  assert.deepEqual(await page.evaluate((ops) => warren.execute({ ops, origin: location.origin }), ops), { filled: false, reason: "noFields" });
 });
 
 await scenario("autosubmit stays off unless asked for, and never on page load", "autosubmit", async (page) => {

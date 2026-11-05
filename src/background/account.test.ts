@@ -22,7 +22,8 @@ const noop = async () => undefined;
 (globalThis as { chrome?: unknown }).chrome = {
   storage: { session: area(session), local: area(local) },
   alarms: { create: noop, clear: noop },
-  tabs: { query: async () => [], sendMessage: noop },
+  tabs: { query: async () => [], sendMessage: noop, remove: noop },
+  scripting: { unregisterContentScripts: noop },
   offscreen: {
     Reason: { WORKERS: "WORKERS", CLIPBOARD: "CLIPBOARD" },
     hasDocument: async () => offscreen,
@@ -60,7 +61,7 @@ const jwt = (sub: string) => `h.${Buffer.from(JSON.stringify({ sub, email: "a@b.
 const tokens = (sub: string, refresh: string) => ({ access_token: jwt(sub), expires_in: 3600, refresh_token: refresh, Key: "2.k|k|k" });
 const KDF = { kdf: 0, kdfIterations: 600_000 };
 
-const { accessToken, confirmReprompt, login } = await import("./account.ts");
+const { auth, confirmReprompt, finishSso, login, logout, unlock, unlockWithBiometric } = await import("./account.ts");
 const { lockNow } = await import("./lock.ts");
 const { repromptGranted } = await import("./reprompt.ts");
 
@@ -105,12 +106,34 @@ test("a server that lowers the KDF gets no password hash", async () => {
   assert.ok(!coreOps.includes("prepareKey"), "no key derived, no hash made");
 });
 
+test("an unlock that a lock overtakes during its first read does not unlock", async () => {
+  const account = local.account;
+  local.biometric = { email: "a@b.test", credentialId: "c", prfSalt: "s", protectedUserKey: "2.k|k|k", createdAt: 0 };
+  for (const start of [() => unlock("pw"), () => unlockWithBiometric("prf")]) {
+    await lockNow();
+    const running = start();
+    // The lock comes while the unlock still reads the account: it must own the epoch from before that read.
+    await lockNow();
+    await assert.rejects(running, /locked meanwhile/);
+    assert.equal((session.session as { unlocked?: boolean }).unlocked, false);
+    assert.equal(offscreen, false);
+  }
+  assert.equal(local.account, account);
+});
+
+/** The account that logs in after a logout: what a login stores. */
+function accountB() {
+  local.account = { email: "b@b.test", userId: "user-b", kdf: { type: 0, iterations: 600_000, memory: 0, parallelism: 0 }, protectedUserKey: "2.k|k|k" };
+  session.session = { unlocked: false, accessToken: "token-b", accessExpiresAt: Date.now() + 3_600_000, refreshToken: "refresh-b" };
+}
+
 test("a refresh answer for an account that was replaced meanwhile is dropped", async () => {
   session.session = { ...(session.session as object), accessToken: "old", accessExpiresAt: 0, refreshToken: "refresh-a" };
-  const refreshing = accessToken();
+  const refreshing = auth();
   await arrived("/identity/connect/token");
-  // Another account logs in while the refresh is out.
-  session.session = { ...(session.session as object), accessToken: "token-b", accessExpiresAt: Date.now() + 3_600_000, refreshToken: "refresh-b" };
+  // Another account logs in while the refresh is out (every switch begins with a logout).
+  await logout();
+  accountB();
   await answer("/identity/connect/token", tokens("user-a", "refresh-a2"));
   await assert.rejects(refreshing, /account changed/);
   assert.equal((session.session as { refreshToken?: string }).refreshToken, "refresh-b");
@@ -119,11 +142,30 @@ test("a refresh answer for an account that was replaced meanwhile is dropped", a
 
 test("a refused refresh for a replaced account does not log the new one out", async () => {
   session.session = { ...(session.session as object), accessExpiresAt: 0 };
-  const refreshing = accessToken();
+  const refreshing = auth();
   await arrived("/identity/connect/token");
+  await logout();
+  accountB();
   session.session = { ...(session.session as object), refreshToken: "refresh-c" };
   await answer("/identity/connect/token", { error: "invalid_grant" }, 400);
   await assert.rejects(refreshing);
   assert.ok(local.account, "still logged in");
   assert.equal((session.session as { refreshToken?: string }).refreshToken, "refresh-c");
+});
+
+test("a server and a token are only handed out together, for one account", async () => {
+  accountB();
+  const reading = auth();
+  // Logged out (and maybe pointed at another server) between reading the server and the token.
+  void logout();
+  await assert.rejects(reading, /account changed/);
+});
+
+test("an SSO callback that comes after a logout logs nobody in", async () => {
+  await logout();
+  session.session = { unlocked: false, sso: { state: "st:clientId=browser", verifier: "v", expiresAt: Date.now() + 60_000 } };
+  await logout(); // e.g. the user gave up on SSO and logged out
+  await finishSso("https://vault.test/sso-connector.html?code=c&state=st%3AclientId%3Dbrowser", 1);
+  assert.equal(local.account, undefined);
+  assert.match(String((session.session as { ssoError?: string }).ssoError), /expired/);
 });

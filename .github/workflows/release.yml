@@ -11,18 +11,25 @@ on:
 permissions: {}
 
 jobs:
-  # Installed copies update themselves, so a tag must never ship a commit whose CI is not green. CI runs
-  # for pushes to main: a tag on any other commit never gets a result here and fails closed.
+  # Installed copies update themselves, so a tag must never ship a commit that is not on main with a green CI run.
+  # Not a check named "ci": a pull request's run posts one on its own commits, and so can anything allowed to write
+  # checks. The tagged commit must be on main, and the ci workflow's run for its push to main must have passed.
   ci-passed:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: { checks: read }
+    permissions: { actions: read, contents: read }
     steps:
-      - name: wait for the ci check of this commit
+      - name: the commit is on main and the ci workflow passed for its push there
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
+          # main ahead of (or at) the commit: it is in main's history.
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main" --jq .status)"
+          case "$status" in
+            ahead | identical) ;;
+            *) echo "::error::$GITHUB_SHA is not on main ($status)"; exit 1 ;;
+          esac
           while :; do
-            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?check_name=ci" --jq '.check_runs[0].conclusion // "pending"')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&branch=main&head_sha=$GITHUB_SHA" --jq '.workflow_runs[0].conclusion // "pending"')"
             case "$conclusion" in
               success) exit 0 ;;
               pending) sleep 30 ;;
@@ -31,8 +38,9 @@ jobs:
           done
 
   # Push access alone cannot ship a release: the tag must be signed by a key in .github/allowed_signers, read from
-  # the tagged commit, which CI only passes on main (see ci-passed).
+  # the tagged commit only once ci-passed showed that commit is on main (a branch could list any key).
   tag-signed:
+    needs: ci-passed
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: { contents: read }

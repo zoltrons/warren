@@ -74,7 +74,7 @@ function run(req: CoreRequest): unknown {
     case "prepareSave":
       return vault.prepareSave(req.item);
     case "preparePassword":
-      return vault.preparePassword(req.id, req.password);
+      return vault.preparePassword(req.id, req.password, req.revisionDate);
     case "totp":
       return vault.totp(req.id);
     case "generate":

@@ -4,6 +4,7 @@ import { activeTab, httpUrl } from "./autofill.ts";
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { analyzeFocus } from "./engine.ts";
+import { assertEpoch, lockEpoch } from "./lock.ts";
 import type { CollectedPageDetails } from "../shared/messages.ts";
 import { getSession, updateSession } from "./store.ts";
 
@@ -23,6 +24,8 @@ interface FieldPick {
 const inFrames = (tabId: number, type: "pickerStart" | "pickerStop") => chrome.tabs.sendMessage(tabId, { type });
 
 export async function startFieldPicker(draft: string, panel: boolean): Promise<null> {
+  // A lock while the page is set up: the draft (decrypted values) must not move into a new worker after it.
+  const epoch = lockEpoch();
   const tab = await activeTab();
   const tabId = tab?.id;
   if (tabId === undefined || !httpUrl(tab)) throw new UserError("invalid", chrome.i18n.getMessage("pickFieldNoPage"));
@@ -35,18 +38,21 @@ export async function startFieldPicker(draft: string, panel: boolean): Promise<n
     });
     await inFrames(tabId, "pickerStart");
   }
-  await coreCall({ op: "stashDraft", draft });
+  await coreCall({ op: "stashDraft", draft }, () => assertEpoch(epoch));
+  assertEpoch(epoch);
   await updateSession({ picker: { tabId, panel } });
   return null;
 }
 
 /** From the frame the user picked in; an empty name is Escape. The other frames stop too. */
 export async function finishFieldPicker(tabId: number, pick: { name: string; fieldType: string; label?: string; details?: CollectedPageDetails }): Promise<void> {
+  const epoch = lockEpoch();
   const { picker } = await getSession();
   if (picker?.tabId !== tabId) return;
   // A field the engine cannot read is still the user's pick: it just gets no suggestion.
   const autofillType = pick.details ? await analyzeFocus(pick.details).then((a) => a.autofillType, () => undefined) : undefined;
   const field: PickedField | undefined = pick.name ? { name: pick.name, fieldType: pick.fieldType, label: pick.label, autofillType } : undefined;
+  if (epoch !== lockEpoch()) return; // a lock ended the picker meanwhile
   await updateSession({ picker: { ...picker, done: true, field } });
   await inFrames(tabId, "pickerStop").catch(() => undefined);
   if (picker.panel) await chrome.runtime.sendMessage({ type: "pickerDone" }).catch(() => undefined);

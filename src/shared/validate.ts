@@ -13,6 +13,15 @@ const fail = (path: string, want: string, v: unknown): never => {
 
 export const str: Validator<string> = (v, p) => (typeof v === "string" ? v : fail(p, "string", v));
 export const num: Validator<number> = (v, p) => (typeof v === "number" && Number.isFinite(v) ? v : fail(p, "number", v));
+/**
+ * A whole number in 0..max, never coerced: WebAssembly takes u8/u32 modulo 2^n, so 2^32 + 5000 would arrive as 5000
+ * after every check here had seen a large number.
+ */
+export const uint =
+  (max: number): Validator<number> =>
+  (v, p) =>
+    Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= max ? (v as number) : fail(p, `whole number 0..${max}`, v);
+export const u32 = uint(0xffff_ffff);
 export const bool: Validator<boolean> = (v, p) => (typeof v === "boolean" ? v : fail(p, "boolean", v));
 export const unknownValue: Validator<unknown> = (v) => v;
 /** Plain JSON object with unvalidated contents (checked further by its consumer). */

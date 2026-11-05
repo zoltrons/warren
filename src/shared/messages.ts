@@ -3,7 +3,7 @@
 import { ALIAS_VENDORS, type AliasSettings, type AliasVendor } from "./alias.ts";
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, URI_MATCH_CHOICES } from "./constants.ts";
 import { MAX_BLOCK_PATH, MAX_BUTTONS, MAX_DATA_ATTRS, MAX_FIELDS, MAX_FORM_TEXT, MAX_FORMS, MAX_PAGE_STRING } from "./page-limits.ts";
-import { arr, bool, literal, num, obj, opt, record, str, unknownValue, type Validator, ValidationError } from "./validate.ts";
+import { arr, bool, literal, num, obj, opt, record, str, u32, unknownValue, type Validator, ValidationError } from "./validate.ts";
 
 // ---------- size caps ----------
 // Anything a page, a server or a file can make arbitrarily large is bounded at the boundary.
@@ -464,7 +464,9 @@ export type ErrorCode =
   | "badBiometric"
   | "reprompt"
   | "sessionExpired"
-  | "wrongPhase";
+  | "wrongPhase"
+  /** UI only (ui/dom.ts send): the answer was asked for before a lock or account change the screen has seen since. */
+  | "stale";
 
 // ---------- service worker -> offscreen -> worker ----------
 
@@ -505,7 +507,8 @@ export type CoreRequest =
   | { op: "cipherSummary"; id: string }
   | { op: "prepareSave"; item: Record<string, unknown> }
   /** Save bar: the item with a new password, encrypted; the service worker never sees the item. */
-  | { op: "preparePassword"; id: string; password: string }
+  /** `revisionDate`: the item's revision (epoch ms) the save bar asked about; refused if the item changed since. */
+  | { op: "preparePassword"; id: string; password: string; revisionDate?: number }
   | { op: "totp"; id: string }
   | { op: "generate"; options: Record<string, unknown> }
   // free text encrypted with the user key (like a folder name)
@@ -541,7 +544,8 @@ export type CoreResult = { ok: true; value: unknown } | { ok: false; error: stri
 
 export const OFFSCREEN_TARGET = "warren-offscreen";
 
-const kdfParams: Validator<KdfParams> = obj({ type: num, iterations: num, memory: num, parallelism: num });
+// Exactly what the core's u8/u32 parameters hold: a value that would wrap there never reaches it.
+const kdfParams: Validator<KdfParams> = obj({ type: literal(0, 1), iterations: u32, memory: u32, parallelism: u32 });
 
 /**
  * WebAuthn bounds. The spec sets no upper limit on a challenge and sites use it to carry signed state:
@@ -596,7 +600,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   getCipher: obj({ op: literal("getCipher"), id: str }),
   cipherSummary: obj({ op: literal("cipherSummary"), id: str }),
   prepareSave: obj({ op: literal("prepareSave"), item: record }),
-  preparePassword: obj({ op: literal("preparePassword"), id: str, password: str }),
+  preparePassword: obj({ op: literal("preparePassword"), id: str, password: str, revisionDate: opt(num) }),
   totp: obj({ op: literal("totp"), id: str }),
   generate: obj({ op: literal("generate"), options: record }),
   encryptText: obj({ op: literal("encryptText"), values: arr(str) }),
@@ -738,6 +742,7 @@ const collectedPageDetails = obj({
   forms: bounded(MAX_FORMS, formDetails),
   fields: bounded(MAX_FIELDS, fieldDetails),
   buttons: bounded(MAX_BUTTONS, buttonDetails),
+  buttonsTruncated: opt(bool),
 });
 
 export type FieldDetails = ReturnType<typeof fieldDetails>;

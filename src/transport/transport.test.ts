@@ -1,8 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { normalizeServerUrl } from "../shared/url.ts";
-import { parseTwoFactorChallenge } from "./auth.ts";
+import { parseTwoFactorChallenge, prelogin } from "./auth.ts";
 import { errorMessage } from "./http.ts";
+
+test("prelogin refuses a KDF the crypto core would read as another one", async () => {
+  const serve = (body: unknown) => (globalThis.fetch = (async () => new Response(JSON.stringify(body), { status: 200 })) as typeof fetch);
+  const run = () => prelogin("https://vault.test", "a@b.test");
+  serve({ kdf: 0, kdfIterations: 600_000 });
+  assert.deepEqual(await run(), { type: 0, iterations: 600_000, memory: 0, parallelism: 0 });
+  // 2^32 + 5000 reaches the core's u32 as 5000, after every check here saw a large number.
+  for (const kdfIterations of [2 ** 32 + 5000, 600_000.5, -1, 1e300]) {
+    serve({ kdf: 0, kdfIterations });
+    await assert.rejects(run(), /whole number/, String(kdfIterations));
+  }
+  serve({ kdf: 256, kdfIterations: 600_000 }); // a u8 of 256 is 0
+  await assert.rejects(run(), /0\|1/);
+  serve({ kdf: 1, kdfIterations: 3, kdfMemory: 2 ** 32 + 64, kdfParallelism: 4 });
+  await assert.rejects(run(), /whole number/);
+});
 
 test("errorMessage skips Vaultwarden's empty error_description", () => {
   const body = { error: "", error_description: "", ErrorModel: { Message: "Invalid TOTP code!" }, message: "Invalid TOTP code!" };

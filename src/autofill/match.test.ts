@@ -16,6 +16,8 @@ test("baseDomain follows the Public Suffix List", () => {
   assert.equal(psl.baseDomain("192.168.1.10"), "192.168.1.10");
   assert.equal(psl.baseDomain("localhost"), "localhost");
   assert.equal(psl.baseDomain("co.uk"), "co.uk");
+  for (const d of ["com", "com.", "CO.UK.", "github.io."]) assert.equal(psl.isPublicSuffix(d), true, d);
+  assert.equal(psl.isPublicSuffix("example.com."), false);
 });
 
 test("domain match (default)", () => {

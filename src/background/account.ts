@@ -1,7 +1,7 @@
 // Login, 2FA, unlock, token refresh. Pure orchestration: crypto runs in the offscreen worker,
 // HTTP in src/transport.
 import { KDF_ARGON2ID, PIN_KDF, TWO_FACTOR } from "../shared/constants.ts";
-import type { CoreRequest, ErrorCode, KdfParams, LoginRequest } from "../shared/messages.ts";
+import type { CoreRequest, KdfParams, LoginRequest } from "../shared/messages.ts";
 import {
   answerAuthRequest,
   authorizationCodeToken,
@@ -23,8 +23,9 @@ import {
 import { ApiError } from "../transport/http.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
+import { UserError } from "./errors.ts";
 import { kdfDowngrade, PBKDF2_MIN, PIN_ONLY_MIN, pinOnlyStrong, raiseFloor, tooWeak } from "./kdf.ts";
-import { lockEpoch, lockNow, touchAutoLock } from "./lock.ts";
+import { assertEpoch, assertOwner, lockEpoch, lockNow, newOwner, ownerEpoch, touchAutoLock } from "./lock.ts";
 import { migratePrivate } from "./private.ts";
 import { stopPush } from "./push.ts";
 import { grantReprompt } from "./reprompt.ts";
@@ -40,15 +41,7 @@ import {
   updateSession,
 } from "./store.ts";
 
-/** Error with a code the popup can switch on (see ErrorCode in shared/messages.ts). */
-export class UserError extends Error {
-  override name = "UserError";
-  readonly code: ErrorCode;
-  constructor(code: ErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
+export { UserError };
 
 const PENDING_TTL_MS = 10 * 60_000;
 export const PENDING_ALARM = "pendingLogin";
@@ -108,14 +101,16 @@ function kdfFromToken(t: TokenResponse, fallback: KdfParams): KdfParams {
 type Opener = { handle: number; device?: { id: string; accessCode: string; key: string } };
 
 /**
- * Ends an unlock that a lock overtook (`epoch` is lockEpoch() from when it started): the keys it may have loaded
- * into a fresh worker are dropped again. Synchronous up to the throw, so no lock can slip in after a pass.
+ * Runs `write` if no lock came since `epoch` (lockEpoch() from before the first await), in the same tick as the
+ * check, so none can slip in between. One a lock overtook locks again instead, dropping the keys it may have loaded
+ * into a fresh worker, and throws once that lock is done (the next request in the queue then starts clean).
  */
-function checkEpoch(epoch: number): Promise<void> {
-  if (lockEpoch() === epoch) return Promise.resolve();
-  return lockNow().then(() => {
-    throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
-  });
+async function checkEpoch(epoch: number): Promise<void>;
+async function checkEpoch<T>(epoch: number, write: () => Promise<T>): Promise<T>;
+async function checkEpoch<T>(epoch: number, write?: () => Promise<T>): Promise<T | undefined> {
+  if (lockEpoch() === epoch) return write?.();
+  await lockNow();
+  throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
 }
 
 async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, via: Opener, t: TokenResponse, epoch: number): Promise<void> {
@@ -131,9 +126,7 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
   } catch (e) {
     throw new UserError("badServer", `Could not decrypt the account key: ${(e as Error).message}`);
   }
-  await checkEpoch(epoch);
   const tokens = toTokens(t);
-  await removeLocal("vault"); // never show a previous account's cache
   const account: Account = {
     email,
     userId: jwtSubject(t.access_token),
@@ -141,22 +134,30 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
     protectedUserKey: t.Key,
     encryptedPrivateKey: t.PrivateKey,
   };
-  await setLocal("account", account);
-  await storeRefreshToken(tokens.refreshToken);
+  const owner = await checkEpoch(epoch, async () => {
+    // Another account from here: a refresh, a sync or a hub begun for the one before must not write over this one.
+    const mine = newOwner();
+    await removeLocal("vault"); // never show a previous account's cache
+    return mine;
+  });
+  await checkEpoch(epoch, () => setLocal("account", account));
+  await storeRefreshToken(tokens.refreshToken, owner);
   if (t.TwoFactorToken) {
     const remember = (await getLocal("rememberTokens")) ?? {};
     await setLocal("rememberTokens", { ...remember, [await rememberKey(serverUrl, email)]: t.TwoFactorToken });
   }
-  await checkEpoch(epoch);
-  await updateSession({
-    unlocked: true,
-    accessToken: tokens.accessToken,
-    accessExpiresAt: tokens.expiresAt,
-    pending: undefined,
-    ssoError: undefined,
-    pin: undefined,
-  });
-  await touchAutoLock();
+  await checkEpoch(epoch, () =>
+    updateSession({
+      unlocked: true,
+      accessToken: tokens.accessToken,
+      accessExpiresAt: tokens.expiresAt,
+      pending: undefined,
+      ssoError: undefined,
+      sso: undefined, // an SSO login still waiting must not replace this account when its callback comes late
+      pin: undefined,
+    }),
+  );
+  await touchAutoLock(epoch);
 }
 
 function mapLoginError(e: unknown): never {
@@ -170,8 +171,8 @@ export async function login(rawEmail: string, password: string): Promise<void> {
   const base = await requireServer();
   const email = rawEmail.trim().toLowerCase();
   if (!email || !password) throw new UserError("invalid", "Email and master password are required");
-  await lockNow();
-  const epoch = lockEpoch();
+  // This lock's epoch, not the latest: a lock that comes while this one runs ends the login.
+  const epoch = await lockNow();
 
   const kdf = await guardKdf(base, email, await prelogin(base, email));
   const { handle, authHash } = await prepareKey(email, password, kdf);
@@ -218,7 +219,7 @@ async function passwordLogin(base: string, email: string, kdf: KdfParams, authHa
       await setLocal("rememberTokens", all);
     }
     const expiresAt = Date.now() + PENDING_TTL_MS;
-    await updateSession({ pending: { email, kdf, handle: via.handle, challenge: e.challenge, expiresAt, ...(via.device ? { device: via.device } : {}) } });
+    await checkEpoch(epoch, () => updateSession({ pending: { email, kdf, handle: via.handle, challenge: e.challenge, expiresAt, ...(via.device ? { device: via.device } : {}) } }));
     // The pending login holds the master key: free it on time even if the popup is never opened again.
     await chrome.alarms.create(PENDING_ALARM, { when: expiresAt });
   }
@@ -241,8 +242,8 @@ async function requirePending() {
 }
 
 export async function submitTwoFactor(provider: number, token: string, remember: boolean): Promise<void> {
-  const base = await requireServer();
   const epoch = lockEpoch();
+  const base = await requireServer();
   const { pending, authHash } = await requirePending();
   if (!pending.challenge.providers.includes(provider)) throw new UserError("invalid", "Provider not offered by server");
   // WebAuthn tokens are the assertion JSON from the connector page; codes may be typed with spaces.
@@ -283,9 +284,10 @@ export async function cancelTwoFactor(): Promise<void> {
 }
 
 export async function unlock(password: string): Promise<void> {
+  // Before the first await: a lock that comes during any of them ends this unlock.
+  const epoch = lockEpoch();
   const account = await getLocal("account");
   if (!account) throw new UserError("wrongPhase", "Not logged in");
-  const epoch = lockEpoch();
   const { handle } = await prepareKey(account.email, password, account.kdf);
   try {
     await coreCall({
@@ -304,29 +306,28 @@ export async function unlock(password: string): Promise<void> {
 
 /** Shared tail of every unlock path (master password, PIN, biometrics). */
 async function afterUnlock(account: Account, epoch: number): Promise<void> {
-  await checkEpoch(epoch);
-  await updateSession({ unlocked: true });
-  await touchAutoLock();
+  await checkEpoch(epoch, () => updateSession({ unlocked: true }));
+  await touchAutoLock(epoch);
   // After a browser restart the PIN-wrapped key is gone: re-arm it from the stored PIN.
   const { pin } = await getSession();
   const [plain] = account.protectedPin ? await unseal([account.protectedPin]) : [];
   if (plain && account.pinKey && !pinOnlyStrong(plain)) {
     // A PIN-only key set before the strength rule, behind a short number: the PIN keeps working until the browser
     // restarts, and after one the master password is asked again.
-    await armPin(account, plain);
+    await armPin(account, plain, epoch);
     const fresh = await getLocal("account");
     if (fresh?.pinKey === account.pinKey) {
       const { pinKey: _, pinKdf: __, ...rest } = fresh;
-      await setLocal("account", rest);
+      await checkEpoch(epoch, () => setLocal("account", rest));
     }
   } else if (plain && !account.pinKey && pin?.email !== account.email) {
-    await armPin(account, plain);
+    await armPin(account, plain, epoch);
   } else if (plain && account.pinKey && JSON.stringify(account.pinKdf) !== JSON.stringify(PIN_KDF)) {
     // A PIN-only key from an older build is wrapped through the account KDF: re-wrap it with PIN_KDF once.
-    const key = await armPin(account, plain);
+    const key = await armPin(account, plain, epoch);
     const fresh = await getLocal("account");
-    if (fresh?.pinKey === account.pinKey) await setLocal("account", { ...fresh, pinKey: key, pinKdf: PIN_KDF });
-  } else if (pin?.attempts) await updateSession({ pin: { ...pin, attempts: 0 } });
+    if (fresh?.pinKey === account.pinKey) await checkEpoch(epoch, () => setLocal("account", { ...fresh, pinKey: key, pinKdf: PIN_KDF }));
+  } else if (pin?.attempts) await checkEpoch(epoch, () => updateSession({ pin: { ...pin, attempts: 0 } }));
   // Older builds kept never-save hosts and fill stamps in clear text; a failed move is retried next unlock.
   await migratePrivate().catch(() => undefined);
   await resealLegacy().catch(() => undefined);
@@ -345,7 +346,7 @@ export async function startDeviceLogin(rawEmail: string): Promise<void> {
   const base = await requireServer();
   const email = rawEmail.trim().toLowerCase();
   if (!email) throw new UserError("invalid", "Enter your email address");
-  await lockNow();
+  const epoch = await lockNow();
   const { publicKey, fingerprint } = await coreCall<{ publicKey: string; fingerprint: string }>({ op: "authRequestCreate", email });
   const accessCode = b64u(crypto.getRandomValues(new Uint8Array(24)));
   const r = await createAuthRequest(base, { email, publicKey, deviceId: await getDeviceId(), accessCode }).catch((e: unknown) => {
@@ -355,14 +356,15 @@ export async function startDeviceLogin(rawEmail: string): Promise<void> {
     throw e;
   });
   const expiresAt = Date.now() + DEVICE_LOGIN_TTL_MS;
-  await updateSession({ deviceLogin: { email, id: r.id, accessCode, fingerprint, expiresAt }, ssoError: undefined });
+  // A lock meanwhile dropped the request's key: no request to wait for.
+  await checkEpoch(epoch, () => updateSession({ deviceLogin: { email, id: r.id, accessCode, fingerprint, expiresAt }, ssoError: undefined }));
   await chrome.alarms.create(PENDING_ALARM, { when: expiresAt });
 }
 
 /** Polled by the popup: finishes the login once another device approved the request. */
 export async function checkDeviceLogin(): Promise<void> {
-  const base = await requireServer();
   const epoch = lockEpoch();
+  const base = await requireServer();
   const { deviceLogin: d } = await getSession();
   if (!d) throw new UserError("wrongPhase", "No login request in progress");
   if (d.expiresAt < Date.now()) {
@@ -390,16 +392,18 @@ export async function checkDeviceLogin(): Promise<void> {
 
 /** Other devices' requests waiting for this one, with the phrase to compare. */
 export async function loginRequests(): Promise<LoginRequest[]> {
-  const base = await requireServer();
+  const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account) throw new UserError("sessionExpired", "Please log in again");
-  const all = await pendingAuthRequests(base, await accessToken());
+  const { base, token } = await auth(owner);
+  const all = await pendingAuthRequests(base, token);
   const list: LoginRequest[] = [];
   for (const r of all) {
     const fingerprint = await coreCall<string>({ op: "authRequestFingerprint", email: account.email, publicKey: r.publicKey }).catch(() => undefined);
     if (fingerprint) list.push({ id: r.id, fingerprint, device: r.requestDeviceType ?? "", ip: r.requestIpAddress ?? "", createdAt: Date.parse(r.creationDate) });
   }
   // What the server still has pending is the truth; requests that came in by push but are gone drop out here.
+  assertOwner(owner);
   await updateSession({ loginRequests: list.map((r) => r.id) });
   return list;
 }
@@ -409,8 +413,8 @@ export async function loginRequests(): Promise<LoginRequest[]> {
  * key is wrapped only for a public key that gives that phrase, so a server cannot show one key and get another.
  */
 export async function answerLoginRequest(id: string, approve: boolean, fingerprint: string): Promise<void> {
-  const base = await requireServer();
-  const token = await accessToken();
+  const owner = ownerEpoch();
+  const { base, token } = await auth(owner);
   let key = "";
   if (approve) {
     const account = await getLocal("account");
@@ -419,7 +423,10 @@ export async function answerLoginRequest(id: string, approve: boolean, fingerpri
       throw new UserError("badServer", "The request changed on the server; nothing was approved");
     key = await coreCall<string>({ op: "authRequestApprove", publicKey });
   }
-  await answerAuthRequest(base, token, id, { key, deviceId: await getDeviceId(), approve });
+  const deviceId = await getDeviceId();
+  // The wrapped key is this account's: it goes to its server only.
+  assertOwner(owner);
+  await answerAuthRequest(base, token, id, { key, deviceId, approve });
   await dropLoginRequest(id);
 }
 
@@ -436,19 +443,21 @@ export async function dropLoginRequest(id: string): Promise<void> {
  * platform authenticator, and every unlock requires its user verification (Touch ID / Hello).
  */
 export async function setBiometric(credentialId: string, prfSalt: string, prf: string): Promise<void> {
+  const epoch = lockEpoch();
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
   if (!credentialId || !prfSalt || !prf) throw new UserError("invalid", "The biometric credential is incomplete");
   const protectedUserKey = await coreCall<string>({ op: "prfProtect", prf });
-  await setLocal("biometric", { email: account.email, credentialId, prfSalt, protectedUserKey, createdAt: Date.now() });
+  // A logout meanwhile removed biometric unlock: it stays removed.
+  await checkEpoch(epoch, () => setLocal("biometric", { email: account.email, credentialId, prfSalt, protectedUserKey, createdAt: Date.now() }));
 }
 
 export const removeBiometric = () => removeLocal("biometric").then(() => undefined);
 
 export async function unlockWithBiometric(prf: string): Promise<void> {
+  const epoch = lockEpoch();
   const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
   if (!account || !bio || bio.email !== account.email) throw new UserError("wrongPhase", "Biometric unlock is not set up");
-  const epoch = lockEpoch();
   try {
     await coreCall({
       op: "unlockPrf",
@@ -472,12 +481,14 @@ export async function unlockWithBiometric(prf: string): Promise<void> {
  * used, so nothing extra stays in memory.
  */
 export async function verifyMasterPassword(password: string): Promise<void> {
-  const base = await requireServer();
+  const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account) throw new UserError("sessionExpired", "Please log in again");
   const { handle, authHash } = await coreCall<Prepared>({ op: "prepareKey", email: account.email, password, kdf: account.kdf });
   await coreCall({ op: "freeKey", handle }).catch(() => undefined);
-  await verifyPassword(base, await accessToken(), authHash).catch((e: unknown) => {
+  // The hash, the account it was made for and the token are one account's: a switch meanwhile sends nothing.
+  const { base, token } = await auth(owner);
+  await verifyPassword(base, token, authHash).catch((e: unknown) => {
     throw e instanceof ApiError && e.status === 400 ? new UserError("wrongPassword", "Wrong master password") : e;
   });
 }
@@ -486,7 +497,7 @@ export async function verifyMasterPassword(password: string): Promise<void> {
 export async function confirmReprompt(id: string, password: string): Promise<void> {
   const epoch = lockEpoch();
   await verifyMasterPassword(password);
-  if (lockEpoch() !== epoch) throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
+  assertEpoch(epoch);
   grantReprompt(id);
 }
 
@@ -494,19 +505,20 @@ export async function confirmReprompt(id: string, password: string): Promise<voi
 
 const PIN_MAX_ATTEMPTS = 5;
 
-async function armPin(account: Account, pin: string): Promise<string> {
+async function armPin(account: Account, pin: string, epoch: number): Promise<string> {
   const key = await coreCall<string>({ op: "pinProtect", pin, email: account.email, kdf: PIN_KDF });
-  await updateSession({ pin: { email: account.email, key, attempts: 0 } });
+  await checkEpoch(epoch, () => updateSession({ pin: { email: account.email, key, attempts: 0 } }));
   return key;
 }
 
 /** Turns PIN unlock on, or off without `pin`. Needs the unlocked vault. */
 export async function setPin(pin?: string, pinOnly = false): Promise<void> {
+  const epoch = lockEpoch();
   const account = await getLocal("account");
   if (!account) throw new UserError("wrongPhase", "Not logged in");
   if (pin === undefined) {
     const { protectedPin: _, pinKey: __, pinKdf: ___, ...rest } = account;
-    await setLocal("account", rest);
+    await checkEpoch(epoch, () => setLocal("account", rest)); // a logout meanwhile: no account to write back
     await updateSession({ pin: undefined });
     return;
   }
@@ -515,12 +527,14 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
   if (pinOnly && !pinOnlyStrong(pin))
     throw new UserError("invalid", `Without the master password after a restart, the PIN needs at least ${PIN_ONLY_MIN} characters and one that is not a digit`);
   const [protectedPin] = await seal([pin], BLOCK.secret);
-  const key = await armPin(account, pin);
+  const key = await armPin(account, pin, epoch);
   const { pinKey: _, pinKdf: __, ...rest } = account;
-  await setLocal("account", { ...rest, protectedPin: protectedPin!, ...(pinOnly ? { pinKey: key, pinKdf: PIN_KDF } : {}) });
+  await checkEpoch(epoch, () => setLocal("account", { ...rest, protectedPin: protectedPin!, ...(pinOnly ? { pinKey: key, pinKdf: PIN_KDF } : {}) }));
 }
 
 export async function unlockWithPin(pin: string): Promise<void> {
+  const epoch = lockEpoch();
+  const owner = ownerEpoch();
   const account = await getLocal("account");
   const { pin: s } = await getSession();
   // A key armed this session is always PIN_KDF; one on disk records its KDF (older builds: the account's).
@@ -531,7 +545,6 @@ export async function unlockWithPin(pin: string): Promise<void> {
         ? { email: account.email, key: account.pinKey, attempts: 0, kdf: account.pinKdf ?? account.kdf }
         : undefined;
   if (!account?.protectedPin || !p) throw new UserError("wrongPhase", "Unlock with the master password");
-  const epoch = lockEpoch();
   try {
     await coreCall({ op: "unlockPin", pin, email: account.email, kdf: p.kdf, protectedUserKey: p.key, encryptedPrivateKey: account.encryptedPrivateKey });
   } catch (e) {
@@ -541,6 +554,8 @@ export async function unlockWithPin(pin: string): Promise<void> {
       await logout();
       throw new UserError("wrongPassword", "Too many wrong PINs, you have been logged out");
     }
+    // Counted across a lock (one would otherwise reset the cap), never into the session of a later login.
+    assertOwner(owner);
     await updateSession({ pin: { ...p, attempts: p.attempts + 1 } });
     throw new UserError("wrongPassword", "Wrong PIN");
   }
@@ -548,18 +563,21 @@ export async function unlockWithPin(pin: string): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
+  newOwner();
   stopPush();
   await lockNow();
   await removeLocal("account", "vault", "genHistory", "aliasSettings", "biometric", "private", "wordlist");
   await chrome.storage.local.remove("lastUsed"); // clear-text stamps of older builds
-  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined });
+  // An SSO login still waiting for its callback ends here too: a late one must not log an account back in.
+  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined, sso: undefined });
+  await chrome.scripting.unregisterContentScripts({ ids: [SSO_SCRIPT] }).catch(() => undefined);
 }
 
 /**
  * The token in memory (this browser session), else the disk copy, which only an unlocked vault can open: after a
  * restart a locked vault does not reach the server until the first unlock.
  */
-async function currentRefreshToken(): Promise<string | undefined> {
+async function currentRefreshToken(owner: number): Promise<string | undefined> {
   const s = await getSession();
   if (s.refreshToken) return s.refreshToken;
   const account = await getLocal("account");
@@ -567,6 +585,7 @@ async function currentRefreshToken(): Promise<string | undefined> {
   if (!account?.refreshTokenEnc) return undefined;
   if (!s.unlocked) throw new UserError("wrongPhase", "Unlock to connect to the server");
   const [plain] = await unseal([account.refreshTokenEnc]);
+  assertOwner(owner);
   if (plain) await updateSession({ refreshToken: plain });
   return plain || undefined;
 }
@@ -575,60 +594,79 @@ async function currentRefreshToken(): Promise<string | undefined> {
  * The token is always in memory (storage.session). On disk it is sealed with the user key, so a copied profile
  * cannot use it; with "log out" as the timeout action (like the official clients) it is not on disk at all.
  * Sealing needs the vault unlocked: a token that arrives while locked (SSO login, rotation) is sealed at the next
- * unlock, and until then the previous disk copy stays.
+ * unlock, and until then the previous disk copy stays. Written only while `owner` (the account it belongs to) is.
  */
-async function storeRefreshToken(token: string | undefined): Promise<void> {
+async function storeRefreshToken(token: string | undefined, owner: number): Promise<void> {
   const onDisk = !!token && (await getSettings()).timeoutAction !== "logout";
   const [sealed] = onDisk ? await seal([token!], BLOCK.secret).catch(() => [undefined]) : [undefined];
   const account = await getLocal("account");
   if (account) {
     const { refreshToken: _, refreshTokenEnc: previous, ...rest } = account;
     const enc = onDisk ? (sealed ?? previous) : undefined;
+    assertOwner(owner);
     await setLocal("account", enc ? { ...rest, refreshTokenEnc: enc } : rest);
   }
+  assertOwner(owner);
   await updateSession({ refreshToken: token });
 }
 
 /** After the timeout action changed: moves the token to where that action keeps it. */
-export const relocateRefreshToken = async (): Promise<void> => storeRefreshToken(await currentRefreshToken());
-
-/** The refresh in flight, if any. The server may rotate the refresh token, so a second concurrent
- * refresh would be sent a spent one and fail (and end in a logout). Rebuildable: a restart just starts over. */
-let refreshing: Promise<string> | undefined;
-
-/** Returns a valid access token, refreshing it when it expires within a minute. */
-export async function accessToken(): Promise<string> {
-  const s = await getSession();
-  if (s.accessToken && (s.accessExpiresAt ?? 0) - 60_000 > Date.now()) return s.accessToken;
-  refreshing ??= refreshAccessToken().finally(() => (refreshing = undefined));
-  return refreshing;
+export async function relocateRefreshToken(): Promise<void> {
+  const owner = ownerEpoch();
+  await storeRefreshToken(await currentRefreshToken(owner), owner);
 }
 
-async function refreshAccessToken(): Promise<string> {
+/** The refresh in flight, if any, and whose. The server may rotate the refresh token, so a second concurrent
+ * refresh would be sent a spent one and fail (and end in a logout). Rebuildable: a restart just starts over. */
+let refreshing: Promise<{ token: string; owner: number }> | undefined;
+
+/**
+ * The server and a valid access token for it (refreshed when it expires within a minute), read as one under
+ * `owner` and checked against it: a token never goes to a server or account it was not issued for. Pass the owner
+ * taken before reading other account data (the email, the user id) the request goes out with.
+ */
+export async function auth(owner = ownerEpoch()): Promise<{ base: string; token: string }> {
   const base = await requireServer();
-  const current = await currentRefreshToken();
+  const s = await getSession();
+  let token = s.accessToken;
+  if (!token || (s.accessExpiresAt ?? 0) - 60_000 <= Date.now()) {
+    refreshing ??= refreshAccessToken().finally(() => (refreshing = undefined));
+    const r = await refreshing;
+    assertOwner(owner, r.owner); // a refresh begun for an account before this one shares nothing with it
+    token = r.token;
+  }
+  assertOwner(owner);
+  return { base, token };
+}
+
+async function refreshAccessToken(): Promise<{ token: string; owner: number }> {
+  const owner = ownerEpoch();
+  const base = await requireServer();
+  const current = await currentRefreshToken(owner);
   if (!current) {
     // Kept in memory only ("log out" timeout action) and gone with an extension update: the session is over.
-    if ((await getSettings()).timeoutAction === "logout" && (await getLocal("account"))) await logout();
+    if ((await getSettings()).timeoutAction === "logout" && (await getLocal("account")) && owner === ownerEpoch()) await logout();
     throw new UserError("sessionExpired", "Please log in again");
   }
-  // A login, logout or server change while the request was out: its answer belongs to an account that is gone.
-  const stale = async () => base !== (await getLocal("server"))?.url || current !== (await currentRefreshToken());
   let t: TokenResponse;
   try {
+    // The server and the token read above belong to one account: never send a server another one's token.
+    assertOwner(owner);
     t = await refreshToken(base, current);
   } catch (e) {
-    if (e instanceof ApiError && (e.status === 400 || e.status === 401) && !(await stale())) {
+    // A login, logout or server change while the request was out: the refusal is the old account's, not this one's.
+    if (e instanceof ApiError && (e.status === 400 || e.status === 401) && owner === ownerEpoch()) {
       await logout();
       throw new UserError("sessionExpired", "Your session expired, please log in again");
     }
     throw e;
   }
-  if (await stale()) throw new UserError("sessionExpired", "The account changed, please try again");
+  assertOwner(owner);
   const tokens = toTokens(t);
-  if (tokens.refreshToken && tokens.refreshToken !== current) await storeRefreshToken(tokens.refreshToken);
+  if (tokens.refreshToken && tokens.refreshToken !== current) await storeRefreshToken(tokens.refreshToken, owner);
+  assertOwner(owner);
   await updateSession({ accessToken: tokens.accessToken, accessExpiresAt: tokens.expiresAt });
-  return tokens.accessToken;
+  return { token: tokens.accessToken, owner };
 }
 
 // ---------- SSO (Vaultwarden OpenID Connect) ----------
@@ -665,8 +703,12 @@ export async function startSso(): Promise<void> {
   await chrome.tabs.create({ url: `${base}/identity/connect/authorize?${q}` });
 }
 
-/** `url` is the connector page URL as seen by the browser (sender.url), never a value from the page. */
+/**
+ * `url` is the connector page URL as seen by the browser (sender.url), never a value from the page. A login or
+ * logout since startSso dropped `sso` (so the state check fails); one while this runs changes the owner.
+ */
 export async function finishSso(url: string, tabId: number): Promise<void> {
+  const owner = ownerEpoch();
   const base = await requireServer();
   if (!url.startsWith(`${connectorUrl(base)}?`)) return;
   const { sso } = await getSession();
@@ -687,17 +729,18 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
     const email = jwtClaim(t.access_token, "email");
     if (!email) throw new UserError("badServer", "The server did not return the account email");
     if (!t.Key) throw new UserError("badServer", "This account has no master password yet; set one in the web vault first");
-    await lockNow();
-    await removeLocal("vault");
+    const kdf = await guardKdf(base, email, kdfFromToken(t, await prelogin(base, email)));
     const tokens = toTokens(t);
-    await setLocal("account", {
-      email,
-      userId: jwtSubject(t.access_token),
-      kdf: await guardKdf(base, email, kdfFromToken(t, await prelogin(base, email))),
-      protectedUserKey: t.Key,
-      encryptedPrivateKey: t.PrivateKey,
-    });
-    await storeRefreshToken(tokens.refreshToken);
+    assertOwner(owner);
+    // Another account from here: whatever began for the one before is stale.
+    const mine = newOwner();
+    await lockNow();
+    assertOwner(mine);
+    await removeLocal("vault");
+    assertOwner(mine);
+    await setLocal("account", { email, userId: jwtSubject(t.access_token), kdf, protectedUserKey: t.Key, encryptedPrivateKey: t.PrivateKey });
+    await storeRefreshToken(tokens.refreshToken, mine);
+    assertOwner(mine);
     await updateSession({ sso: undefined, pin: undefined, accessToken: tokens.accessToken, accessExpiresAt: tokens.expiresAt });
   } catch (e) {
     await updateSession({ sso: undefined, ssoError: e instanceof Error ? e.message : String(e) });

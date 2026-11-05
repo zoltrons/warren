@@ -7,8 +7,8 @@ import { getServerInfo } from "../transport/config.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
 import { NetworkError } from "../transport/http.ts";
 import {
-  accessToken,
   answerLoginRequest,
+  auth,
   cancelTwoFactor,
   checkDeviceLogin,
   confirmReprompt,
@@ -36,7 +36,7 @@ import { PUSH_ALARM, pushUp, startPush, stopPush } from "./push.ts";
 import { REPROMPT_MESSAGE, repromptGranted, repromptPending } from "./reprompt.ts";
 import { coreAlive, coreCall } from "./core.ts";
 import { safeKdf } from "./kdf.ts";
-import { AUTOLOCK_ALARM, lockNow, touchAutoLock } from "./lock.ts";
+import { AUTOLOCK_ALARM, lockNow, ownerEpoch, touchAutoLock } from "./lock.ts";
 import {
   getLocal,
   getSession,
@@ -438,16 +438,18 @@ let pushSync: ReturnType<typeof setTimeout> | undefined;
 
 /** Connects the hub while an account is logged in; a no-op when it is up. */
 async function ensurePush(): Promise<void> {
+  const epoch = ownerEpoch();
   const [server, account] = await Promise.all([getLocal("server"), getLocal("account")]);
   if (!server || !account) return stopPush();
   const owner = `${server.url}|${account.email}`;
   if (pushUp(owner)) return;
   try {
-    const token = await accessToken();
-    // A logout (or another login) while the token was on its way: that token is not ours any more.
-    const now = await getLocal("account");
-    if (now?.email !== account.email) return;
-    startPush(server.url, owner, token, (u) => void onPush(u).catch((e: unknown) => console.error(e)));
+    // Server, account and token read under one owner (auth checks it): the same email on two servers is two owners.
+    const { token } = await auth(epoch);
+    // An update for an account that is gone (a login or logout since) changes nothing.
+    startPush(server.url, owner, token, (u) => {
+      if (epoch === ownerEpoch()) void onPush(u).catch((e: unknown) => console.error(e));
+    });
   } catch {
     /* offline or the session ended: PUSH_ALARM tries again */
   }

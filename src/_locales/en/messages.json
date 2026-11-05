@@ -17,6 +17,9 @@
   "errNoReply": {
     "message": "The extension did not answer. Try again."
   },
+  "errStale": {
+    "message": "The vault was locked meanwhile. Try again."
+  },
   "showPassword": {
     "message": "Show password"
   },

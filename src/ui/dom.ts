@@ -86,10 +86,23 @@ export function withChevron(control: HTMLSelectElement): HTMLElement {
   return h("span", { class: "select" }, text, control, icon("chevronDown"));
 }
 
-export async function send<T>(req: Request | FrameRequest): Promise<Response<T>> {
+/** Moves on with every lock or account change the screen goes through (popup.ts setState). */
+let session = 0;
+export const sessionNow = (): number => session;
+export const newSession = (): void => void session++;
+
+/**
+ * An answer to a request asked before the screen's last lock or account change comes back as a `stale` error
+ * instead of its data: a vault item, a code or an export from before a lock never lands on screen. `keepStale`: for
+ * State answers, which popup.ts setState sorts out itself (a logout's answer comes after the lock it caused).
+ */
+export async function send<T>(req: Request | FrameRequest, keepStale = false): Promise<Response<T>> {
+  const asked = session;
+  let res: Response<T>;
   try {
-    return ((await chrome.runtime.sendMessage(req)) as Response<T> | undefined) ?? { ok: false, error: t("errNoReply") };
+    res = ((await chrome.runtime.sendMessage(req)) as Response<T> | undefined) ?? { ok: false, error: t("errNoReply") };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    res = { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+  return keepStale || asked === session ? res : { ok: false, error: t("errStale"), code: "stale" };
 }

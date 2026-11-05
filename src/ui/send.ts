@@ -1,6 +1,7 @@
 // Send screen: the user's sends, create a text or file send, edit or disable one, copy its link, delete it.
 // Talks to the service worker only; the link (with its key fragment) is built there.
 import type { SendItem } from "../shared/messages.ts";
+import { ci } from "../shared/validate.ts";
 import { type Child, h, send, t, withChevron } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { copy, type Ctx, iconButton, tile, toast } from "./vault.ts";
@@ -94,9 +95,10 @@ async function editSend(ctx: Ctx, item: SendItem) {
     ctx.rerender();
     const r = await send<Record<string, unknown>>({ type: "getSend", id: item.id });
     if (r.ok) {
-      const text = r.data.text as { text?: unknown; hidden?: unknown } | undefined;
-      d.text = typeof text?.text === "string" ? text.text : "";
-      d.hidden = text?.hidden === true;
+      // The decrypted send keeps the server's key casing (`Text` from some Vaultwarden answers).
+      const text = ci(r.data, "text");
+      d.text = typeof ci(text, "text") === "string" ? (ci(text, "text") as string) : "";
+      d.hidden = ci(text, "hidden") === true;
     }
     sd.busy = false;
     // Never open an editor with an empty text: saving it would wipe the send. The list stays, with the error.
