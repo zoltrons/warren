@@ -2,6 +2,34 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.11 — 2026-11-05
+
+### Security
+
+- A server can no longer get round the KDF floor with a number the crypto core wraps (2^32 + 5000 iterations read
+  as 5000): KDF values from the server are taken only as PBKDF2 or Argon2id and whole numbers within 32 bits.
+- A lock now wins over every fill, save bar, field picker, unlock and passkey save in flight: a fill the lock
+  overtook reaches no page, a typed password waiting in the save bar is not written back, and an unlock that began
+  before the lock does not complete. A login, logout or server change wins over a token refresh, the push connection
+  and an SSO callback the same way, and a token is only ever sent to the server and account it belongs to.
+- A save bar update is made against the revision it was shown for, so an older prompt cannot undo a newer password.
+- A cancelled passkey request is not saved; if it is cancelled while the save is on its way, the passkey it replaced
+  is put back.
+- Passkey relying party ids with an empty label (`com.`) are refused.
+- Autosubmit presses nothing when the login button went away during the fill, and no Enter on a page with more
+  buttons than are inspected. Page-load autofill puts custom fields only into the login it fills. Enter in a password
+  field offers the save for its own form. A fill that writes no field counts as no fill.
+- Releases need the tagged commit on `main` with a green `ci` run for its push there.
+
+### Fixed
+
+- Editing a Send keeps its text and its access password whatever key casing the server uses.
+- An export refuses to run when a folder cannot be decrypted, instead of dropping it.
+- A change saved on the server no longer reports an error when only the refresh afterwards failed (a retry could
+  create it twice). A sync that started before a save no longer hides the saved item.
+- The popup ignores answers to requests made before a lock (and states from before an unlock), and a master
+  password typed for a passkey request is cleared on lock.
+
 ## 0.0.10 — 2026-11-05
 
 ### Security
