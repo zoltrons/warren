@@ -115,7 +115,10 @@ pub fn auth_request_create(email: &str) -> Result<String, JsError> {
 
 /// Log in with device: opens the session from the user key an approving device wrapped for our public key.
 #[wasm_bindgen(js_name = authRequestUnlock)]
-pub fn auth_request_unlock(key: &str, encrypted_private_key: Option<String>) -> Result<(), JsError> {
+pub fn auth_request_unlock(
+    key: &str,
+    encrypted_private_key: Option<String>,
+) -> Result<(), JsError> {
     api::auth_request_unlock(key, encrypted_private_key.as_deref()).map_err(js)
 }
 

@@ -10,9 +10,10 @@ use std::{cell::RefCell, collections::HashMap, num::NonZeroU32, str::FromStr};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, HashPurpose, Kdf, KeyDecryptable, KeyEncryptable,
-    EFF_LONG_WORD_LIST, MasterKey, PinKey, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey,
-    PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, derive_symmetric_key_from_prf,
+    BitwardenLegacyKeyBytes, EFF_LONG_WORD_LIST, EncString, HashPurpose, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, PinKey, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey,
+    PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
+    derive_symmetric_key_from_prf,
 };
 use serde_json::Value;
 
@@ -412,7 +413,8 @@ mod tests {
     #[test]
     fn auth_request_roundtrip() {
         // Requesting device: a key pair and the phrase; ours matches the SDK's.
-        let created: Value = serde_json::from_str(&auth_request_create("a@example.test").unwrap()).unwrap();
+        let created: Value =
+            serde_json::from_str(&auth_request_create("a@example.test").unwrap()).unwrap();
         let public_key = created["publicKey"].as_str().unwrap();
         let der = SpkiPublicKeyBytes::from(STANDARD.decode(public_key).unwrap());
         assert_eq!(
