@@ -162,8 +162,8 @@ freed rather than zeroed in place.
     Types, so the browser itself refuses an HTML or script sink; the only policy (`warren`, `src/offscreen/offscreen.ts`)
     creates the crypto worker's URL and refuses any origin but the extension's.
 
-13. **Clipboard copies are cleared on a timer**, and the clear is armed only when the write actually
-    happened — never after a failed copy that would otherwise erase the user's clipboard.
+13. **Clipboard copies are cleared on a timer** (1 minute by default), and the clear is armed only when the write
+    actually happened — never after a failed copy that would otherwise erase the user's clipboard.
 
 14. **Locking tears down in-page UI.** Auto-lock, logout and login call `lockNow`, which closes the
     inline menu and save bar in every tab: those frames show decrypted item names, so they must not

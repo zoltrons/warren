@@ -25,7 +25,7 @@ const settings = {
   favicons: true,
   autoCopyTotp: true,
   defaultUriMatch: 0,
-  clearClipboardDelay: "fiveMinutes",
+  clearClipboardDelay: "oneMinute",
   autofillOnPageLoad: false,
   autofillOnPageLoadDefault: true,
   inlineMenuCards: true,

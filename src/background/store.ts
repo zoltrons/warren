@@ -194,7 +194,7 @@ export async function getSettings(): Promise<Settings> {
     favicons: false,
     autoCopyTotp: true,
     defaultUriMatch: 0,
-    clearClipboardDelay: "fiveMinutes",
+    clearClipboardDelay: "oneMinute",
     autofillOnPageLoad: false,
     autofillOnPageLoadDefault: true,
     autosubmit: false,

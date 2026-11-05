@@ -128,7 +128,7 @@ export async function saveFolder(name: string, id?: string): Promise<VaultList> 
 /** Arms the clipboard clear according to the user's "Clear clipboard" setting (never = cancel). */
 export async function scheduleClipboardClear(): Promise<void> {
   const { clearClipboardDelay } = await getSettings();
-  const ms = CLEAR_CLIPBOARD_MS[clearClipboardDelay] ?? CLEAR_CLIPBOARD_MS.fiveMinutes;
+  const ms = CLEAR_CLIPBOARD_MS[clearClipboardDelay] ?? CLEAR_CLIPBOARD_MS.oneMinute;
   if (!ms) return void (await chrome.alarms.clear(CLIPBOARD_ALARM));
   await chrome.alarms.create(CLIPBOARD_ALARM, { delayInMinutes: ms / 60_000 });
 }

@@ -1039,7 +1039,7 @@ void send<State>({ type: "getState" }).then((res) => {
       phase: "setup",
       settings: {
         autoLockMinutes: 15, timeoutAction: "lock", lockOnSystemLock: true, inlineMenu: true, savePrompt: true, neverSave: [],
-        defaultManager: false, favicons: false, autoCopyTotp: true, defaultUriMatch: 0, clearClipboardDelay: "fiveMinutes",
+        defaultManager: false, favicons: false, autoCopyTotp: true, defaultUriMatch: 0, clearClipboardDelay: "oneMinute",
         autofillOnPageLoad: false, autofillOnPageLoadDefault: true, autosubmit: false, inlineMenuCards: true, inlineMenuIdentities: true, contextMenu: true,
         showCardsOnTab: true, showIdentitiesOnTab: true, quickActionMenus: false,
       },

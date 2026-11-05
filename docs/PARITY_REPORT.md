@@ -106,7 +106,7 @@ No new permissions, dependencies or remote code.
 
 | Item | How | Verified by |
 |---|---|---|
-| Clear clipboard delay | `never`, 10 s, 20 s, 30 s, 1 min, 2 min, **5 min default** (was a fixed 30 s); armed by every copy, cancelled by "never" | unit/render only |
+| Clear clipboard delay | `never`, 30 s, **1 min default**, 2 min, 5 min (was a fixed 30 s); armed by every copy, cancelled by "never" | unit/render only |
 | Default URI match detection | Setting (Base domain default, Host, Exact, Never + advanced Starts with / RegExp) now resolves URIs whose own `match` is null, everywhere matching happens (tab list, badge, context menu, inline menu, save/update, page load) | unit (`match.test.ts`) |
 | Per-URI match detection | Login editor lists websites as rows; each row has the clients' gear toggle, match select (Default (…), Base domain, Host, Exact, Never, advanced Starts with / RegExp) and remove; Add website; advanced hint text | render |
 | Autofill on page load | Off by default (experimental, like upstream). Worker picks a candidate using the per-item tri-state and the account default, prefers the login last used for the site, and fills only empty fields; never copies the TOTP (a fill nobody asked for; upstream does) | unit (`pageload.test.ts`) |
