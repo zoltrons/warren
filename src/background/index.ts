@@ -35,6 +35,7 @@ import { HUB, type HubUpdate } from "../transport/hub.ts";
 import { PUSH_ALARM, pushUp, startPush, stopPush } from "./push.ts";
 import { REPROMPT_MESSAGE, repromptGranted, repromptPending } from "./reprompt.ts";
 import { coreAlive, coreCall } from "./core.ts";
+import { safeKdf } from "./kdf.ts";
 import { AUTOLOCK_ALARM, lockNow, touchAutoLock } from "./lock.ts";
 import {
   getLocal,
@@ -80,7 +81,7 @@ async function getState(): Promise<State> {
     await updateSession({ unlocked: false });
     unlocked = false;
   }
-  const pin = { weakKdf: account.kdf.type !== KDF_ARGON2ID, pinSet: !!account.protectedPin, pinUnlock: !!account.protectedPin && (!!account.pinKey || session.pin?.email === account.email) };
+  const pin = { weakKdf: account.kdf.type !== KDF_ARGON2ID || !safeKdf(account.kdf), pinSet: !!account.protectedPin, pinUnlock: !!account.protectedPin && (!!account.pinKey || session.pin?.email === account.email) };
   const biometric = bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
   // The never-save list is encrypted: it is only there to show (and edit) while the vault is open.
   if (unlocked) base.settings.neverSave = await readPrivate().then((d) => d.neverSave, () => []);
@@ -197,7 +198,7 @@ async function handle(req: Request): Promise<unknown> {
     case "fill":
     case "readPageLogin":
       await requireUnlocked();
-      await touchAutoLock();
+      if (!(req.type === "pageMatches" && req.passive)) await touchAutoLock();
       if (req.type === "pageMatches") return pageMatches();
       if (req.type === "fill") return fillActiveTab(req.id);
       return readPageLogin();

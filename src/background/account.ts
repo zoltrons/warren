@@ -23,7 +23,8 @@ import {
 import { ApiError } from "../transport/http.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
-import { lockNow, touchAutoLock } from "./lock.ts";
+import { kdfDowngrade, PBKDF2_MIN, raiseFloor, tooWeak } from "./kdf.ts";
+import { lockEpoch, lockNow, touchAutoLock } from "./lock.ts";
 import { migratePrivate } from "./private.ts";
 import { stopPush } from "./push.ts";
 import { grantReprompt } from "./reprompt.ts";
@@ -74,6 +75,24 @@ interface Prepared {
 const prepareKey = (email: string, password: string, kdf: KdfParams) =>
   coreCall<Prepared>({ op: "prepareKey", email, password, kdf });
 
+/**
+ * Every KDF from the server passes here before a hash made with it is sent or stored: see kdf.ts. Keyed like
+ * rememberTokens, so the floor outlives a logout without leaving the email on disk.
+ */
+async function guardKdf(serverUrl: string, email: string, kdf: KdfParams): Promise<KdfParams> {
+  if (tooWeak(kdf))
+    throw new UserError(
+      "badServer",
+      `This account's key derivation (PBKDF2, ${kdf.iterations} iterations) is too weak: Warren does not send a hash of your master password made with less than ${PBKDF2_MIN} iterations. Raise it in the web vault (Settings → Security → Keys, Argon2id recommended) and log in again.`,
+    );
+  const key = await rememberKey(`kdf|${serverUrl}`, email);
+  const floors = (await getLocal("kdfFloors")) ?? {};
+  if (kdfDowngrade(kdf, floors[key]))
+    throw new UserError("badServer", "The server asks for a much weaker key derivation than this account used before. Your master password was not sent. If you did not change the KDF in the web vault, the server may be compromised.");
+  await setLocal("kdfFloors", { ...floors, [key]: raiseFloor(kdf, floors[key]) });
+  return kdf;
+}
+
 function kdfFromToken(t: TokenResponse, fallback: KdfParams): KdfParams {
   if (t.Kdf === undefined || t.KdfIterations === undefined) return fallback;
   const argon = t.Kdf === KDF_ARGON2ID;
@@ -88,8 +107,22 @@ function kdfFromToken(t: TokenResponse, fallback: KdfParams): KdfParams {
 /** How a login opens the vault: the master key behind `handle`, or the user key another device sent (`device.key`). */
 type Opener = { handle: number; device?: { id: string; accessCode: string; key: string } };
 
-async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, via: Opener, t: TokenResponse): Promise<void> {
+/**
+ * Ends an unlock that a lock overtook (`epoch` is lockEpoch() from when it started): the keys it may have loaded
+ * into a fresh worker are dropped again. Synchronous up to the throw, so no lock can slip in after a pass.
+ */
+function checkEpoch(epoch: number): Promise<void> {
+  if (lockEpoch() === epoch) return Promise.resolve();
+  return lockNow().then(() => {
+    throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
+  });
+}
+
+async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, via: Opener, t: TokenResponse, epoch: number): Promise<void> {
+  await checkEpoch(epoch);
   if (!t.Key) throw new UserError("badServer", "Server did not return an encrypted user key");
+  // The KDF later unlocks and re-prompts use (and send a hash of): the token's, checked like prelogin's.
+  const accountKdf = await guardKdf(serverUrl, email, kdfFromToken(t, kdf));
   const op: CoreRequest = via.device
     ? { op: "authRequestUnlock", key: via.device.key, encryptedPrivateKey: t.PrivateKey }
     : { op: "unlock", handle: via.handle, protectedUserKey: t.Key, encryptedPrivateKey: t.PrivateKey };
@@ -98,12 +131,13 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
   } catch (e) {
     throw new UserError("badServer", `Could not decrypt the account key: ${(e as Error).message}`);
   }
+  await checkEpoch(epoch);
   const tokens = toTokens(t);
   await removeLocal("vault"); // never show a previous account's cache
   const account: Account = {
     email,
     userId: jwtSubject(t.access_token),
-    kdf: kdfFromToken(t, kdf),
+    kdf: accountKdf,
     protectedUserKey: t.Key,
     encryptedPrivateKey: t.PrivateKey,
   };
@@ -113,6 +147,7 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
     const remember = (await getLocal("rememberTokens")) ?? {};
     await setLocal("rememberTokens", { ...remember, [await rememberKey(serverUrl, email)]: t.TwoFactorToken });
   }
+  await checkEpoch(epoch);
   await updateSession({
     unlocked: true,
     accessToken: tokens.accessToken,
@@ -136,13 +171,15 @@ export async function login(rawEmail: string, password: string): Promise<void> {
   const email = rawEmail.trim().toLowerCase();
   if (!email || !password) throw new UserError("invalid", "Email and master password are required");
   await lockNow();
+  const epoch = lockEpoch();
 
-  const kdf = await prelogin(base, email);
+  const kdf = await guardKdf(base, email, await prelogin(base, email));
   const { handle, authHash } = await prepareKey(email, password, kdf);
   try {
-    await passwordLogin(base, email, kdf, authHash, { handle });
+    await passwordLogin(base, email, kdf, authHash, { handle }, epoch);
   } catch (e) {
-    await coreCall({ op: "freeKey", handle }).catch(() => undefined);
+    // Only a live worker holds the handle: a lock that ended this login closed it, and a call would open a new one.
+    if (await coreAlive()) await coreCall({ op: "freeKey", handle }).catch(() => undefined);
     mapLoginError(e);
   }
 }
@@ -151,7 +188,7 @@ export async function login(rawEmail: string, password: string): Promise<void> {
  * The token grant of a password or device login, with the 2FA "remember me" token when we have one. A 2FA
  * challenge becomes a pending login (resolves); any other failure is thrown.
  */
-async function passwordLogin(base: string, email: string, kdf: KdfParams, authHash: string, via: Opener): Promise<void> {
+async function passwordLogin(base: string, email: string, kdf: KdfParams, authHash: string, via: Opener, epoch: number): Promise<void> {
   const deviceId = await getDeviceId();
   const key = await rememberKey(base, email);
   const tokens = (await getLocal("rememberTokens")) ?? {};
@@ -170,9 +207,10 @@ async function passwordLogin(base: string, email: string, kdf: KdfParams, authHa
       authRequest: via.device?.id,
       ...(remembered ? { twoFactor: { provider: TWO_FACTOR.Remember, token: remembered, remember: false } } : {}),
     });
-    await completeLogin(base, email, kdf, via, t);
+    await completeLogin(base, email, kdf, via, t, epoch);
   } catch (e) {
     if (!(e instanceof TwoFactorRequired)) throw e;
+    await checkEpoch(epoch);
     if (remembered) {
       // The server rejected (or expired) our remember token: forget it and ask for a real code.
       const all = (await getLocal("rememberTokens")) ?? {};
@@ -204,6 +242,7 @@ async function requirePending() {
 
 export async function submitTwoFactor(provider: number, token: string, remember: boolean): Promise<void> {
   const base = await requireServer();
+  const epoch = lockEpoch();
   const { pending, authHash } = await requirePending();
   if (!pending.challenge.providers.includes(provider)) throw new UserError("invalid", "Provider not offered by server");
   // WebAuthn tokens are the assertion JSON from the connector page; codes may be typed with spaces.
@@ -212,7 +251,7 @@ export async function submitTwoFactor(provider: number, token: string, remember:
   const grant = { email: pending.email, authHash, deviceId: await getDeviceId(), authRequest: pending.device?.id };
   try {
     const t = await passwordToken(base, { ...grant, twoFactor: { provider, token: code, remember } });
-    await completeLogin(base, pending.email, pending.kdf, pending, t);
+    await completeLogin(base, pending.email, pending.kdf, pending, t, epoch);
   } catch (e) {
     if (!(e instanceof TwoFactorRequired || (e instanceof ApiError && e.status === 400))) throw e;
     if (provider === TWO_FACTOR.WebAuthn) {
@@ -246,6 +285,7 @@ export async function cancelTwoFactor(): Promise<void> {
 export async function unlock(password: string): Promise<void> {
   const account = await getLocal("account");
   if (!account) throw new UserError("wrongPhase", "Not logged in");
+  const epoch = lockEpoch();
   const { handle } = await prepareKey(account.email, password, account.kdf);
   try {
     await coreCall({
@@ -259,11 +299,12 @@ export async function unlock(password: string): Promise<void> {
     if (e instanceof CoreError) throw new UserError("wrongPassword", "Wrong master password");
     throw e;
   }
-  await afterUnlock(account);
+  await afterUnlock(account, epoch);
 }
 
 /** Shared tail of every unlock path (master password, PIN, biometrics). */
-async function afterUnlock(account: Account): Promise<void> {
+async function afterUnlock(account: Account, epoch: number): Promise<void> {
+  await checkEpoch(epoch);
   await updateSession({ unlocked: true });
   await touchAutoLock();
   // After a browser restart the PIN-wrapped key is gone: re-arm it from the stored PIN.
@@ -311,6 +352,7 @@ export async function startDeviceLogin(rawEmail: string): Promise<void> {
 /** Polled by the popup: finishes the login once another device approved the request. */
 export async function checkDeviceLogin(): Promise<void> {
   const base = await requireServer();
+  const epoch = lockEpoch();
   const { deviceLogin: d } = await getSession();
   if (!d) throw new UserError("wrongPhase", "No login request in progress");
   if (d.expiresAt < Date.now()) {
@@ -330,7 +372,7 @@ export async function checkDeviceLogin(): Promise<void> {
   }
   await updateSession({ deviceLogin: undefined });
   try {
-    await passwordLogin(base, d.email, await prelogin(base, d.email), d.accessCode, { handle: 0, device: { id: d.id, accessCode: d.accessCode, key: r.key } });
+    await passwordLogin(base, d.email, await prelogin(base, d.email), d.accessCode, { handle: 0, device: { id: d.id, accessCode: d.accessCode, key: r.key } }, epoch);
   } catch (e) {
     mapLoginError(e);
   }
@@ -396,6 +438,7 @@ export const removeBiometric = () => removeLocal("biometric").then(() => undefin
 export async function unlockWithBiometric(prf: string): Promise<void> {
   const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
   if (!account || !bio || bio.email !== account.email) throw new UserError("wrongPhase", "Biometric unlock is not set up");
+  const epoch = lockEpoch();
   try {
     await coreCall({
       op: "unlockPrf",
@@ -408,7 +451,7 @@ export async function unlockWithBiometric(prf: string): Promise<void> {
     if (e instanceof CoreError) throw new UserError("badBiometric", "Biometric verification failed. Unlock with your master password and set it up again.");
     throw e;
   }
-  await afterUnlock(account);
+  await afterUnlock(account, epoch);
 }
 
 // ---------- Master password re-check ----------
@@ -431,7 +474,9 @@ export async function verifyMasterPassword(password: string): Promise<void> {
 
 /** Grants one item's re-prompt after the master password checked out. */
 export async function confirmReprompt(id: string, password: string): Promise<void> {
+  const epoch = lockEpoch();
   await verifyMasterPassword(password);
+  if (lockEpoch() !== epoch) throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
   grantReprompt(id);
 }
 
@@ -474,6 +519,7 @@ export async function unlockWithPin(pin: string): Promise<void> {
         ? { email: account.email, key: account.pinKey, attempts: 0, kdf: account.pinKdf ?? account.kdf }
         : undefined;
   if (!account?.protectedPin || !p) throw new UserError("wrongPhase", "Unlock with the master password");
+  const epoch = lockEpoch();
   try {
     await coreCall({ op: "unlockPin", pin, email: account.email, kdf: p.kdf, protectedUserKey: p.key, encryptedPrivateKey: account.encryptedPrivateKey });
   } catch (e) {
@@ -486,7 +532,7 @@ export async function unlockWithPin(pin: string): Promise<void> {
     await updateSession({ pin: { ...p, attempts: p.attempts + 1 } });
     throw new UserError("wrongPassword", "Wrong PIN");
   }
-  await afterUnlock(account); // also resets the wrong-PIN count
+  await afterUnlock(account, epoch); // also resets the wrong-PIN count
 }
 
 export async function logout(): Promise<void> {
@@ -537,16 +583,19 @@ async function refreshAccessToken(): Promise<string> {
     if ((await getSettings()).timeoutAction === "logout" && (await getLocal("account"))) await logout();
     throw new UserError("sessionExpired", "Please log in again");
   }
+  // A login, logout or server change while the request was out: its answer belongs to an account that is gone.
+  const stale = async () => base !== (await getLocal("server"))?.url || current !== (await currentRefreshToken());
   let t: TokenResponse;
   try {
     t = await refreshToken(base, current);
   } catch (e) {
-    if (e instanceof ApiError && (e.status === 400 || e.status === 401)) {
+    if (e instanceof ApiError && (e.status === 400 || e.status === 401) && !(await stale())) {
       await logout();
       throw new UserError("sessionExpired", "Your session expired, please log in again");
     }
     throw e;
   }
+  if (await stale()) throw new UserError("sessionExpired", "The account changed, please try again");
   const tokens = toTokens(t);
   if (tokens.refreshToken && tokens.refreshToken !== current) await storeRefreshToken(tokens.refreshToken);
   await updateSession({ accessToken: tokens.accessToken, accessExpiresAt: tokens.expiresAt });
@@ -615,7 +664,7 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
     await setLocal("account", {
       email,
       userId: jwtSubject(t.access_token),
-      kdf: kdfFromToken(t, await prelogin(base, email)),
+      kdf: await guardKdf(base, email, kdfFromToken(t, await prelogin(base, email))),
       protectedUserKey: t.Key,
       encryptedPrivateKey: t.PrivateKey,
     });

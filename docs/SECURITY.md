@@ -97,13 +97,24 @@ freed rather than zeroed in place.
    attachment download URL must be on the configured server (`src/transport/vault.ts`). Response bodies
    are bounded (`readBytes` in `src/transport/http.ts`).
 
+7a. **The server cannot weaken the KDF.** It chooses the account's KDF (prelogin and token response) and receives the
+    hash the KDF produces, so a hostile server could ask for PBKDF2 at 5000 iterations and crack the master password
+    offline. Every KDF from the server passes `guardKdf` (`src/background/account.ts`, rules in `kdf.ts`) before a hash
+    made with it is sent or stored: the strongest KDF an account was seen with on this browser is kept per
+    SHA-256 of `kdf|<server>|<email>` (also after logout), and a weaker one is refused unless it is still a safe
+    setting (PBKDF2 600 000, Argon2id 64 MiB x 3), which lets a user lower a very high KDF on purpose. PBKDF2 below
+    100 000 iterations is refused outright, also on a first login with no floor yet (`PBKDF2_MIN`), and settings
+    flag any KDF below the safe setting.
+
 8. **2FA state is scoped and short-lived.** Remember-device tokens are keyed by a SHA-256 of `<server>|<email>` (no clear-text email left after logout) so
    they are never replayed to another server; a pending 2FA login holds a master-key handle, so an
    abandoned attempt is freed when it expires, by an alarm that needs no open popup (`PENDING_ALARM`).
 
 8b. **Every unlock path ends in the same place.** Master password, PIN and biometrics all go through
     `afterUnlock` (`src/background/account.ts`), which sets `unlocked` and arms the auto-lock, so no path
-    can unlock without the lock timer. PIN and biometric material is stored only as a *wrapped* user key
+    can unlock without the lock timer. A lock always wins over an unlock in flight: `lockNow` bumps `lockEpoch`
+    first, and every login, unlock and re-prompt grant checks the epoch it started with right before it writes
+    `unlocked` (or grants); one a lock overtook locks again instead. PIN and biometric material is stored only as a *wrapped* user key
     (`storage.local`, removed on logout); the PIN is additionally limited to 5 attempts per session.
     Biometric unlock uses WebAuthn's PRF extension with `userVerification: "required"`, an RP ID of the
     extension origin and a random salt, and refuses authenticators without PRF instead of degrading to

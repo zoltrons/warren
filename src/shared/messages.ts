@@ -131,7 +131,8 @@ export type Request =
   /** `replace`: the user confirmed that a new passkey takes the place of the one `itemId` holds. */
   | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string; replace?: boolean }
   // autofill on the active tab (host permissions cover every http(s) tab)
-  | { type: "pageMatches" }
+  /** `passive`: as for vaultList. */
+  | { type: "pageMatches"; passive?: boolean }
   /** One-shot: the origin the inline menu's "Create account" asked a new login for, if any. */
   | { type: "takeNewLogin" }
   /** "Pick from page" in the item editor. `draft` is the unsaved editor, kept until the popup comes back. */
@@ -249,7 +250,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   setDefaultManager: obj({ type: literal("setDefaultManager"), enabled: bool }),
   passkeyPrompt: obj({ type: literal("passkeyPrompt"), id: str }),
   passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str), replace: opt(bool) }),
-  pageMatches: obj({ type: literal("pageMatches") }),
+  pageMatches: obj({ type: literal("pageMatches"), passive: opt(bool) }),
   takeNewLogin: obj({ type: literal("takeNewLogin") }),
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
   takeFieldPick: obj({ type: literal("takeFieldPick") }),

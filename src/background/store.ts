@@ -127,6 +127,9 @@ interface LocalSchema {
   /** SHA-256 hex of `<serverUrl>|<email>` -> TwoFactorToken returned when "remember me" was ticked. Never replayed to
    * another server: the token is only valid for the server that issued it. */
   rememberTokens: Record<string, string>;
+  /** SHA-256 hex of `kdf|<serverUrl>|<email>` -> the strongest KDF that account used here (see guardKdf). Kept after
+   * logout, like rememberTokens: a downgrade attack comes at the next login. */
+  kdfFloors: Record<string, KdfParams>;
   /** Copied generator values, encrypted with the user key, newest first. */
   genHistory: HistoryEntry[];
   /** Forwarded email alias settings per service (API tokens), as JSON encrypted with the user key. */

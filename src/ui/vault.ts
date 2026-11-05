@@ -424,13 +424,13 @@ export async function reloadList(): Promise<void> {
   if (!st.list || !currentCtx) return;
   const r = await send<VaultList>({ type: "vaultList", passive: true });
   if (r.ok) st.list = r.data;
-  await refreshPageMatches();
+  await refreshPageMatches(true);
   currentCtx.rerender();
 }
 
 /** Re-reads the logins matching the active tab (e.g. after the default URI match setting changed). */
-export async function refreshPageMatches(): Promise<void> {
-  const p = await send<PageMatches>({ type: "pageMatches" });
+export async function refreshPageMatches(passive = false): Promise<void> {
+  const p = await send<PageMatches>({ type: "pageMatches", passive });
   if (p.ok) st.page = p.data;
 }
 

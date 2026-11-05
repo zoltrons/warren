@@ -23,8 +23,13 @@ async function closeInPageUi(): Promise<void> {
   );
 }
 
+/** Bumped by every lock. An unlock or re-prompt that started before a lock must not complete after it. */
+let epoch = 0;
+export const lockEpoch = (): number => epoch;
+
 export async function lockNow(): Promise<void> {
   // First and synchronous: a re-prompt grant must survive no lock, even one that fails halfway.
+  epoch++;
   revokeReprompts();
   await updateSession({ unlocked: false, unlockedUntil: undefined, pending: undefined, picker: undefined });
   await clearPendingSaves();

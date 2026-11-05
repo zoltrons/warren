@@ -144,7 +144,7 @@
     "message": "Logged in"
   },
   "weakKdf": {
-    "message": "Your master password is protected with PBKDF2. Switch to Argon2id in the web vault (Settings → Security → Keys) for stronger protection against guessing."
+    "message": "Your master password is protected with a weaker key derivation than recommended. Switch to Argon2id (64 MiB and 3 iterations or more) in the web vault (Settings → Security → Keys) for stronger protection against guessing."
   },
   "serverVersion": {
     "message": "Server version $P1$",
