@@ -101,7 +101,7 @@ function closeInlineMenu(tabId: number, frameId?: number) {
 }
 
 /** Fills `id` (or the first match) into the tab. Only items saved for this site are filled. */
-async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string): Promise<FillResult> {
+async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = false): Promise<FillResult> {
   const url = httpUrl(tab);
   if (!url || tab?.id === undefined) throw new UserError("invalid", "This page cannot be filled");
   let item: VaultItem | undefined;
@@ -113,7 +113,7 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string): Promise<F
     if (repromptPending(cipher)) throw new UserError("reprompt", REPROMPT_MESSAGE);
     const type = cipher.type;
     if (type === 1) {
-      if (!(await matches(url)).some((i) => i.id === id)) return { filled: false, reason: "noMatch" };
+      if (!anyway && !(await matches(url)).some((i) => i.id === id)) return { filled: false, reason: "noMatch" };
     } else if (type === 3 || type === 4) {
       values = await coreCall<Record<string, string>>({ op: "formValues", id });
     } else return { filled: false, reason: "noMatch" };
@@ -140,7 +140,7 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string): Promise<F
   return r;
 }
 
-export const fillActiveTab = async (id: string) => fillTab(await activeTab(), id);
+export const fillActiveTab = async (id: string, anyway?: boolean) => fillTab(await activeTab(), id, anyway);
 
 /** Toolbar icon per state: full color when unlocked, gray when locked, faded gray when logged out. */
 const actionIcon = (state: "warren" | "locked" | "loggedout") => Object.fromEntries([16, 19, 32, 38].map((s) => [s, `icons/${state}-${s}.png`]));

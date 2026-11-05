@@ -32,7 +32,9 @@ freed rather than zeroed in place.
    shape *and* size. Unknown types are refused; anything a page or a server can make arbitrarily large
    (form values, challenges, credential-id lists, imports) is capped at the boundary.
 
-3. **Filling is triple-checked.** For a login the item must match the site's URL, `page.js` re-checks
+3. **Filling is triple-checked.** For a login the item must match the site's URL (the one exception: a login
+   picked in the popup for another site fills only after the user accepts the "Fill anyway" dialog, as in the
+   official client; `fill` with `anyway`, sent by extension pages only), `page.js` re-checks
    `location.origin` inside the frame both when it collects and when it writes (`src/autofill/page.ts`,
    `executor/fill.ts`), and the inline menu fills exactly the frame that asked (`frameIds: [ctx.frameId]`).
    A same-tab navigation or a tab switch between the click and the fill therefore cannot fill another

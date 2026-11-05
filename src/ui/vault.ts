@@ -602,7 +602,7 @@ function rowActions(ctx: Ctx, i: VaultItem, withFill: boolean): Child[] {
 
 function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
   const name = i.failed ? t("decryptFailed") : i.name || t("untitled");
-  const onPage = !!st.page?.host && st.folder !== "trash" && (i.type === 3 || i.type === 4 || (i.type === 1 && !!st.page.items.some((m) => m.id === i.id)));
+  const onPage = !!st.page?.host && st.folder !== "trash" && (i.type === 3 || i.type === 4 || i.type === 1);
   return h(
     "div",
     { class: "row" },
@@ -883,12 +883,32 @@ function listView(ctx: Ctx): HTMLElement {
 
 // ---------- this site ----------
 
-async function fill(ctx: Ctx, id: string) {
-  const r = await send<FillResult>({ type: "fill", id });
+async function fill(ctx: Ctx, id: string, anyway = false) {
+  const r = await send<FillResult>({ type: "fill", id, anyway });
   if (r.ok && r.data.filled) window.close();
   // A flagged item: its view shows the master-password screen (itemView gets "reprompt" from getItem).
   else if (!r.ok && r.code === "reprompt") open(ctx, { kind: "item", id });
+  // A login saved for another site: fill only after the user says so, like the official client.
+  else if (r.ok && r.data.reason === "noMatch" && !anyway && st.page?.host && (await confirmFill(st.page.host))) await fill(ctx, id, true);
   else toast(ctx, r.ok ? t("fillFailed") : r.error);
+}
+
+function confirmFill(host: string): Promise<boolean> {
+  const choose = (v: string) => () => d.close(v);
+  const d = h(
+    "dialog",
+    { class: "confirm", "aria-labelledby": "confirm-fill-text" },
+    h("p", { id: "confirm-fill-text" }, t("fillNoMatch", host)),
+    h(
+      "div",
+      { class: "actions" },
+      h("button", { type: "button", class: "btn text", onclick: choose("") }, t("cancel")),
+      h("button", { type: "button", class: "btn filled", onclick: choose("fill") }, t("fillAnyway")),
+    ),
+  );
+  document.body.append(d);
+  d.showModal();
+  return new Promise((resolve) => d.addEventListener("close", () => (d.remove(), resolve(d.returnValue === "fill"))));
 }
 
 /** Save what the user typed on the page: update the login with the same username, or create one. */
@@ -1274,9 +1294,9 @@ async function upload(ctx: Ctx, cipherId: string, file: File | undefined) {
   await vaultAction(ctx, { type: "addAttachment", cipherId, file: { name: file.name, data } }, "saved", false);
 }
 
-/** Fill / open actions for the item, when the active tab has a matching login or the item has a site. */
-function quickActions(ctx: Ctx, id: string, uris: string[]): Child {
-  const onSite = st.page?.items.some((i) => i.type === 1 && i.id === id);
+/** Fill / open actions for the item, when a web page is open (a login for another site asks first) or the item has a site. */
+function quickActions(ctx: Ctx, id: string, uris: string[], login: boolean): Child {
+  const onSite = login && !!st.page?.host;
   const url = uris.map(webUrl).find(Boolean);
   if (!onSite && !url) return null;
   return h(
@@ -1509,7 +1529,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       tile(str(item.name), type, uris, type === 3 ? str(data.brand) || cardBrand(str(data.number)) || "" : ""),
       h("div", { class: "body" }, h("h1", {}, str(item.name) || t("untitled")), h("span", { class: "sub" }, t(TYPE_LABEL[type] ?? "untitled"))),
     ),
-    quickActions(ctx, id, uris),
+    quickActions(ctx, id, uris, type === 1 && !inTrash),
     errorBox(),
     inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : summary?.readOnly ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("readOnlyItem"))) : null,
     rows.length ? h("div", { class: "group" }, ...rows) : null,
