@@ -367,6 +367,7 @@ div.logo > svg.i { width: 28px; height: 28px; }
 }
 .field select { cursor: pointer; }
 .field textarea { resize: none; min-height: 44px; }
+.field textarea.masked { -webkit-text-security: disc; }
 .field.code input { font-size: 18px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
 
 

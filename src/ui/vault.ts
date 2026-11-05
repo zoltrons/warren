@@ -131,6 +131,8 @@ const st = {
   repromptFor: undefined as string | undefined,
   reveal: new Set<string>(),
   totp: undefined as { code: string; next: string; period: number; remaining: number } | undefined,
+  /** The item whose TOTP key the worker refused: shown as an error, not asked for again on every render. */
+  totpFailed: undefined as string | undefined,
   /** Timestamp of the first tap of a two-tap destructive action; 0 when idle. */
   confirmDelete: 0,
   draft: undefined as EditDraft | undefined,
@@ -452,7 +454,7 @@ async function syncNow(ctx: Ctx, force: boolean) {
 function open(ctx: Ctx, route: Route) {
   clearInterval(totpTimer);
   stopRepromptWatch();
-  Object.assign(st, { route, error: undefined, confirmDelete: 0, totp: undefined, large: undefined, qr: undefined, notesPreview: false, pwned: undefined, memory: undefined, reveal: new Set(), copied: "", uriOpen: new Set(), picking: undefined, repromptFor: undefined, itemFailedFor: undefined });
+  Object.assign(st, { route, error: undefined, confirmDelete: 0, totp: undefined, totpFailed: undefined, large: undefined, qr: undefined, notesPreview: false, pwned: undefined, memory: undefined, reveal: new Set(), copied: "", uriOpen: new Set(), picking: undefined, repromptFor: undefined, itemFailedFor: undefined });
   if (route.kind !== "edit") st.draft = undefined;
   if (route.kind === "item") noteOpened(route.id);
   ctx.rerender();
@@ -1176,6 +1178,8 @@ function ring(fraction: number): SVGSVGElement {
 }
 
 function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElement {
+  if (st.totpFailed === id)
+    return h("div", { class: "row" }, icon("timer"), h("div", { class: "body" }, h("span", { class: "label" }, t("oneTimeCode")), h("span", { class: "value" }, t("totpInvalid"))));
   if (!st.totp) {
     void refreshTotp(ctx, id);
     return h("div", { class: "row" }, icon("timer"), h("div", { class: "body" }, h("span", { class: "label" }, t("oneTimeCode")), h("span", { class: "value" }, "…")));
@@ -1216,14 +1220,19 @@ function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElemen
 function hideForReprompt(ctx: Ctx, id: string) {
   clearInterval(totpTimer);
   stopRepromptWatch();
-  Object.assign(st, { item: undefined, totp: undefined, reveal: new Set(), copied: "", repromptFor: id });
+  // The large-type and QR overlays may show this item's password or TOTP key.
+  Object.assign(st, { item: undefined, totp: undefined, large: undefined, qr: undefined, reveal: new Set(), copied: "", repromptFor: id });
   ctx.rerender();
 }
 
 async function refreshTotp(ctx: Ctx, id: string) {
   const r = await send<{ code: string; next: string; period: number; remaining: number }>({ type: "totp", id });
   if (st.route.kind !== "item" || st.route.id !== id) return;
-  if (!r.ok) return r.code === "reprompt" ? hideForReprompt(ctx, id) : ctx.rerender();
+  if (!r.ok) {
+    if (r.code === "reprompt") return hideForReprompt(ctx, id);
+    st.totpFailed = id;
+    return ctx.rerender();
+  }
   st.totp = { code: r.data.code, next: r.data.next, period: r.data.period || 30, remaining: r.data.remaining };
   ctx.rerender();
   clearInterval(totpTimer);
@@ -1947,7 +1956,10 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     const generateUsername = d.type === 1 && f.key === "username" ? h("span", { class: "trailing" }, iconButton("generator", t("generateUsername"), () => openGenerator("username"))) : undefined;
     if (!f.secret) return wrap(field(id, label(f.key), text(get, set, { autocomplete: "off", spellcheck: false, area: f.area }), generateUsername));
     const reveal = st.reveal.has(id);
-    const control = text(get, set, { type: reveal ? "text" : "password", autocomplete: "new-password", spellcheck: false, class: "mono", onchange, inputMode: cardNumber ? "numeric" : undefined });
+    // A multi-line secret (a private key) stays a textarea, masked by CSS: an input would drop its line breaks.
+    const control = f.area
+      ? text(get, set, { area: true, autocomplete: "off", spellcheck: false, class: reveal ? "mono" : "mono masked" })
+      : text(get, set, { type: reveal ? "text" : "password", autocomplete: "new-password", spellcheck: false, class: "mono", onchange, inputMode: cardNumber ? "numeric" : undefined });
     const block = field(
       id,
       label(f.key),

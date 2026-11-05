@@ -97,8 +97,13 @@ async function editSend(ctx: Ctx, item: SendItem) {
       const text = r.data.text as { text?: unknown; hidden?: unknown } | undefined;
       d.text = typeof text?.text === "string" ? text.text : "";
       d.hidden = text?.hidden === true;
-    } else sd.error = r.error;
+    }
     sd.busy = false;
+    // Never open an editor with an empty text: saving it would wipe the send. The list stays, with the error.
+    if (!r.ok) {
+      sd.error = r.error;
+      return ctx.rerender();
+    }
   }
   sd.draft = d;
   ctx.rerender();

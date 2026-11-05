@@ -336,6 +336,9 @@
   "generatePassword": {
     "message": "Generate password"
   },
+  "totpInvalid": {
+    "message": "The authenticator key is not valid"
+  },
   "totpSecret": {
     "message": "Authenticator key (TOTP)"
   },

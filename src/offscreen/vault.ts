@@ -45,7 +45,12 @@ export function loadVault(encCiphers: unknown[], encFolders: unknown[], encSends
   trash = new Map();
   for (const c of r.ciphers) put(c);
   // Keep undecryptable items visible instead of silently hiding them.
-  for (const f of r.failed) ciphers.set(f.id, { id: f.id, type: 0, name: "", failed: true });
+  // `personal`: a live personal item, which an export must not leave out without saying so.
+  const enc = new Map((encCiphers as Json[]).map((c) => [s(ci(c, "id")), c]));
+  for (const f of r.failed) {
+    const c = enc.get(f.id);
+    ciphers.set(f.id, { id: f.id, type: 0, name: "", failed: true, personal: !ci(c, "organizationId") && !ci(c, "deletedDate") });
+  }
   const fr = JSON.parse(core.decryptFolders(JSON.stringify(encFolders))) as { folders: Json[] };
   const sr = JSON.parse(core.decryptSendList(JSON.stringify(encSends))) as { sends: Json[]; failed: { id: string }[] };
   sends = new Map([...sr.sends, ...sr.failed.map((f) => ({ id: f.id, failed: true }))].map((x) => [s(ci(x, "id")), x]));
@@ -161,7 +166,8 @@ export function prepareSave(input: Json): Json {
     }
   }
   const enc = JSON.parse(core.encryptCipher(JSON.stringify(item))) as Json;
-  if (existing) enc.lastKnownRevisionDate = ci(existing, "revisionDate");
+  // The revision the draft was read at, not the worker's: a sync since then must make the server refuse a stale draft.
+  if (existing) enc.lastKnownRevisionDate = ci(item, "revisionDate") ?? ci(existing, "revisionDate");
   return enc;
 }
 
@@ -291,11 +297,13 @@ export function customFieldValues(id: string): { name: string; value: string }[]
 
 // ---------- Import / export (Bitwarden's unencrypted JSON format) ----------
 
-const EXPORT_KEYS = ["id", "folderId", "type", "reprompt", "name", "notes", "favorite", "login", "secureNote", "card", "identity", "sshKey", "fields", "passwordHistory", "revisionDate", "creationDate"];
+const EXPORT_KEYS = ["id", "folderId", "type", "reprompt", "name", "notes", "favorite", "login", "secureNote", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport", "fields", "passwordHistory", "revisionDate", "creationDate"];
 
 /** Personal items (not the trash, not organization items) and folders, like the official individual export. */
 export function exportJson(): string {
   if (!ciphers) throw new Error("vault not loaded");
+  const broken = [...ciphers.values()].filter((c) => c.failed && c.personal).length;
+  if (broken) throw new Error(`${broken} item(s) could not be decrypted, so the export would be incomplete. Nothing was exported.`);
   const items = [...ciphers.values()]
     .filter((c) => !c.failed && !ci(c, "organizationId"))
     .map((c) => ({ ...Object.fromEntries(EXPORT_KEYS.map((k) => [k, ci(c, k) ?? null])), organizationId: null, collectionIds: null, deletedDate: null }));
@@ -324,7 +332,8 @@ export function prepareImport(text: string): ImportRequest {
   for (const raw of data.items) {
     const item = o(raw);
     const type = Number(item?.type);
-    if (!item || ![1, 2, 3, 4, 5].includes(type) || typeof item.name !== "string") {
+    // bitwarden-vault CipherType: login 1 ... SSH key 5, bank account 6, driver's license 7, passport 8.
+    if (!item || !(Number.isInteger(type) && type >= 1 && type <= 8) || typeof item.name !== "string") {
       out.skipped++;
       continue;
     }
