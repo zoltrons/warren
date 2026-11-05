@@ -425,6 +425,9 @@
   "noLoginOnPage": {
     "message": "No filled-in login form found on this page"
   },
+  "passkeyVerifyHint": {
+    "message": "This site asks to verify it is you: enter your master password, then choose"
+  },
   "fillFailed": {
     "message": "Could not find a login form to fill"
   },

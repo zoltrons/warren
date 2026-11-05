@@ -145,8 +145,15 @@ freed rather than zeroed in place.
 
 11. **Passkeys are bound to the origin.** `checkRpId` requires the RP ID to be the origin's host or a
     registrable parent, on a secure origin, and never a public suffix — including when the page's own
-    host *is* the public suffix. Signing happens in the worker. The private key leaves it only as part of
-    the full item, when the item is opened for viewing or editing (see Known gaps).
+    host *is* the public suffix. Signing happens in the worker, and the private key never leaves it: `getCipher`
+    hands out items without `keyValue` and `prepareSave` restores it from the same item only
+    (`src/offscreen/passkey-keys.ts`), so a clone does not copy a passkey.
+
+11a. **The UV flag is honest.** The RP's `userVerification` is carried, and the authenticator data says "user
+    verified" only when the user was verified for that request: the vault was unlocked for it, or the master
+    password was confirmed in the approval window. A click in an already unlocked vault is presence only. When the
+    RP requires verification and neither happened, the window asks for the master password, and the inline menu's
+    one-click sign-in opens the window instead (`src/background/passkey.ts`).
 
 12. **Rendered data is text, not markup.** No `innerHTML` anywhere; the `h()` helper sets properties
     from static keys and `textContent` for values, so vault, server and page strings cannot become
@@ -210,8 +217,8 @@ password hardness and post-quantum safety first. A change that breaks one of the
   the cap real. Keys from builds before `PIN_KDF` are re-wrapped on the next unlock.
 - **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code, the
   full item for the popup and for a save-bar update go through the service worker in transit; it does not keep
-  them. The popup holds an opened item, including a passkey's private key, because editing sends the whole item
-  back. Checks that need no secret use `cipherSummary`.
+  them. The popup holds an opened item (never a passkey's private key, invariant 11) because editing sends the whole
+  item back. Checks that need no secret use `cipherSummary`.
 - **Updates are only as trustworthy as the release pipeline.** Installed copies follow
   `releases/latest/download/updates.xml` (`docs/UPDATES.md`). The browser verifies each `.crx` against the
   extension's key, so a build signed with another key is refused, but anyone who can push a `v*` tag and read

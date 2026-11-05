@@ -37,7 +37,12 @@ test("popup requests: an import is size-capped", () => {
 
 test("passkey calls: page-supplied options are bounded", () => {
   const base = { kind: "get", conditional: false, options: { challenge: "c", allow: [] } };
-  assert.deepEqual(parsePasskeyCall(base), { ...base, options: { ...base.options, rpId: undefined } });
+  assert.deepEqual(parsePasskeyCall(base), { ...base, options: { ...base.options, rpId: undefined, userVerification: "preferred" } });
+  // The RP's userVerification is carried; an unknown value means "preferred", as in WebAuthn.
+  const uv = (userVerification: unknown) => parsePasskeyCall({ ...base, options: { ...base.options, userVerification } }).options.userVerification;
+  assert.equal(uv("required"), "required");
+  assert.equal(uv("discouraged"), "discouraged");
+  assert.equal(uv("bogus"), "preferred");
   // A huge challenge or an endless allowCredentials list would otherwise be page-controlled work.
   throws(() => parsePasskeyCall({ ...base, options: { challenge: "x".repeat(64 * 1024 + 1), allow: [] } }), /too long/);
   // Google's "Verify it's you" sends a challenge of about 14 000 characters: it must not be refused.

@@ -15,7 +15,7 @@ import {
   parsePasskeyCall,
   type VaultItem,
 } from "../shared/messages.ts";
-import { UserError } from "./account.ts";
+import { UserError, verifyMasterPassword } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { getLocal, getSettings } from "./store.ts";
@@ -39,6 +39,10 @@ interface Pending {
   frameId: number;
   /** Conditional mediation: no approval window until the user picks the inline-menu entry. */
   conditional: boolean;
+  /** The vault was locked when the call came: unlocking for it verifies the user (master password, PIN, biometrics). */
+  startedLocked: boolean;
+  /** The user confirmed the master password for this request. */
+  confirmed?: boolean;
   windowId?: number;
   done(r: PasskeyResult): void;
 }
@@ -124,6 +128,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
       tabId,
       frameId,
       conditional,
+      startedLocked: false, // set right after pending.set: no await may come between the one-per-tab check and it
       done: (r) => {
         clearTimeout(timer);
         if (pending.get(p.id) === p) pending.delete(p.id);
@@ -151,6 +156,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     }
     pending.set(p.id, p);
     mine = p;
+    p.startedLocked = !(await isUnlocked());
     if (conditional) timer = setTimeout(() => void p.done({ fallback: true }), CONDITIONAL_TTL_MS);
     if (call.kind === "get") {
       if (await isUnlocked()) {
@@ -189,6 +195,8 @@ async function openWindow(p: Pending): Promise<void> {
   const size = { url: `popup.html?passkey=${p.id}`, type: "popup", width: PASSKEY_WIDTH, height: 640, focused: true } as const;
   // A placement the screen refuses must not cost the user the approval: the browser then picks the spot.
   const w = await chrome.windows.create({ ...size, ...(await underToolbar(p.tabId)) }).catch(() => chrome.windows.create(size));
+  // Finished while the window was opening: done() had no window to close yet.
+  if (pending.get(p.id) !== p) return void (w?.id !== undefined && chrome.windows.remove(w.id).catch(() => undefined));
   p.windowId = w?.id;
 }
 
@@ -255,7 +263,8 @@ export async function openConditional(tabId: number, frameId: number): Promise<v
     await requireUnlocked();
     const found = await candidates(p, p.call.options.allow);
     const only = found.length === 1 ? found[0] : undefined;
-    if (only && !repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: only.itemId }))) {
+    // A site that requires user verification gets the window, which asks for the master password.
+    if (only && !mustVerify(p) && !repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: only.itemId }))) {
       await passkeyDecision(p.id, "use", only.itemId, only.credentialId);
       return;
     }
@@ -263,10 +272,18 @@ export async function openConditional(tabId: number, frameId: number): Promise<v
   await openWindow(p);
 }
 
+/**
+ * The UV flag means "the authenticator verified the user for this request", and sites rely on it as a second
+ * factor. A click in an already unlocked vault is only presence: verified is an unlock or a master password
+ * confirmation that happened for this request.
+ */
+const verified = (p: Pending) => !!p.confirmed || p.startedLocked;
+const mustVerify = (p: Pending) => p.call.options.userVerification === "required" && !verified(p);
+
 export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   await requireUnlocked();
   const p = get(id);
-  const base = { origin: p.origin, rpId: p.rpId };
+  const base = { origin: p.origin, rpId: p.rpId, ...(mustVerify(p) ? { verify: true } : {}) };
   if (p.call.kind === "get") {
     const found = await candidates(p, p.call.options.allow);
     // Nothing matches: say whether the vault has passkeys for this site at all (the site may know another one).
@@ -276,17 +293,24 @@ export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   return { kind: "create", ...base, rpName: p.call.options.rpName, userName: p.call.options.user.name, candidates: await joinable(p) };
 }
 
-export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false): Promise<null> {
+export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false, password?: string): Promise<null> {
   const p = get(id);
   if (action === "fallback") return (p.done({ fallback: true }), null);
   await requireUnlocked();
+  if (password !== undefined) {
+    await verifyMasterPassword(password); // a wrong one goes back to the window, which asks again
+    if (pending.get(id) !== p) return null;
+    p.confirmed = true;
+  }
+  if (mustVerify(p)) throw new UserError("invalid", "This site requires you to confirm your master password");
+  const uv = verified(p);
   try {
     if (p.call.kind === "get") {
       const c = (await candidates(p, p.call.options.allow)).find((x) => x.itemId === itemId && x.credentialId === credentialId);
       if (!c) throw new UserError("invalid", "Choose one of the passkeys for this site");
       // The window has no password prompt: a flagged item must be confirmed in the popup first (the grant is per item).
       if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: c.itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
-      const credential = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge });
+      const credential = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv });
       p.done({ credential });
     } else {
       const o = p.call.options;
@@ -304,8 +328,11 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       }
       const r = await coreCall<{ fido2Credential: Record<string, unknown>; response: Record<string, unknown> }>({
         op: "passkeyCreate",
-        input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable },
+        input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv },
       });
+      // The page aborted (or the vault locked) meanwhile: the site never gets this credential, so it must not replace one.
+      if (pending.get(id) !== p) return null;
+      await requireUnlocked();
       await save(
         item
           ? { ...item, login: { ...item.login, fido2Credentials: [r.fido2Credential] } }

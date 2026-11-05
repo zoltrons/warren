@@ -66,8 +66,9 @@ function derSignature(raw: Uint8Array): Uint8Array {
 const sha256 = async (b: Uint8Array | string) =>
   new Uint8Array(await crypto.subtle.digest("SHA-256", typeof b === "string" ? new TextEncoder().encode(b) : (b as Uint8Array<ArrayBuffer>)));
 
-// Flags: UP | UV, and BE | BS because the credential syncs through the vault. AT is added on creation.
-const FLAGS = 0x01 | 0x04 | 0x08 | 0x10;
+// Flags: UP, UV only when the user was verified for this request, and BE | BS because the credential syncs through
+// the vault. AT is added on creation.
+const flags = (uv: boolean) => 0x01 | (uv ? 0x04 : 0) | 0x08 | 0x10;
 const AT = 0x40;
 const AAGUID = new Uint8Array(16); // none attestation: no authenticator model is claimed
 
@@ -86,6 +87,7 @@ export interface CreateInput {
   challenge: string;
   user: { id: string; name: string; displayName: string };
   discoverable: boolean;
+  uv: boolean;
 }
 
 /** New ES256 credential: the stored fido2Credential plus the attestation response for the page. */
@@ -96,7 +98,7 @@ export async function createCredential(i: CreateInput) {
   const credentialId = crypto.randomUUID();
   const rawId = credentialIdBytes(credentialId);
   const cose = new Map<number, unknown>([[1, 2], [3, -7], [-1, 1], [-2, pub.subarray(1, 33)], [-3, pub.subarray(33)]]);
-  const data = await authData(i.rpId, FLAGS | AT, 0, [...AAGUID, rawId.length >> 8, rawId.length & 255, ...rawId, ...cbor(cose)]);
+  const data = await authData(i.rpId, flags(i.uv) | AT, 0, [...AAGUID, rawId.length >> 8, rawId.length & 255, ...rawId, ...cbor(cose)]);
   const attestationObject = new Uint8Array(cbor(new Map<string, unknown>([["fmt", "none"], ["attStmt", new Map()], ["authData", data]])));
   return {
     fido2Credential: {
@@ -129,9 +131,9 @@ export async function createCredential(i: CreateInput) {
 }
 
 /** Assertion with a stored credential. Bitwarden keeps synced counters at 0, so we do too. */
-export async function assert(cred: Json, origin: string, challenge: string) {
+export async function assert(cred: Json, origin: string, challenge: string, uv: boolean) {
   const key = await crypto.subtle.importKey("pkcs8", fromB64u(s(ci(cred, "keyValue"))) as Uint8Array<ArrayBuffer>, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
-  const data = await authData(s(ci(cred, "rpId")), FLAGS, Number(s(ci(cred, "counter"))) || 0);
+  const data = await authData(s(ci(cred, "rpId")), flags(uv), Number(s(ci(cred, "counter"))) || 0);
   const cd = clientData("webauthn.get", challenge, origin);
   const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new Uint8Array([...data, ...(await sha256(cd))])));
   return {

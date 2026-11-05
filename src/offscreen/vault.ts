@@ -7,6 +7,7 @@ import { passwordLevel } from "../shared/strength.ts";
 import { ci } from "../shared/validate.ts";
 import { Psl, uriMatches } from "../autofill/match.ts";
 import * as fido2 from "./fido2.ts";
+import { restorePasskeyKeys, withoutPasskeyKeys } from "./passkey-keys.ts";
 
 type Json = Record<string, unknown>;
 
@@ -128,8 +129,11 @@ function live(id: string): Json {
   return c;
 }
 
-/** Full decrypted item (incl. secrets) for the item view / edit form. */
-export const getCipher = (id: string): Json => get(id);
+/**
+ * Full decrypted item for the item view / edit form, minus each passkey's private key: nothing outside this worker
+ * signs, so it never leaves. prepareSave puts it back from the worker's copy.
+ */
+export const getCipher = (id: string): Json => withoutPasskeyKeys(get(id));
 
 export const cipherSummary = (id: string): VaultItem => summary(get(id));
 
@@ -138,9 +142,10 @@ export const cipherSummary = (id: string): VaultItem => summary(get(id));
  * pushed to passwordHistory (max 5), and edits carry lastKnownRevisionDate so the server refuses
  * to overwrite a newer copy.
  */
-export function prepareSave(item: Json): Json {
-  const id = s(item.id);
+export function prepareSave(input: Json): Json {
+  const id = s(input.id);
   const existing = id ? get(id) : undefined;
+  const item = restorePasskeyKeys(input, existing);
   if (existing && summary(existing).readOnly) throw new Error("item is read-only");
   // An edit never moves an item between vaults; creating one in an organization needs collection ids (not supported yet).
   if (existing) item.organizationId = ci(existing, "organizationId") ?? null;
@@ -439,13 +444,13 @@ export async function passkeyCandidates(rpId: string, origin: string, ids: strin
   return out;
 }
 
-export async function passkeyAssert(itemId: string, wanted: string, rpId: string, origin: string, challenge: string) {
+export async function passkeyAssert(itemId: string, wanted: string, rpId: string, origin: string, challenge: string, uv: boolean) {
   await checkRp(rpId, origin);
   const creds = ci(o(ci(live(itemId), "login")), "fido2Credentials");
   // A malformed sibling credential must not break the one the user picked.
   const cred = (Array.isArray(creds) ? creds : []).find((x) => s(ci(x, "rpId")) === rpId && credentialId(x) === wanted);
   if (!cred) throw new Error("passkey not found");
-  return fido2.assert(cred as Json, origin, challenge);
+  return fido2.assert(cred as Json, origin, challenge, uv);
 }
 
 export async function passkeyCreate(input: fido2.CreateInput) {

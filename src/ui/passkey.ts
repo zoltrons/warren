@@ -14,6 +14,8 @@ const pk = {
   error: undefined as string | undefined,
   /** Create: the login whose passkey the user is being asked to replace. */
   confirm: undefined as PasskeyCandidate | undefined,
+  /** The master password, when the site requires user verification (prompt.verify). */
+  password: "",
 };
 
 async function load(ctx: Ctx) {
@@ -29,8 +31,11 @@ async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, cre
   pk.busy = true;
   pk.confirm = undefined;
   ctx.rerender();
-  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}) });
+  const password = action === "use" && pk.prompt?.verify ? pk.password : undefined;
+  if (password === "") return ((pk.busy = false), (pk.error = t("passkeyVerifyHint")), ctx.rerender());
+  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}), ...(password !== undefined ? { password } : {}) });
   if (r.ok) return window.close();
+  pk.password = "";
   pk.busy = false;
   pk.error = r.error;
   ctx.rerender();
@@ -68,6 +73,19 @@ export function passkeyScreen(ctx: Ctx): HTMLElement {
     { class: "page" },
     h("div", { class: "brand" }, h("div", { class: "logo" }, icon("fingerprint")), h("h1", {}, t(create ? "passkeySaveTitle" : "passkeySignInTitle")), p ? h("p", {}, p.origin) : null),
     pk.error ? h("div", { class: "error", role: "alert" }, icon("error"), h("div", {}, pk.error)) : null,
+    // The site requires user verification: the master password confirms it was the user, like a fingerprint would.
+    p?.verify
+      ? h(
+          "div",
+          { class: "field" },
+          h(
+            "label",
+            { for: "passkey-password" },
+            h("span", {}, t("passkeyVerifyHint")),
+            h("input", { id: "passkey-password", type: "password", autocomplete: "current-password", value: pk.password, disabled: pk.busy, oninput: (e: Event) => (pk.password = (e.target as HTMLInputElement).value) }),
+          ),
+        )
+      : null,
     pk.confirm
       ? h(
           "div",

@@ -129,7 +129,8 @@ export type Request =
   // passkeys: the approval window opened for a website request
   | { type: "passkeyPrompt"; id: string }
   /** `replace`: the user confirmed that a new passkey takes the place of the one `itemId` holds. */
-  | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string; replace?: boolean }
+  /** `password`: the master password, when the site requires user verification and nothing verified the user yet. */
+  | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string; replace?: boolean; password?: string }
   // autofill on the active tab (host permissions cover every http(s) tab)
   /** `passive`: as for vaultList. */
   | { type: "pageMatches"; passive?: boolean }
@@ -249,7 +250,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   removeSendPassword: obj({ type: literal("removeSendPassword"), id: str }),
   setDefaultManager: obj({ type: literal("setDefaultManager"), enabled: bool }),
   passkeyPrompt: obj({ type: literal("passkeyPrompt"), id: str }),
-  passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str), replace: opt(bool) }),
+  passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str), replace: opt(bool), password: opt(str) }),
   pageMatches: obj({ type: literal("pageMatches"), passive: opt(bool) }),
   takeNewLogin: obj({ type: literal("takeNewLogin") }),
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
@@ -427,6 +428,8 @@ export interface PasskeyPrompt {
   candidates: PasskeyCandidate[];
   /** Get with no candidates: how many passkeys the vault holds for this RP ID that the site did not ask for. */
   others?: number;
+  /** The site requires user verification and nothing verified the user for this request yet: ask for the master password. */
+  verify?: boolean;
 }
 
 /** Decrypted send for the list. `link` carries the decryption secret in its fragment. */
@@ -521,7 +524,7 @@ export type CoreRequest =
   | { op: "removeSend"; id: string }
   // passkeys (all ids and binary values base64url)
   | { op: "passkeyCandidates"; rpId: string; origin: string; ids: string[] }
-  | { op: "passkeyAssert"; itemId: string; credentialId: string; rpId: string; origin: string; challenge: string }
+  | { op: "passkeyAssert"; itemId: string; credentialId: string; rpId: string; origin: string; challenge: string; uv: boolean }
   | { op: "passkeyCreate"; input: PasskeyCreateInput }
   // handled by the offscreen document itself, not the worker
   | { op: "writeClipboard"; text: string };
@@ -553,6 +556,7 @@ const passkeyCreateInput: Validator<PasskeyCreateInput> = obj({
   challenge: challengeField,
   user,
   discoverable: bool,
+  uv: bool,
 });
 
 const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest, { op: K }>> } = {
@@ -605,7 +609,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   upsertSend: obj({ op: literal("upsertSend"), send: record }),
   removeSend: obj({ op: literal("removeSend"), id: str }),
   passkeyCandidates: obj({ op: literal("passkeyCandidates"), rpId: str, origin: str, ids: arr(str) }),
-  passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str }),
+  passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str, uv: bool }),
   passkeyCreate: obj({ op: literal("passkeyCreate"), input: passkeyCreateInput }),
   writeClipboard: obj({ op: literal("writeClipboard"), text: str }),
 };
@@ -627,15 +631,21 @@ interface PasskeyCreateInput {
   challenge: string;
   user: { id: string; name: string; displayName: string };
   discoverable: boolean;
+  /** The UV flag: set only when the user was verified for this request (see passkey.ts `verified`). */
+  uv: boolean;
 }
+
+/** The RP's `userVerification`. WebAuthn: an unknown value is ignored, which means "preferred". */
+export type UserVerification = "required" | "preferred" | "discouraged";
+const uvField: Validator<UserVerification> = (v) => (v === "required" || v === "discouraged" ? v : "preferred");
 
 /** Sent by the relay. The origin is never taken from here: the service worker uses port.sender.origin. */
 export type PasskeyCall =
   | {
       kind: "create";
-      options: { rpId?: string; rpName: string; user: { id: string; name: string; displayName: string }; challenge: string; exclude: string[]; discoverable: boolean };
+      options: { rpId?: string; rpName: string; user: { id: string; name: string; displayName: string }; challenge: string; exclude: string[]; discoverable: boolean; userVerification: UserVerification };
     }
-  | { kind: "get"; conditional: boolean; options: { rpId?: string; challenge: string; allow: string[] } };
+  | { kind: "get"; conditional: boolean; options: { rpId?: string; challenge: string; allow: string[]; userVerification: UserVerification } };
 
 /** Credential fields (base64url) or a reason to let the browser handle the call. */
 export type PasskeyResult = { credential: Record<string, unknown> } | { fallback: true } | { error: { name: string; message: string } };
@@ -645,9 +655,9 @@ export function parsePasskeyCall(v: unknown): PasskeyCall {
   if (kind === "create")
     return obj({
       kind: literal("create"),
-      options: obj({ rpId: opt(rpIdField), rpName: capped(1024), user, challenge: challengeField, exclude: credIdList, discoverable: bool }),
+      options: obj({ rpId: opt(rpIdField), rpName: capped(1024), user, challenge: challengeField, exclude: credIdList, discoverable: bool, userVerification: uvField }),
     })(v, "");
-  return obj({ kind: literal("get"), conditional: bool, options: obj({ rpId: opt(rpIdField), challenge: challengeField, allow: credIdList }) })(v, "");
+  return obj({ kind: literal("get"), conditional: bool, options: obj({ rpId: opt(rpIdField), challenge: challengeField, allow: credIdList, userVerification: uvField }) })(v, "");
 }
 
 // ---------- content script (every page) and our menu.html / bar.html iframes -> service worker ----------

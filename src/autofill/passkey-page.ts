@@ -99,6 +99,7 @@
     rpId: pk.rpId,
     challenge: b64u(pk.challenge),
     allow: (pk.allowCredentials ?? []).map((x) => b64u(x.id)),
+    userVerification: pk.userVerification ?? "preferred",
   });
 
   const settle = async (kind: "create" | "get", opts: unknown, fallback: () => Promise<Credential | null>, signal?: AbortSignal | null) => {
@@ -172,6 +173,7 @@
         challenge: b64u(pk.challenge),
         exclude: (pk.excludeCredentials ?? []).map((x) => b64u(x.id)),
         discoverable: pk.authenticatorSelection?.residentKey !== "discouraged",
+        userVerification: pk.authenticatorSelection?.userVerification ?? "preferred",
       },
       () => create(opts),
       opts.signal,

@@ -116,7 +116,7 @@ function run(req: CoreRequest): unknown {
     case "passkeyCandidates":
       return vault.passkeyCandidates(req.rpId, req.origin, req.ids);
     case "passkeyAssert":
-      return vault.passkeyAssert(req.itemId, req.credentialId, req.rpId, req.origin, req.challenge);
+      return vault.passkeyAssert(req.itemId, req.credentialId, req.rpId, req.origin, req.challenge, req.uv);
     case "passkeyCreate":
       return vault.passkeyCreate(req.input);
   }
