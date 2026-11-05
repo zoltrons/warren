@@ -36,8 +36,8 @@ export function loadFavicon(src: string): Promise<Favicon | null> {
     p = (async () => {
       let blob: Blob;
       try {
-        // Never followed: an icon service that redirects (ICON_SERVICE=google, duckduckgo…) would hand every vault host to a third party.
-        const r = await fetch(src, { credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" });
+        // Redirects followed: the server admin's ICON_SERVICE choice (google, duckduckgo…) is applied as configured.
+        const r = await fetch(src, { credentials: "omit", referrerPolicy: "no-referrer" });
         if (!r.ok || !r.headers.get("content-type")?.startsWith("image/")) return null;
         blob = await r.blob();
       } catch {

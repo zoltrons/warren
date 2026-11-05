@@ -222,9 +222,9 @@ password hardness and post-quantum safety first. A change that breaks one of the
   only when the user opens them.
 - **Website icons tell the server which sites the vault holds.** Off by default. When on, the popup asks
   `<server>/icons/<host>/icon.png` for every login, so the server (and a proxy in front of it) sees those hosts in
-  clear text, which the encrypted URIs otherwise hide. Redirects are refused (`src/ui/favicon.ts`): an icon
-  service configured to redirect (Vaultwarden's `ICON_SERVICE=google`, `duckduckgo`, ...) shows no icons instead
-  of handing the list to a third party.
+  clear text, which the encrypted URIs otherwise hide. Redirects are followed (`src/ui/favicon.ts`): when the
+  server's icon service redirects (Vaultwarden's `ICON_SERVICE=google`, `duckduckgo`, ...), that third party sees
+  the hosts too, as the server admin configured. Requests carry no cookies and no referrer.
 - **Forwarded email aliases call a third-party service, on an explicit click only.** The generator sends
   the service's API token plus the current page's origin (no path, query or fragment) to the selected forwarding service
   (`src/background/alias.ts`); nothing runs automatically and no vault data is included. Tokens are kept

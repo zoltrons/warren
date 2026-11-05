@@ -996,7 +996,7 @@
     "message": "Show website icons"
   },
   "faviconsHint": {
-    "message": "Your server sees the address of every website in your vault"
+    "message": "Your server, and any icon service it redirects to, sees the address of every website in your vault"
   },
   "autoCopyTotp": {
     "message": "Copy one-time code after filling"
