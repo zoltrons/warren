@@ -98,6 +98,11 @@ jobs:
       # Verify a download with: gh attestation verify warren-vX.Y.Z.crx --repo zoltrons/warren
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with: { subject-path: "warren-*.crx\nwarren-*.zip\nupdates.xml" }
-      - run: gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip updates.xml --generate-notes
+      # Release notes are the annotated tag's message (the version's CHANGELOG.md section). Read through the API:
+      # a shallow tag checkout can turn an annotated tag into a lightweight one. A lightweight tag fails here.
+      - run: |
+          sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')"
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.message' > notes.md
+          gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip updates.xml --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}

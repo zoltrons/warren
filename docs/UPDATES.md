@@ -1,6 +1,8 @@
 # Updates from GitHub releases
 
 Every `v*` tag builds a signed `.crx`, a `.zip` and an **`updates.xml`** (`.github/workflows/release.yml`).
+The tag must be annotated: its message, the version's `CHANGELOG.md` section, becomes the release notes
+(`git tag -a vX.Y.Z --cleanup=verbatim -F notes.md`; without `verbatim` git drops the `###` headings).
 The manifest's `update_url` points at `https://github.com/zoltrons/warren/releases/latest/download/updates.xml`,
 which always resolves to the newest release's update manifest:
 

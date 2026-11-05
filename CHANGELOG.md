@@ -2,6 +2,39 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.9 — 2026-11-05
+
+### Added
+
+- Log in with device: approve the login from another logged-in device instead of entering the master password.
+  Both devices show the same fingerprint phrase. Requires a previous master-password login in this browser
+  (Vaultwarden restriction); two-step login still applies.
+- Approval of login requests from other devices: system notification, then Confirm or Deny in the popup with the
+  fingerprint phrase, device type, IP address and time. Requires an unlocked vault.
+- Live sync over Vaultwarden's WebSocket notifications. Changes from other clients appear immediately, including in
+  an open popup or side panel. A server-side "log out all sessions" also logs Warren out.
+- Fill for logins not saved for the current site, after a confirmation.
+- Permission: `notifications`.
+
+### Changed
+
+- The PIN key uses its own Argon2id parameters (256 MiB, 3 iterations) regardless of the account KDF. Existing PIN
+  keys are re-wrapped on the next unlock.
+- Settings show a warning for accounts that still use PBKDF2.
+- Website icons are off by default; icon requests no longer follow redirects.
+- Extension pages enforce Trusted Types.
+- Release files carry signed build provenance (`gh attestation verify`).
+
+### Fixed
+
+- The inline menu could be opened by a page script focusing a field.
+- Fill values could reach a frame that had navigated after the origin check.
+- Trashed items were offered for filling and passkey sign-in.
+- Page-load autofill copied the TOTP code to the clipboard.
+- A regular-expression URI match on a long URL could hang the vault worker.
+- Forwarded email alias requests included the page path.
+- 2FA "remember me" tokens were stored next to the account email in clear text.
+
 ## 0.0.8 — 2026-11-04
 
 ### Changed
