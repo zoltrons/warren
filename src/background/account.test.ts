@@ -1,6 +1,7 @@
 // Races between a lock (or an account change) and work already in flight: the lock and the newer account win.
 // Runs the real account.ts / lock.ts / store.ts against an in-memory chrome, a scripted offscreen worker and a
 // fetch whose answers the test releases by hand.
+import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
