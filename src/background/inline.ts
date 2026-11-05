@@ -129,8 +129,8 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   const expiresAt = Date.now() + SAVE_TTL_MS;
   let pending: PendingSave;
   if (!editable.length) pending = { kind: "add", url, username, password, token: "", expiresAt };
-  else if (username || editable.length === 1) pending = { kind: "update", url, username: username || editable[0]!.sub, password, itemId: editable[0]!.id, token: "", expiresAt };
-  else return; // several logins, none with this password: no telling which one changed
+  else if (editable.length === 1) pending = { kind: "update", url, username: username || editable[0]!.sub, password, itemId: editable[0]!.id, token: "", expiresAt };
+  else return; // several logins (even with the same username), none with this password: no telling which one changed
   await setTabState("save", tabId, pending);
   await showBar(tabId);
 }

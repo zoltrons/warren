@@ -105,6 +105,7 @@ export function executeFill(req: ExecuteFill): FillResult {
   if (location.origin !== req.origin) return { filled: false, reason: "origin" };
   const byId = new Map(deepFields().map((el) => [idOf(el), el]));
   let n = 0;
+  const filled = new Set<number>();
   for (const op of req.ops) {
     const el = byId.get(op.fieldId);
     if (!el?.isConnected || !isFillable(el) || (req.onlyEmpty && (isToggle(el) ? el.checked : el.value !== ""))) continue;
@@ -112,10 +113,12 @@ export function executeFill(req: ExecuteFill): FillResult {
     if (el instanceof HTMLSelectElement) value = selectOption(el, value);
     if (value === undefined) continue;
     fillFieldWithEvents(el, value);
+    filled.add(op.fieldId);
     n++;
   }
-  if (req.submit && n) {
-    const submit = req.submit;
+  // Submit only a form whose password really got written: a username alone is not a login.
+  const submit = req.submit;
+  if (submit && filled.has(submit.kind === "click" ? submit.fallbackFieldId : submit.fieldId)) {
     const button = submit.kind === "click" ? allButtons().find((b) => idOf(b) === submit.fieldId && b.checkVisibility()) : undefined;
     if (button) button.click();
     else {

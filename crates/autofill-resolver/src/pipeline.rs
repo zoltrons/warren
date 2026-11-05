@@ -158,12 +158,13 @@ pub fn is_standalone_otp(state: &State, f: &Scored) -> bool {
     f.ty == AutofillType::OneTimeCode
         && !state.fields.iter().any(|o| {
             o.details.is_password()
+                && o.ty != AutofillType::OneTimeCode
                 && !o.details.is_hidden
                 && (f.details.form_id.is_none() || o.details.form_id == f.details.form_id)
         })
         && matches!(
             f.details.field_type.as_str(),
-            "text" | "tel" | "number" | ""
+            "text" | "tel" | "number" | "password" | ""
         )
 }
 

@@ -2,4 +2,4 @@
 pub mod field_ext;
 pub mod rank;
 
-pub use rank::best_submit_button;
+pub use rank::{best_submit_button, refuses_enter};

@@ -12,10 +12,38 @@ const SUBMITS = "button:not([type=button],[type=reset]),input[type=submit]";
 
 const cap = (s: string | null | undefined, max = MAX_PAGE_STRING) => (s ? s.slice(0, max) : undefined) || undefined;
 
+/** The parent in the flat tree: through slots and out of shadow roots. */
+const flatParent = (el: Element): Element | null => el.assignedSlot ?? el.parentElement ?? (el.parentNode instanceof ShadowRoot ? el.parentNode.host : null);
+
+const CLIPS = ["hidden", "clip"];
+
+/**
+ * What of `r` is left after the ancestors that hide their overflow: a normal-size input in a zero-size
+ * `overflow: hidden` box is a decoy too. Scrolling boxes are not clips (the user can scroll the field in).
+ * shortcut: assumes every ancestor below a fixed one clips the field; an absolutely positioned field that escapes a
+ * clipping ancestor without being its containing block is judged by that ancestor too. Upgrade if a real form trips it.
+ */
+function visibleRect(el: Element, r: DOMRect): { width: number; height: number } {
+  let { left, top, right, bottom } = r;
+  for (let p = flatParent(el); p && p !== document.body && p !== document.documentElement; p = flatParent(p)) {
+    const s = getComputedStyle(p);
+    const x = CLIPS.includes(s.overflowX);
+    const y = CLIPS.includes(s.overflowY);
+    if (x || y) {
+      const c = p.getBoundingClientRect();
+      if (x) [left, right] = [Math.max(left, c.left), Math.min(right, c.right)];
+      if (y) [top, bottom] = [Math.max(top, c.top), Math.min(bottom, c.bottom)];
+    }
+    if (s.position === "fixed") break; // nothing further up clips it
+  }
+  return { width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+}
+
 /** False for fields nobody can see: zero-size decoys are a favourite of login pages. */
 export function isElementVisible(el: Field): boolean {
   if (el.disabled || (el instanceof HTMLInputElement && el.type === "hidden") || el.getAttribute("aria-hidden") === "true") return false;
-  const r = el.getBoundingClientRect();
+  const box = el.getBoundingClientRect();
+  const r = { ...visibleRect(el, box), left: box.left, right: box.right, bottom: box.bottom };
   // Too small to type in: a decoy. A checkbox is meant to be that small.
   const toggle = el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio");
   if (toggle ? !r.width || !r.height : r.width < 24 || r.height < 8) return false;

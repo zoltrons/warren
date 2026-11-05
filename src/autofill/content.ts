@@ -152,12 +152,12 @@ addEventListener(
     // Submit buttons (a <button> without a type is one), and the plain buttons single-page apps use when
     // they say what they do; not "show password" toggles and the like. The click may land on a child.
     const b = el.closest<HTMLButtonElement>("button,input[type=submit],[role=button]");
-    if (b && (b.type === "submit" || /log.?in|sign.?(in|up)|regist|create|continue|next|submit|giri[sş]|kay[iı]t|devam/.test((b.textContent || b.value || "").toLowerCase()))) setTimeout(report);
+    if (b && (b.type === "submit" || /log.?in|sign.?(in|up)|regist|create|continue|next|submit|giri[sş]|kay[iı]t|devam/.test((b.textContent || b.value || "").toLowerCase()))) setTimeout(() => report((b as HTMLButtonElement).form ?? b.closest("form")));
   },
   true,
 );
 
-addEventListener("submit", () => report(), true);
+addEventListener("submit", (e) => report(e.composedPath()[0] as HTMLFormElement), true);
 
 // ---------- autofill on page load ----------
 
@@ -178,11 +178,11 @@ const REPORT_GAP_MS = 5000;
 let reported = "";
 let lastReport = 0;
 
-function report() {
+function report(form?: HTMLFormElement | null) {
   // A page can fire submit events itself, and whether the bar appears tells it if a guessed password
   // matches the saved one: only a real gesture counts, and only one guess per REPORT_GAP_MS.
   if (!navigator.userActivation.isActive) return;
-  const login = api.readLogin();
+  const login = api.readLogin(form);
   if (!login) return;
   const key = `${login.username}\n${login.password}`;
   if (key === reported || Date.now() - lastReport < REPORT_GAP_MS) return;

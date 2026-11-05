@@ -1,6 +1,6 @@
 use crate::custom_fields::match_custom_fields;
 use crate::transformers::{Format, card};
-use autofill_autosubmit::best_submit_button;
+use autofill_autosubmit::{best_submit_button, refuses_enter};
 use autofill_clue::field_clue::FORM_RULES;
 use autofill_cpd::{CollectedPageDetails, FieldDetails};
 use autofill_resolver::pipeline::is_standalone_otp;
@@ -101,8 +101,14 @@ fn plan_login(
     }
     let choice = state.choice;
     let password = choice.password.map(|i| &state.fields[i]);
-    // Page load never fills a username-only step or a new/confirm password.
-    if only_empty && password.is_none_or(|p| p.kind == autofill_clue::LoginKind::New) {
+    // Page load never fills a username-only step, a new/confirm password, or a sign-up form.
+    if only_empty
+        && password.is_none_or(|p| {
+            p.kind == autofill_clue::LoginKind::New
+                || state.forms.get(&p.details.form_id)
+                    == Some(&autofill_designation::FormDesignation::Registration)
+        })
+    {
         return FillPlan::default();
     }
     let mut ops: Vec<FillOp> = vec![];
@@ -116,17 +122,18 @@ fn plan_login(
         }
     }
     // Only a login with its password: a username-first step has only just begun.
-    let submit = password.filter(|_| autosubmit && !only_empty).map(|p| {
-        match best_submit_button(&page.buttons, p.details) {
-            Some(b) => Submit::Click {
+    let submit = password
+        .filter(|_| autosubmit && !only_empty)
+        .and_then(|p| match best_submit_button(&page.buttons, p.details) {
+            Some(b) => Some(Submit::Click {
                 field_id: b.field_id,
                 fallback_field_id: p.details.field_id,
-            },
-            None => Submit::Enter {
+            }),
+            None if refuses_enter(&page.buttons, p.details) => None,
+            None => Some(Submit::Enter {
                 field_id: p.details.field_id,
-            },
-        }
-    });
+            }),
+        });
     FillPlan { ops, submit }
 }
 
@@ -249,6 +256,26 @@ mod tests {
     }
 
     #[test]
+    fn page_load_skips_a_sign_up_form() {
+        let mut p = page(vec![
+            input(1, "email", "email"),
+            input(2, "password", "password"),
+        ]);
+        p.buttons.push(ButtonDetails {
+            field_id: 3,
+            form_id: Some(1),
+            text: Some("Create account".into()),
+            is_submit: true,
+            ..Default::default()
+        });
+        assert!(plan_fill(&p, &login(true, false)).ops.is_empty());
+        assert!(
+            !plan_fill(&p, &login(false, false)).ops.is_empty(),
+            "a fill the user asked for still works"
+        );
+    }
+
+    #[test]
     fn a_login() {
         let p = page(vec![
             input(1, "text", "username"),
@@ -337,6 +364,11 @@ mod tests {
                 fallback_field_id: 2
             })
         ));
+        p.buttons[0].text = Some("Reset password".into());
+        assert!(
+            plan_fill(&p, &login(false, true)).submit.is_none(),
+            "Enter would press the reset button"
+        );
         let step = page(vec![input(1, "text", "username")]);
         assert!(
             plan_fill(&step, &login(false, true)).submit.is_none(),

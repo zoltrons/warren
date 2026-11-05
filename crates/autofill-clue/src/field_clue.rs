@@ -180,6 +180,10 @@ pub enum LoginKind {
 /// Pass 2 for one field: its role in a login, how strongly it claims that, and its type.
 pub fn classify(field: &FieldDetails) -> (LoginKind, i32, AutofillType) {
     let hint = field.hint();
+    // A masked code box says what it is: never a place for the account password.
+    if field.has_autocomplete("one-time-code") {
+        return (LoginKind::None, 0, AutofillType::OneTimeCode);
+    }
     if field.is_password() {
         let current = field.has_autocomplete("current-password");
         let fresh = field.has_autocomplete("new-password") || (!current && NEW.test(&hint));
@@ -318,6 +322,11 @@ mod tests {
         assert_eq!(classify(&f).2, AutofillType::CurrentPassword);
         f.autocomplete_type = Some("new-password".into());
         assert_eq!(classify(&f).0, LoginKind::New);
+        f.autocomplete_type = Some("one-time-code".into());
+        assert_eq!(
+            classify(&f),
+            (LoginKind::None, 0, AutofillType::OneTimeCode)
+        );
     }
 
     #[test]

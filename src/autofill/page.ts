@@ -18,9 +18,10 @@ let focused: Element | undefined;
  * A login the user typed. This runs on submit, when the page is about to navigate and there is no time to
  * ask anything outside the frame, so it decides locally.
  */
-function readLogin(): PageLogin | null {
+function readLogin(form?: HTMLFormElement | null): PageLogin | null {
   // Read-only fields count: sites show the account name in one and only let the password be typed.
-  const inputs = deepFields().filter((el): el is HTMLInputElement => el instanceof HTMLInputElement && isElementVisible(el));
+  // `form`: the one submitted; a filled but unsent form next to it (a password change) is not read.
+  const inputs = deepFields().filter((el): el is HTMLInputElement => el instanceof HTMLInputElement && isElementVisible(el) && (!form || el.form === form));
   const filled = inputs.filter((i) => i.type === "password" && i.value);
   const editable = filled.filter((i) => !i.readOnly);
   const passwords = editable.length ? editable : filled;

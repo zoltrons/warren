@@ -7,7 +7,7 @@ static SUBMITS: Rule = Rule::new(|| {
         .expect("valid pattern")
 });
 static NEVER: Rule = Rule::new(|| {
-    regex_lite::Regex::new(r"sign.?up|regist|create|forgot|reset|cancel|back|google|apple|facebook|microsoft|github|sso|passkey|show|hide|kay[iı]t|unut|iptal|göster").expect("valid pattern")
+    regex_lite::Regex::new(r"sign.?up|regist|create|forgot|reset|cancel|back|delete|remove|deactivat|close|unsubscrib|sil|kald[iı]r|google|apple|facebook|microsoft|github|sso|passkey|show|hide|kay[iı]t|unut|iptal|göster").expect("valid pattern")
 });
 
 fn score(button: &ButtonDetails) -> i32 {
@@ -35,6 +35,17 @@ pub fn best_submit_button<'a>(
         }
     }
     best.map(|(b, _)| b)
+}
+
+/// True when the form's own submit button does something other than log in (`Reset password`,
+/// `Delete account`): Enter in the password field would press it, so there must be no fallback.
+pub fn refuses_enter(buttons: &[ButtonDetails], password: &FieldDetails) -> bool {
+    buttons.iter().any(|b| {
+        !b.is_hidden
+            && b.is_submit
+            && belongs_with(b, password)
+            && NEVER.test(&b.text.as_deref().unwrap_or("").to_lowercase())
+    })
 }
 
 #[cfg(test)]
@@ -97,6 +108,18 @@ mod tests {
                 .field_id,
             1
         );
+    }
+
+    #[test]
+    fn a_destructive_submit_is_never_pressed_or_bypassed() {
+        let buttons = [button(1, Some(1), "Delete account", true)];
+        assert!(best_submit_button(&buttons, &pass(Some(1))).is_none());
+        assert!(refuses_enter(&buttons, &pass(Some(1))));
+        // A "Forgot password?" link next to a login does not block Enter.
+        assert!(!refuses_enter(
+            &[button(2, Some(1), "Forgot password?", false)],
+            &pass(Some(1))
+        ));
     }
 
     #[test]
