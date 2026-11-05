@@ -1,12 +1,17 @@
 // Login, 2FA, unlock, token refresh. Pure orchestration: crypto runs in the offscreen worker,
 // HTTP in src/transport.
 import { KDF_ARGON2ID, PIN_KDF, TWO_FACTOR } from "../shared/constants.ts";
-import type { ErrorCode, KdfParams } from "../shared/messages.ts";
+import type { CoreRequest, ErrorCode, KdfParams, LoginRequest } from "../shared/messages.ts";
 import {
+  answerAuthRequest,
   authorizationCodeToken,
+  authRequestStatus,
+  createAuthRequest,
+  getAuthRequest,
   jwtClaim,
   jwtSubject,
   passwordToken,
+  pendingAuthRequests,
   prelogin,
   refreshToken,
   sendEmailLogin,
@@ -20,6 +25,7 @@ import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
 import { lockNow, touchAutoLock } from "./lock.ts";
 import { migratePrivate } from "./private.ts";
+import { stopPush } from "./push.ts";
 import { grantReprompt } from "./reprompt.ts";
 import { BLOCK, resealLegacy, seal, unseal } from "./seal.ts";
 import {
@@ -79,10 +85,16 @@ function kdfFromToken(t: TokenResponse, fallback: KdfParams): KdfParams {
   };
 }
 
-async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, handle: number, t: TokenResponse): Promise<void> {
+/** How a login opens the vault: the master key behind `handle`, or the user key another device sent (`device.key`). */
+type Opener = { handle: number; device?: { id: string; accessCode: string; key: string } };
+
+async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, via: Opener, t: TokenResponse): Promise<void> {
   if (!t.Key) throw new UserError("badServer", "Server did not return an encrypted user key");
+  const op: CoreRequest = via.device
+    ? { op: "authRequestUnlock", key: via.device.key, encryptedPrivateKey: t.PrivateKey }
+    : { op: "unlock", handle: via.handle, protectedUserKey: t.Key, encryptedPrivateKey: t.PrivateKey };
   try {
-    await coreCall({ op: "unlock", handle, protectedUserKey: t.Key, encryptedPrivateKey: t.PrivateKey });
+    await coreCall(op);
   } catch (e) {
     throw new UserError("badServer", `Could not decrypt the account key: ${(e as Error).message}`);
   }
@@ -127,6 +139,19 @@ export async function login(rawEmail: string, password: string): Promise<void> {
 
   const kdf = await prelogin(base, email);
   const { handle, authHash } = await prepareKey(email, password, kdf);
+  try {
+    await passwordLogin(base, email, kdf, authHash, { handle });
+  } catch (e) {
+    await coreCall({ op: "freeKey", handle }).catch(() => undefined);
+    mapLoginError(e);
+  }
+}
+
+/**
+ * The token grant of a password or device login, with the 2FA "remember me" token when we have one. A 2FA
+ * challenge becomes a pending login (resolves); any other failure is thrown.
+ */
+async function passwordLogin(base: string, email: string, kdf: KdfParams, authHash: string, via: Opener): Promise<void> {
   const deviceId = await getDeviceId();
   const key = await rememberKey(base, email);
   const tokens = (await getLocal("rememberTokens")) ?? {};
@@ -142,25 +167,22 @@ export async function login(rawEmail: string, password: string): Promise<void> {
       email,
       authHash,
       deviceId,
+      authRequest: via.device?.id,
       ...(remembered ? { twoFactor: { provider: TWO_FACTOR.Remember, token: remembered, remember: false } } : {}),
     });
-    await completeLogin(base, email, kdf, handle, t);
+    await completeLogin(base, email, kdf, via, t);
   } catch (e) {
-    if (e instanceof TwoFactorRequired) {
-      if (remembered) {
-        // The server rejected (or expired) our remember token: forget it and ask for a real code.
-        const all = (await getLocal("rememberTokens")) ?? {};
-        delete all[key];
-        await setLocal("rememberTokens", all);
-      }
-      const expiresAt = Date.now() + PENDING_TTL_MS;
-      await updateSession({ pending: { email, kdf, handle, challenge: e.challenge, expiresAt } });
-      // The pending login holds the master key: free it on time even if the popup is never opened again.
-      await chrome.alarms.create(PENDING_ALARM, { when: expiresAt });
-      return;
+    if (!(e instanceof TwoFactorRequired)) throw e;
+    if (remembered) {
+      // The server rejected (or expired) our remember token: forget it and ask for a real code.
+      const all = (await getLocal("rememberTokens")) ?? {};
+      delete all[key];
+      await setLocal("rememberTokens", all);
     }
-    await coreCall({ op: "freeKey", handle }).catch(() => undefined);
-    mapLoginError(e);
+    const expiresAt = Date.now() + PENDING_TTL_MS;
+    await updateSession({ pending: { email, kdf, handle: via.handle, challenge: e.challenge, expiresAt, ...(via.device ? { device: via.device } : {}) } });
+    // The pending login holds the master key: free it on time even if the popup is never opened again.
+    await chrome.alarms.create(PENDING_ALARM, { when: expiresAt });
   }
 }
 
@@ -172,7 +194,7 @@ async function requirePending() {
     throw new UserError("sessionExpired", "The login attempt expired, please log in again");
   }
   try {
-    return { pending, authHash: await coreCall<string>({ op: "authHash", handle: pending.handle }) };
+    return { pending, authHash: pending.device?.accessCode ?? (await coreCall<string>({ op: "authHash", handle: pending.handle })) };
   } catch (e) {
     if (!(e instanceof CoreError)) throw e;
     await updateSession({ pending: undefined });
@@ -187,10 +209,10 @@ export async function submitTwoFactor(provider: number, token: string, remember:
   // WebAuthn tokens are the assertion JSON from the connector page; codes may be typed with spaces.
   const code = provider === TWO_FACTOR.WebAuthn ? token : token.replace(/\s+/g, "");
   if (!code) throw new UserError("invalid", "Enter the verification code");
-  const grant = { email: pending.email, authHash, deviceId: await getDeviceId() };
+  const grant = { email: pending.email, authHash, deviceId: await getDeviceId(), authRequest: pending.device?.id };
   try {
     const t = await passwordToken(base, { ...grant, twoFactor: { provider, token: code, remember } });
-    await completeLogin(base, pending.email, pending.kdf, pending.handle, t);
+    await completeLogin(base, pending.email, pending.kdf, pending, t);
   } catch (e) {
     if (!(e instanceof TwoFactorRequired || (e instanceof ApiError && e.status === 400))) throw e;
     if (provider === TWO_FACTOR.WebAuthn) {
@@ -208,14 +230,17 @@ export async function sendTwoFactorEmail(): Promise<void> {
   const { pending, authHash } = await requirePending();
   if (!pending.challenge.providers.includes(TWO_FACTOR.Email))
     throw new UserError("invalid", "Email two-step login is not enabled for this account");
-  await sendEmailLogin(base, pending.email, authHash, await getDeviceId());
+  await sendEmailLogin(base, pending.email, authHash, await getDeviceId(), pending.device?.id);
 }
 
 export async function cancelTwoFactor(): Promise<void> {
-  const { pending } = await getSession();
-  await updateSession({ pending: undefined });
+  const { pending, deviceLogin, unlocked } = await getSession();
+  await updateSession({ pending: undefined, deviceLogin: undefined });
   // Only a live worker can hold the handle: do not spin one up just to free it.
-  if (pending && (await coreAlive())) await coreCall({ op: "freeKey", handle: pending.handle }).catch(() => undefined);
+  if (!(await coreAlive())) return;
+  if (pending) await coreCall({ op: "freeKey", handle: pending.handle }).catch(() => undefined);
+  // A device login's RSA key sits in the (still locked) worker: a lock drops it.
+  if ((deviceLogin || pending?.device) && !unlocked) await coreCall({ op: "lock" }).catch(() => undefined);
 }
 
 export async function unlock(password: string): Promise<void> {
@@ -256,6 +281,99 @@ async function afterUnlock(account: Account): Promise<void> {
   // Older builds kept never-save hosts and fill stamps in clear text; a failed move is retried next unlock.
   await migratePrivate().catch(() => undefined);
   await resealLegacy().catch(() => undefined);
+}
+
+// ---------- Log in with device (Bitwarden auth requests) ----------
+// Another logged-in device wraps the user key for a one-off RSA key held in the crypto worker; the token is
+// granted with the request's access code instead of the password hash.
+
+/** Vaultwarden only grants a token within 5 minutes of the request. */
+const DEVICE_LOGIN_TTL_MS = 5 * 60_000;
+
+export async function startDeviceLogin(rawEmail: string): Promise<void> {
+  const base = await requireServer();
+  const email = rawEmail.trim().toLowerCase();
+  if (!email) throw new UserError("invalid", "Enter your email address");
+  await lockNow();
+  const { publicKey, fingerprint } = await coreCall<{ publicKey: string; fingerprint: string }>({ op: "authRequestCreate", email });
+  const accessCode = b64u(crypto.getRandomValues(new Uint8Array(24)));
+  const r = await createAuthRequest(base, { email, publicKey, deviceId: await getDeviceId(), accessCode }).catch((e: unknown) => {
+    // Vaultwarden refuses an unknown account and a device id it has never seen log in to that account (both 400).
+    if (e instanceof ApiError && e.status === 400)
+      throw new UserError("badCredentials", "Log in with device works once this browser has logged in to the account with the master password");
+    throw e;
+  });
+  const expiresAt = Date.now() + DEVICE_LOGIN_TTL_MS;
+  await updateSession({ deviceLogin: { email, id: r.id, accessCode, fingerprint, expiresAt }, ssoError: undefined });
+  await chrome.alarms.create(PENDING_ALARM, { when: expiresAt });
+}
+
+/** Polled by the popup: finishes the login once another device approved the request. */
+export async function checkDeviceLogin(): Promise<void> {
+  const base = await requireServer();
+  const { deviceLogin: d } = await getSession();
+  if (!d) throw new UserError("wrongPhase", "No login request in progress");
+  if (d.expiresAt < Date.now()) {
+    await cancelTwoFactor();
+    throw new UserError("sessionExpired", "The login request expired, please try again");
+  }
+  const r = await authRequestStatus(base, d.id, d.accessCode).catch(async (e: unknown) => {
+    if (!(e instanceof ApiError && e.status === 400)) throw e;
+    await cancelTwoFactor(); // a denied request is deleted
+    throw new UserError("badCredentials", "The login request was denied");
+  });
+  if (!r.requestApproved || !r.key) return;
+  // Clients before 2023 sent the master key instead of the user key; none still in support does.
+  if (r.masterPasswordHash) {
+    await cancelTwoFactor();
+    throw new UserError("badServer", "Approve the request from an up-to-date app");
+  }
+  await updateSession({ deviceLogin: undefined });
+  try {
+    await passwordLogin(base, d.email, await prelogin(base, d.email), d.accessCode, { handle: 0, device: { id: d.id, accessCode: d.accessCode, key: r.key } });
+  } catch (e) {
+    mapLoginError(e);
+  }
+}
+
+/** Other devices' requests waiting for this one, with the phrase to compare. */
+export async function loginRequests(): Promise<LoginRequest[]> {
+  const base = await requireServer();
+  const account = await getLocal("account");
+  if (!account) throw new UserError("sessionExpired", "Please log in again");
+  const all = await pendingAuthRequests(base, await accessToken());
+  const list: LoginRequest[] = [];
+  for (const r of all) {
+    const fingerprint = await coreCall<string>({ op: "authRequestFingerprint", email: account.email, publicKey: r.publicKey }).catch(() => undefined);
+    if (fingerprint) list.push({ id: r.id, fingerprint, device: r.requestDeviceType ?? "", ip: r.requestIpAddress ?? "", createdAt: Date.parse(r.creationDate) });
+  }
+  // What the server still has pending is the truth; requests that came in by push but are gone drop out here.
+  await updateSession({ loginRequests: list.map((r) => r.id) });
+  return list;
+}
+
+/**
+ * Approves (wraps the user key for the requester) or denies a request. `fingerprint` is the phrase the user saw: the
+ * key is wrapped only for a public key that gives that phrase, so a server cannot show one key and get another.
+ */
+export async function answerLoginRequest(id: string, approve: boolean, fingerprint: string): Promise<void> {
+  const base = await requireServer();
+  const token = await accessToken();
+  let key = "";
+  if (approve) {
+    const account = await getLocal("account");
+    const { publicKey } = await getAuthRequest(base, token, id);
+    if (!account || (await coreCall<string>({ op: "authRequestFingerprint", email: account.email, publicKey })) !== fingerprint)
+      throw new UserError("badServer", "The request changed on the server; nothing was approved");
+    key = await coreCall<string>({ op: "authRequestApprove", publicKey });
+  }
+  await answerAuthRequest(base, token, id, { key, deviceId: await getDeviceId(), approve });
+  await dropLoginRequest(id);
+}
+
+export async function dropLoginRequest(id: string): Promise<void> {
+  const { loginRequests: ids = [] } = await getSession();
+  await updateSession({ loginRequests: ids.filter((x) => x !== id) });
 }
 
 // ---------- Biometrics (WebAuthn PRF) ----------
@@ -372,10 +490,11 @@ export async function unlockWithPin(pin: string): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
+  stopPush();
   await lockNow();
   await removeLocal("account", "vault", "genHistory", "aliasSettings", "biometric", "private", "wordlist");
   await chrome.storage.local.remove("lastUsed"); // clear-text stamps of older builds
-  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined });
+  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined });
 }
 
 const currentRefreshToken = async (): Promise<string | undefined> => (await getSession()).refreshToken ?? (await getLocal("account"))?.refreshToken;

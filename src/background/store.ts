@@ -35,6 +35,8 @@ interface PendingLogin {
   challenge: TwoFactorChallenge;
   /** epoch ms */
   expiresAt: number;
+  /** Log in with device: the approved request (its access code stands in for the password hash, `key` opens the vault). */
+  device?: { id: string; accessCode: string; key: string };
 }
 
 interface Session {
@@ -46,6 +48,10 @@ interface Session {
   /** With "log out" as the timeout action the refresh token lives here only (memory), never on disk. */
   refreshToken?: string;
   pending?: PendingLogin;
+  /** Log in with device: our request waiting for another device. Its RSA key lives in the crypto worker. */
+  deviceLogin?: { email: string; id: string; accessCode: string; fingerprint: string; expiresAt: number };
+  /** Ids of other devices' login requests that came in by push and are not answered yet. */
+  loginRequests?: string[];
   /** SSO login in progress: PKCE verifier and the state we sent. */
   sso?: { state: string; verifier: string; expiresAt: number };
   /** Why the last SSO login failed (shown when the popup opens next). */

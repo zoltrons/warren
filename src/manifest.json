@@ -14,7 +14,7 @@
     "default_title": "__MSG_appName__",
     "default_icon": { "16": "icons/locked-16.png", "19": "icons/locked-19.png", "32": "icons/locked-32.png", "38": "icons/locked-38.png" }
   },
-  "permissions": ["storage", "alarms", "idle", "offscreen", "clipboardWrite", "scripting", "contextMenus", "sidePanel"],
+  "permissions": ["storage", "alarms", "idle", "offscreen", "clipboardWrite", "scripting", "contextMenus", "sidePanel", "notifications"],
   "side_panel": { "default_path": "sidepanel.html" },
   "host_permissions": ["https://*/*", "http://*/*"],
   "optional_permissions": ["privacy"],

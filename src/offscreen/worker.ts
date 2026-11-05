@@ -46,6 +46,15 @@ function run(req: CoreRequest): unknown {
       core.freeMasterKey(req.handle);
       authHashes.delete(req.handle);
       return true;
+    case "authRequestCreate":
+      return JSON.parse(core.authRequestCreate(req.email)) as unknown;
+    case "authRequestUnlock":
+      core.authRequestUnlock(req.key, req.encryptedPrivateKey);
+      return true;
+    case "authRequestApprove":
+      return core.authRequestApprove(req.publicKey);
+    case "authRequestFingerprint":
+      return core.authRequestFingerprint(req.email, req.publicKey);
     case "lock":
       core.lock();
       authHashes.clear();

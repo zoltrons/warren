@@ -129,7 +129,26 @@ only ever be sent to the service it belongs to.
 ## Permissions
 
 `storage`, `alarms`, `idle`, `offscreen`, `clipboardWrite` (clearing copied secrets), `scripting`,
-`contextMenus`, `sidePanel` (the popup UI also opens in the side panel: `sidepanel.html`, same bundle).
+`contextMenus`, `sidePanel` (the popup UI also opens in the side panel: `sidepanel.html`, same bundle),
+`notifications` (another device's "log in with device" request arrives by push while the popup is closed).
+
+## Push and log in with device
+
+`src/background/push.ts` keeps a WebSocket to Vaultwarden's `/notifications/hub` (SignalR, MessagePack;
+decoder in `src/transport/hub.ts`) while an account is logged in, locked or not. The access token goes in the
+query (browsers cannot set WebSocket headers). A SignalR ping every 20 s, echoed by the server, counts as
+service-worker activity, so the worker stays up; `PUSH_ALARM` (1 min) reconnects after a drop or a restart.
+Updates caused by our own device id are ignored. Vault, folder, send and settings updates run `sync(false)` once
+per burst, only while unlocked (the popup syncs on open anyway); `LogOut` logs out; `AuthRequest` stores the id in
+`storage.session` (`loginRequests`) and shows a notification whose click opens the popup's approval screen.
+
+Log in with device (Bitwarden auth requests): the WASM makes a one-off RSA-2048 key and keeps its private half
+(about 88 KiB of WASM for RSA key generation; the fingerprint phrase avoids the SDK's bignum crate); `POST /api/auth-requests`
+sends its public key and a random access code; the popup polls `GET /api/auth-requests/<id>/response` every 3 s.
+Once approved, the token is granted with `password = access code` plus `authRequest = <id>` (2FA applies as usual)
+and the user key the other device wrapped for us opens the vault (`authRequestUnlock`). Approving here wraps the
+user key for the public key the *server* stores for that request, after the user compared the fingerprint phrase, and
+only if that key still gives the phrase the popup showed.
 
 Host permissions `https://*/*` and `http://*/*` are **required at install**, like the official
 extension: Vaultwarden's CORS only allows its own origin, so the server needs one; the content script,

@@ -11,8 +11,8 @@ use std::{cell::RefCell, collections::HashMap, num::NonZeroU32, str::FromStr};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, EncString, HashPurpose, Kdf, KeyDecryptable, KeyEncryptable,
-    MasterKey, PinKey, Pkcs8PrivateKeyBytes, PrivateKey, SymmetricCryptoKey, UnsignedSharedKey,
-    derive_symmetric_key_from_prf,
+    EFF_LONG_WORD_LIST, MasterKey, PinKey, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey,
+    PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, derive_symmetric_key_from_prf,
 };
 use serde_json::Value;
 
@@ -164,6 +164,72 @@ pub fn unlock_with_prf(
     open_session(user, encrypted_private_key)
 }
 
+// ---------- Log in with device (Bitwarden auth requests) ----------
+
+thread_local! {
+    /// The RSA key of the one auth request in flight; the approving device wraps the user key for it.
+    static AUTH_REQUEST: RefCell<Option<PrivateKey>> = const { RefCell::new(None) };
+}
+
+/// Fingerprint phrase both devices show for an auth request: HKDF-SHA256-Expand(PRK = the requester's public key
+/// DER, info = email) to 32 bytes, read as a big-endian number in base 7776, five EFF words. Same as
+/// `bitwarden_crypto::fingerprint`, without its bignum crate (only the base conversion is ours).
+pub fn auth_request_fingerprint(email: &str, public_key_b64: &str) -> Result<String> {
+    let der = STANDARD.decode(public_key_b64).map_err(err)?;
+    let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(&der).map_err(err)?;
+    let mut n = [0u8; 32];
+    hkdf.expand(email.as_bytes(), &mut n).map_err(err)?;
+    let words = EFF_LONG_WORD_LIST.len() as u32;
+    let phrase: Vec<&str> = (0..5)
+        .map(|_| {
+            // n, rem = divmod(n, 7776), digit by digit from the most significant byte
+            let mut rem = 0u32;
+            for b in n.iter_mut() {
+                let cur = (rem << 8) | u32::from(*b);
+                *b = (cur / words) as u8;
+                rem = cur % words;
+            }
+            EFF_LONG_WORD_LIST[rem as usize]
+        })
+        .collect();
+    Ok(phrase.join("-"))
+}
+
+/// Starts an auth request: a fresh RSA-2048 key pair, the private half kept here (replacing any earlier one).
+/// Returns `{"publicKey": <base64 SPKI>, "fingerprint": <phrase>}`.
+pub fn auth_request_create(email: &str) -> Result<String> {
+    let private = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+    let public_key = STANDARD.encode(private.to_public_key().to_der().map_err(err)?.as_ref());
+    let fingerprint = auth_request_fingerprint(email, &public_key)?;
+    AUTH_REQUEST.with_borrow_mut(|k| *k = Some(private));
+    Ok(serde_json::json!({ "publicKey": public_key, "fingerprint": fingerprint }).to_string())
+}
+
+/// Opens the session from an approved auth request: `key` is the user key the other device wrapped for our
+/// public key (type 4). Consumes the request's private key.
+pub fn auth_request_unlock(key: &str, encrypted_private_key: Option<&str>) -> Result<()> {
+    let private = AUTH_REQUEST
+        .with_borrow_mut(Option::take)
+        .ok_or("no login request in progress")?;
+    #[allow(deprecated)] // the auth request protocol is unsigned RSA-OAEP-SHA1
+    let user = UnsignedSharedKey::from_str(key)
+        .map_err(err)?
+        .decapsulate_key_unsigned(&private)
+        .map_err(err)?;
+    open_session(user, encrypted_private_key)
+}
+
+/// Approves another device's auth request: the unlocked user key wrapped with its public key.
+pub fn auth_request_approve(public_key_b64: &str) -> Result<String> {
+    let der = STANDARD.decode(public_key_b64).map_err(err)?;
+    let public = PublicKey::from_der(&SpkiPublicKeyBytes::from(der)).map_err(err)?;
+    with_session(|s| {
+        #[allow(deprecated)]
+        let shared = UnsignedSharedKey::encapsulate_key_unsigned(&s.user, &public).map_err(err)?;
+        Ok(shared.to_string())
+    })
+}
+
 fn open_session(user: SymmetricCryptoKey, encrypted_private_key: Option<&str>) -> Result<()> {
     let private = match encrypted_private_key {
         Some(s) if !s.is_empty() => {
@@ -219,6 +285,7 @@ pub fn is_unlocked() -> bool {
 
 pub fn lock() {
     SESSION.with_borrow_mut(|s| *s = None);
+    AUTH_REQUEST.with_borrow_mut(|k| *k = None);
     MASTER_KEYS.with_borrow_mut(|(_, keys)| keys.clear());
 }
 
@@ -340,6 +407,34 @@ mod tests {
         assert!(!is_unlocked());
         unlock_with_pin("1234", "a@example.test", &kdf, &wrapped, None).unwrap();
         assert_eq!(with_session(|s| Ok(s.user.to_base64())).unwrap(), expected);
+    }
+
+    #[test]
+    fn auth_request_roundtrip() {
+        // Requesting device: a key pair and the phrase; ours matches the SDK's.
+        let created: Value = serde_json::from_str(&auth_request_create("a@example.test").unwrap()).unwrap();
+        let public_key = created["publicKey"].as_str().unwrap();
+        let der = SpkiPublicKeyBytes::from(STANDARD.decode(public_key).unwrap());
+        assert_eq!(
+            created["fingerprint"].as_str().unwrap(),
+            bitwarden_crypto::fingerprint("a@example.test", &der).unwrap()
+        );
+        // Approving device (unlocked) wraps its user key; locking it there ends only that session.
+        let pending = AUTH_REQUEST.with_borrow_mut(Option::take);
+        let user = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let expected = user.to_base64();
+        open_session(user, None).unwrap();
+        let wrapped = auth_request_approve(public_key).unwrap();
+        assert!(wrapped.starts_with("4."), "{wrapped}");
+        lock();
+        AUTH_REQUEST.with_borrow_mut(|k| *k = pending);
+        auth_request_unlock(&wrapped, None).unwrap();
+        assert_eq!(with_session(|s| Ok(s.user.to_base64())).unwrap(), expected);
+        // Single use, and a lock drops a pending one.
+        assert!(auth_request_unlock(&wrapped, None).is_err());
+        auth_request_create("a@example.test").unwrap();
+        lock();
+        assert!(auth_request_unlock(&wrapped, None).is_err());
     }
 
     // Needs the `register` feature for `UserKey::make_key_pair`; CI builds the e2e harness with it.

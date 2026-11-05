@@ -1,6 +1,6 @@
 // Popup. Talks only to the service worker through the typed message bus: no crypto, no network.
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, TWO_FACTOR, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
-import type { Request, State } from "../shared/messages.ts";
+import type { LoginRequest, Request, State } from "../shared/messages.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
 import { applyTheme, type Child, h, inPanel, savedTheme, send, t, THEMES, when, withChevron } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
@@ -8,7 +8,7 @@ import { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvaila
 import { passkeyRequestId, passkeyScreen } from "./passkey.ts";
 import { resetSend, sendScreen, startTextSend } from "./send.ts";
 import { generatorScreen } from "./generator.ts";
-import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
+import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, reloadList, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
 
 // ---------- state ----------
 
@@ -29,6 +29,9 @@ interface Ui {
   pinSetup?: boolean;
   /** Settings: the export form (master password) is open. */
   exporting?: boolean;
+  /** Other devices' login requests: fetched when the approval screen opens; `later` hides it for this popup. */
+  requests?: LoginRequest[];
+  requestsLater?: boolean;
 }
 
 let pinLock = true; // PIN setup: ask for the master password after a browser restart
@@ -207,10 +210,108 @@ function loginView(): HTMLElement {
       "div",
       { class: "actions" },
       submitButton(t("logIn")),
+      h("button", { type: "button", class: "btn text", disabled: ui.busy, onclick: () => void act({ type: "deviceLogin", email: draft.email }, t("busyRequesting")) }, t("logInWithDevice")),
       h("button", { type: "button", class: "btn text", disabled: ui.busy, onclick: () => void act({ type: "ssoStart" }, t("busyOpeningSso")) }, t("logInSso")),
     ),
     h("p", { class: "note" }, t("ssoHint")),
   );
+}
+
+// ---------- log in with device ----------
+
+/** While the request waits, ask every few seconds whether another device approved it. */
+let devicePoll: ReturnType<typeof setTimeout> | undefined;
+
+function pollDeviceLogin(): void {
+  if (devicePoll !== undefined) return;
+  devicePoll = setTimeout(async () => {
+    // Cancelled (Back) while this waited: nothing to ask.
+    if (state?.phase !== "deviceLogin") return void (devicePoll = undefined);
+    const r = await send<State>({ type: "deviceLoginCheck" });
+    devicePoll = undefined;
+    if (r.ok) state = r.data;
+    else {
+      ui.error = r.error;
+      const s = await send<State>({ type: "getState" });
+      if (s.ok) state = s.data;
+    }
+    render();
+  }, 3000);
+}
+
+function deviceLoginView(s: State): HTMLElement {
+  pollDeviceLogin();
+  return h(
+    "div",
+    { class: "page" },
+    h(
+      "div",
+      { class: "top" },
+      h("button", { type: "button", class: "icon-btn", "aria-label": t("back"), onclick: () => void act({ type: "twoFactorCancel" }) }, icon("back")),
+      h("h1", {}, t("logInWithDevice")),
+    ),
+    h("p", { class: "caption" }, t("deviceLoginHint", s.email ?? "")),
+    h("div", { class: "field" }, h("label", {}, h("span", {}, t("fingerprintPhrase")), h("output", { class: "phrase" }, s.fingerprint ?? ""))),
+    errorBox(),
+    h("div", {}, h("div", { class: "progress" }), h("p", { class: "note" }, t("deviceLoginWaiting"))),
+  );
+}
+
+/** Approval of another device's login: the phrase must match what that device shows. */
+function loginRequestView(s: State): HTMLElement {
+  const r = ui.requests?.[0];
+  if (!ui.requests && !ui.busy) void loadRequests();
+  const answer = (approve: boolean) => async () => {
+    Object.assign(ui, { busy: true, error: undefined });
+    render();
+    const res = await send<LoginRequest[]>({ type: "answerLoginRequest", id: r!.id, approve, fingerprint: r!.fingerprint });
+    ui.busy = false;
+    if (res.ok) ui.requests = res.data;
+    else ui.error = res.error;
+    await refreshState();
+  };
+  return h(
+    "div",
+    { class: "page" },
+    h(
+      "div",
+      { class: "top" },
+      h("button", { type: "button", class: "icon-btn", "aria-label": t("back"), onclick: () => ((ui.requestsLater = true), render()) }, icon("back")),
+      h("h1", {}, t("loginRequestTitle")),
+    ),
+    ...(r
+      ? [
+          h("p", { class: "caption" }, t("loginRequestQuestion", s.email ?? "")),
+          h("div", { class: "field" }, h("label", {}, h("span", {}, t("fingerprintPhrase")), h("output", { class: "phrase" }, r.fingerprint))),
+          h("div", { class: "group" }, row(r.device, t("loginRequestDevice")), row(r.ip, t("loginRequestIp")), row(new Date(r.createdAt).toLocaleString(), t("loginRequestTime"))),
+        ]
+      : []),
+    errorBox(),
+    busyBar(),
+    r
+      ? h(
+          "div",
+          { class: "actions" },
+          h("button", { type: "button", class: "btn filled wide", disabled: ui.busy, onclick: answer(true) }, t("confirmLogin")),
+          h("button", { type: "button", class: "btn text", disabled: ui.busy, onclick: answer(false) }, t("denyLogin")),
+        )
+      : null,
+  );
+}
+
+async function loadRequests(): Promise<void> {
+  ui.busy = true;
+  const res = await send<LoginRequest[]>({ type: "loginRequests" });
+  ui.busy = false;
+  if (res.ok) ui.requests = res.data;
+  else ((ui.error = res.error), (ui.requests = []));
+  await refreshState();
+}
+
+async function refreshState(): Promise<void> {
+  const st = await send<State>({ type: "getState" });
+  if (st.ok) state = st.data;
+  render();
 }
 
 // WebAuthn runs in the server's webauthn-connector.html (the credential is bound to the server's
@@ -860,6 +961,7 @@ function screenKey(): string {
   if (state.phase === "setup" || ui.editServer) return "setup";
   if (state.phase !== "unlocked") return state.phase;
   if (passkeyRequestId) return "passkey";
+  if (state.loginRequests && !ui.requestsLater) return "loginRequest";
   return ui.tab === "vault" ? `vault:${vaultRouteKey()}` : ui.tab;
 }
 
@@ -873,13 +975,16 @@ function render(): void {
     resetVault(); // and holds no decrypted data from the previous one
     resetSend();
     scrollMemory.clear(); // a locked or logged-out screen never restores a vault position
+    ui.requests = undefined;
   }
   let view: Node;
   if (s.phase === "setup" || ui.editServer) view = setupView();
   else if (s.phase === "loggedOut") view = loginView();
   else if (s.phase === "twoFactor") view = twoFactorView(s);
+  else if (s.phase === "deviceLogin") view = deviceLoginView(s);
   else if (s.phase === "locked") view = lockedView(s);
   else if (passkeyRequestId) view = passkeyScreen(vaultCtx);
+  else if (s.loginRequests && !ui.requestsLater) view = loginRequestView(s);
   else view = unlockedView(s);
 
   const key = screenKey();
@@ -952,10 +1057,16 @@ void send<State>({ type: "getState" }).then((res) => {
  */
 let refreshing = false;
 chrome.storage.onChanged.addListener((changes, area) => {
+  // A push sync stored a newer vault: the open list follows (a sync this popup started updates it itself).
+  const vault = area === "local" ? changes.vault : undefined;
+  if (vault && state?.phase === "unlocked" && (vault.newValue as { revision?: number } | undefined)?.revision !== (vault.oldValue as { revision?: number } | undefined)?.revision)
+    void reloadList();
   if (area !== "session" || !changes.session || !state || refreshing) return;
-  const next = changes.session.newValue as { unlocked?: unknown } | undefined;
+  const next = changes.session.newValue as { unlocked?: unknown; loginRequests?: unknown[] } | undefined;
+  // A login request pushed while the popup is open shows at once.
+  const requestsChanged = (next?.loginRequests?.length ?? 0) !== (state.loginRequests ?? 0);
   // loggedOut -> locked (SSO finished in another tab) leaves `unlocked` false, so a logged-out view always refreshes.
-  if (typeof next?.unlocked !== "boolean" || (next.unlocked === (state.phase === "unlocked") && state.phase !== "loggedOut")) return;
+  if (!requestsChanged && (typeof next?.unlocked !== "boolean" || (next.unlocked === (state.phase === "unlocked") && state.phase !== "loggedOut"))) return;
   refreshing = true;
   void send<State>({ type: "getState" }).then((r) => {
     refreshing = false;

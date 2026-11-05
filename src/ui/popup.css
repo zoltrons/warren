@@ -1007,3 +1007,6 @@ body.frame .row { min-height: 44px; padding: 4px 8px; border-radius: var(--r-xs)
 /* Reorder: arrows, so they never read as expand/collapse chevrons. */
 .icon-btn.down svg { transform: rotate(180deg); }
 .caption.warn { color: var(--critical); }
+
+/* Log in with device: the fingerprint phrase both devices show. */
+.phrase { display: block; font-family: var(--mono); font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--primary); overflow-wrap: anywhere; }

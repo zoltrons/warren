@@ -137,6 +137,8 @@ No new permissions, dependencies or remote code.
 Server-gated (Vaultwarden has no equivalent): Archive (premium), at-risk password reports/notifications
 (premium, security-task API), admin/org management, premium/billing nudges, "import upgrade" flow.
 
+Done since: log in with device (request and approve, with notifications) and live sync over the WebSocket hub.
+
 Not implemented yet: account switching / multiple accounts, Duo 2FA, YubiKey validation end-to-end,
 email-restricted ("hide my email") sends, CSV import/export, password-protected/encrypted JSON
 export, org item writes and org attachments, master-password re-prompt (`reprompt`), persistent PIN

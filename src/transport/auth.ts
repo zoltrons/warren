@@ -1,7 +1,7 @@
 // Identity endpoints (mirrors vaultwarden src/api/identity.rs, see upstream-map.yaml).
 import { CLIENT_NAME, DEVICE_NAME, DEVICE_TYPE, TWO_FACTOR } from "../shared/constants.ts";
 import type { KdfParams, TwoFactorChallenge } from "../shared/messages.ts";
-import { ci, num, obj, opt, parse, str } from "../shared/validate.ts";
+import { arr, bool, ci, num, obj, opt, parse, str } from "../shared/validate.ts";
 import { ApiError, call } from "./http.ts";
 
 const preloginResponse = obj({ kdf: num, kdfIterations: num, kdfMemory: opt(num), kdfParallelism: opt(num) });
@@ -71,6 +71,8 @@ interface PasswordGrant {
   authHash: string;
   deviceId: string;
   twoFactor?: { provider: number; token: string; remember: boolean };
+  /** Log in with device: the approved auth request; `authHash` is then its access code. */
+  authRequest?: string;
 }
 
 const deviceForm = (deviceId: string) => ({
@@ -88,6 +90,7 @@ export async function passwordToken(base: string, g: PasswordGrant): Promise<Tok
     form.twoFactorToken = g.twoFactor.token;
     form.twoFactorRemember = g.twoFactor.remember ? "1" : "0";
   }
+  if (g.authRequest) form.authRequest = g.authRequest;
   return grant(base, form);
 }
 
@@ -119,10 +122,10 @@ export async function refreshToken(base: string, refresh: string): Promise<Token
 }
 
 /** Asks Vaultwarden to mail an email-2FA code (no bearer token; authenticated by the hash). */
-export async function sendEmailLogin(base: string, email: string, authHash: string, deviceId: string): Promise<void> {
-  await call(base, "POST", "/api/two-factor/send-email-login", {
-    json: { email, masterPasswordHash: authHash, deviceIdentifier: deviceId },
-  });
+export async function sendEmailLogin(base: string, email: string, authHash: string, deviceId: string, authRequest?: string): Promise<void> {
+  // Log in with device proves itself with the auth request's access code instead of the password hash.
+  const proof = authRequest ? { authRequestId: authRequest, authRequestAccessCode: authHash } : { masterPasswordHash: authHash };
+  await call(base, "POST", "/api/two-factor/send-email-login", { json: { email, ...proof, deviceIdentifier: deviceId } });
 }
 
 export async function revisionDate(base: string, token: string): Promise<number> {
@@ -142,4 +145,44 @@ export function jwtClaim(token: string, name: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+// ---------- Log in with device (auth requests, vaultwarden src/api/core/accounts.rs) ----------
+
+const authRequestResponse = obj({
+  id: str,
+  publicKey: str,
+  requestDeviceType: opt(str),
+  requestIpAddress: opt(str),
+  key: opt(str),
+  masterPasswordHash: opt(str),
+  creationDate: str,
+  requestApproved: opt(bool),
+});
+export type AuthRequest = ReturnType<typeof authRequestResponse>;
+
+/** Anonymous: asks the account's other devices to approve this one. Vaultwarden only accepts a known device id. */
+export async function createAuthRequest(base: string, r: { email: string; publicKey: string; deviceId: string; accessCode: string }): Promise<AuthRequest> {
+  const json = { email: r.email, publicKey: r.publicKey, deviceIdentifier: r.deviceId, accessCode: r.accessCode, type: 0 };
+  return parse(authRequestResponse, await call(base, "POST", "/api/auth-requests", { json }));
+}
+
+/** Anonymous poll of our own request (authenticated by the access code). */
+export async function authRequestStatus(base: string, id: string, accessCode: string): Promise<AuthRequest> {
+  const q = new URLSearchParams({ code: accessCode });
+  return parse(authRequestResponse, await call(base, "GET", `/api/auth-requests/${encodeURIComponent(id)}/response?${q}`));
+}
+
+export async function pendingAuthRequests(base: string, token: string): Promise<AuthRequest[]> {
+  return parse(obj({ data: arr(authRequestResponse) }), await call(base, "GET", "/api/auth-requests/pending", { token })).data;
+}
+
+export async function getAuthRequest(base: string, token: string, id: string): Promise<AuthRequest> {
+  return parse(authRequestResponse, await call(base, "GET", `/api/auth-requests/${encodeURIComponent(id)}`, { token }));
+}
+
+/** Approve (`key` = user key wrapped for the requester) or deny (the server deletes the request). */
+export async function answerAuthRequest(base: string, token: string, id: string, a: { key: string; deviceId: string; approve: boolean }): Promise<void> {
+  const json = { key: a.key, masterPasswordHash: null, deviceIdentifier: a.deviceId, requestApproved: a.approve };
+  await call(base, "PUT", `/api/auth-requests/${encodeURIComponent(id)}`, { json, token });
 }

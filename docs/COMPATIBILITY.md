@@ -165,6 +165,18 @@ on 2026-10-29, unless marked otherwise.
 * Updating a cipher whose organization differs from the server's copy fails with "Organization mismatch. Please
   resync the client": sync before retrying.
 
+## Push and auth requests (read from the 1.37.5 source, not yet covered by e2e)
+
+* `/notifications/hub?access_token=<jwt>`: SignalR MessagePack only (`{"protocol":"messagepack","version":1}\x1e`,
+  answered with `{}\x1e`). Updates are `[1, {}, nil, "ReceiveMessage", [{ContextId, Type, Payload}]]`, length-prefixed.
+  The server pings every 15 s and drops a client silent for 30 s; it echoes any binary frame we send (our SignalR ping).
+* `POST /api/auth-requests` answers 400 unless the `deviceIdentifier` is already a device of that account with the
+  same `Device-Type`: log in with device works only in a browser that logged in with the master password before.
+* `GET /api/auth-requests/<id>/response?code=` must come from the requesting IP and device type. A denied request is
+  deleted (400 afterwards). The token grant must happen within 5 minutes of the request and runs 2FA;
+  `send-email-login` takes `authRequestId` + `authRequestAccessCode` instead of `masterPasswordHash`.
+* `PUT /api/auth-requests/<id>` needs `key` even to deny (we send `""`).
+
 ## Not yet verified
 
 * Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions, `viewPassword: false` and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.

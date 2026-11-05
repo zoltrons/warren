@@ -7,14 +7,20 @@ import { getServerInfo } from "../transport/config.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
 import { NetworkError } from "../transport/http.ts";
 import {
+  accessToken,
+  answerLoginRequest,
   cancelTwoFactor,
+  checkDeviceLogin,
   confirmReprompt,
+  dropLoginRequest,
+  loginRequests,
   finishSso,
   login,
   PENDING_ALARM,
   removeBiometric,
   setBiometric,
   setPin,
+  startDeviceLogin,
   startSso,
   logout,
   relocateRefreshToken,
@@ -25,6 +31,8 @@ import {
   unlockWithPin,
   UserError,
 } from "./account.ts";
+import { HUB, type HubUpdate } from "../transport/hub.ts";
+import { PUSH_ALARM, pushUp, startPush, stopPush } from "./push.ts";
 import { REPROMPT_MESSAGE, repromptGranted, repromptPending } from "./reprompt.ts";
 import { coreAlive, coreCall } from "./core.ts";
 import { AUTOLOCK_ALARM, lockNow, touchAutoLock } from "./lock.ts";
@@ -45,7 +53,7 @@ import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, 
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
 import { AUTOFILL_COMMAND, autofillFromGesture, fillActiveTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
 import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
-import { addAttachment, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
+import { addAttachment, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
 async function getState(): Promise<State> {
   const [server, account, session, settings, vault, bio] = await Promise.all([
@@ -60,6 +68,8 @@ async function getState(): Promise<State> {
   if (!server) return { phase: "setup", ...base };
   if (session.pending && session.pending.expiresAt > Date.now())
     return { phase: "twoFactor", ...base, email: session.pending.email, twoFactor: session.pending.challenge };
+  if (session.deviceLogin && session.deviceLogin.expiresAt > Date.now())
+    return { phase: "deviceLogin", ...base, email: session.deviceLogin.email, fingerprint: session.deviceLogin.fingerprint };
   // An abandoned login attempt (popup closed mid-2FA) still holds a derived master key in the crypto
   // worker: drop it as soon as we notice it has expired.
   if (session.pending) await cancelTwoFactor();
@@ -74,7 +84,8 @@ async function getState(): Promise<State> {
   const biometric = bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
   // The never-save list is encrypted: it is only there to show (and edit) while the vault is open.
   if (unlocked) base.settings.neverSave = await readPrivate().then((d) => d.neverSave, () => []);
-  return { phase: unlocked ? "unlocked" : "locked", ...base, ...pin, ...(biometric ? { biometric } : {}), email: account.email };
+  const requests = session.loginRequests?.length ?? 0;
+  return { phase: unlocked ? "unlocked" : "locked", ...base, ...pin, ...(biometric ? { biometric } : {}), ...(requests ? { loginRequests: requests } : {}), email: account.email };
 }
 
 async function setServer(input: string): Promise<void> {
@@ -127,7 +138,7 @@ async function handle(req: Request): Promise<unknown> {
     case "deleteSend":
     case "removeSendPassword": {
       await requireUnlocked();
-      await touchAutoLock();
+      if (!(req.type === "vaultList" && req.passive)) await touchAutoLock();
       if (req.type === "vaultList") return vaultList();
       if (req.type === "sync") return (await sync(req.force)) ? vaultList() : null;
       if (req.type === "getItem") {
@@ -213,6 +224,19 @@ async function handle(req: Request): Promise<unknown> {
     case "ssoStart":
       await startSso();
       break;
+    case "deviceLogin":
+      await startDeviceLogin(req.email);
+      break;
+    case "deviceLoginCheck":
+      await checkDeviceLogin();
+      break;
+    case "loginRequests":
+      await requireUnlocked();
+      return loginRequests();
+    case "answerLoginRequest":
+      await requireUnlocked();
+      await answerLoginRequest(req.id, req.approve, req.fingerprint);
+      return loginRequests().finally(clearLoginNote);
     case "unlock":
       await unlock(req.password);
       break;
@@ -286,6 +310,7 @@ async function handle(req: Request): Promise<unknown> {
   }
   const state = await getState();
   if (state.phase === "unlocked") await touchAutoLock();
+  if (state.phase === "unlocked" || state.phase === "locked") void ensurePush().catch(() => undefined);
   return state;
 }
 
@@ -385,7 +410,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, sender, reply: (r: Response<
   const run = () => handle(req).then((data) => reply({ ok: true, data } as Response<unknown>), (e: unknown) => reply(toError(e)));
   // Reads run immediately; anything that changes state or talks to the server is queued, and may
   // change what the badge and the context menu show (unlock, lock, sync, edits).
-  if (["getState", "vaultList", "getItem", "totp", "generate", "aliasSettings", "generatorHistory", "downloadAttachment", "pageMatches", "takeNewLogin", "takeFieldPick", "readPageLogin", "sendList", "getSend", "passkeyPrompt", "repromptGranted"].includes(req.type)) void run();
+  if (["getState", "loginRequests", "vaultList", "getItem", "totp", "generate", "aliasSettings", "generatorHistory", "downloadAttachment", "pageMatches", "takeNewLogin", "takeFieldPick", "readPageLogin", "sendList", "getSend", "passkeyPrompt", "repromptGranted"].includes(req.type)) void run();
   // Locking must not wait behind a slow server call: it ends whatever is running by killing the worker.
   else if (req.type === "lock") void run().then(updateTabUi);
   else queue = queue.then(run, run).then(updateTabUi);
@@ -402,6 +427,71 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === AUTOLOCK_ALARM) void timeout();
   if (alarm.name === CLIPBOARD_ALARM) void clearClipboard();
   if (alarm.name === PENDING_ALARM) void cancelTwoFactor();
+  if (alarm.name === PUSH_ALARM) void ensurePush();
+});
+
+// ---------- push (Vaultwarden WebSocket hub) ----------
+
+const LOGIN_REQUEST_NOTE = "loginRequest";
+let pushSync: ReturnType<typeof setTimeout> | undefined;
+
+/** Connects the hub while an account is logged in; a no-op when it is up. */
+async function ensurePush(): Promise<void> {
+  const [server, account] = await Promise.all([getLocal("server"), getLocal("account")]);
+  if (!server || !account) return stopPush();
+  const owner = `${server.url}|${account.email}`;
+  if (pushUp(owner)) return;
+  try {
+    const token = await accessToken();
+    // A logout (or another login) while the token was on its way: that token is not ours any more.
+    const now = await getLocal("account");
+    if (now?.email !== account.email) return;
+    startPush(server.url, owner, token, (u) => void onPush(u).catch((e: unknown) => console.error(e)));
+  } catch {
+    /* offline or the session ended: PUSH_ALARM tries again */
+  }
+}
+
+async function clearLoginNote(): Promise<void> {
+  if (!(await getSession()).loginRequests?.length) await chrome.notifications.clear(LOGIN_REQUEST_NOTE);
+}
+
+async function onPush(u: HubUpdate): Promise<void> {
+  if (u.contextId && u.contextId === (await getLocal("deviceId"))) return; // our own change
+  if (u.type === HUB.LogOut) {
+    // The password changed or all sessions were deauthorized: our tokens are dead.
+    queue = queue.then(logout).catch((e: unknown) => console.error(e)).then(updateTabUi);
+  } else if (u.type === HUB.AuthRequest && u.id) {
+    const { loginRequests: ids = [] } = await getSession();
+    if (!ids.includes(u.id)) await updateSession({ loginRequests: [...ids, u.id] });
+    const account = await getLocal("account");
+    chrome.notifications.create(LOGIN_REQUEST_NOTE, {
+      type: "basic",
+      iconUrl: "icons/warren-128.png",
+      title: chrome.i18n.getMessage("loginRequestTitle"),
+      message: chrome.i18n.getMessage("loginRequestNote", account?.email ?? ""),
+      requireInteraction: true,
+      priority: 2,
+    });
+  } else if (u.type === HUB.AuthRequestResponse && u.id) {
+    await dropLoginRequest(u.id);
+    await clearLoginNote();
+  } else if (u.type < HUB.AuthRequest) {
+    // A burst of changes (an import, a bulk move) syncs once. Locked: the next unlock syncs anyway.
+    clearTimeout(pushSync);
+    pushSync = setTimeout(() => {
+      queue = queue
+        .then(async () => (await isUnlocked()) && sync(false))
+        .catch((e: unknown) => console.error(e))
+        .then(updateTabUi);
+    }, 1000);
+  }
+}
+
+chrome.notifications.onClicked.addListener((id) => {
+  if (id !== LOGIN_REQUEST_NOTE) return;
+  void chrome.notifications.clear(id);
+  void chrome.action.openPopup().catch(() => chrome.windows.create({ url: "popup.html", type: "popup", width: 400, height: 640 }));
 });
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -450,6 +540,8 @@ chrome.runtime.onStartup.addListener(() => {
   void timeout();
 });
 
+// Reconnect the hub on every worker start; the alarm keeps trying after that.
+void ensurePush().catch((e: unknown) => console.error(e));
 // Also on a plain service-worker start (registration is idempotent): covers a fresh install where the
 // worker was already running, and browsers that drop registered scripts.
 void ensurePasskeyScripts().catch((e: unknown) => console.error(e));

@@ -107,6 +107,29 @@ pub fn unlock_with_prf(
     .map_err(js)
 }
 
+/// Log in with device: a new RSA-2048 key pair, kept for the request. Returns `{"publicKey", "fingerprint"}`.
+#[wasm_bindgen(js_name = authRequestCreate)]
+pub fn auth_request_create(email: &str) -> Result<String, JsError> {
+    api::auth_request_create(email).map_err(js)
+}
+
+/// Log in with device: opens the session from the user key an approving device wrapped for our public key.
+#[wasm_bindgen(js_name = authRequestUnlock)]
+pub fn auth_request_unlock(key: &str, encrypted_private_key: Option<String>) -> Result<(), JsError> {
+    api::auth_request_unlock(key, encrypted_private_key.as_deref()).map_err(js)
+}
+
+/// Approves another device's auth request: the user key wrapped with its public key (base64 SPKI).
+#[wasm_bindgen(js_name = authRequestApprove)]
+pub fn auth_request_approve(public_key: &str) -> Result<String, JsError> {
+    api::auth_request_approve(public_key).map_err(js)
+}
+
+#[wasm_bindgen(js_name = authRequestFingerprint)]
+pub fn auth_request_fingerprint(email: &str, public_key: &str) -> Result<String, JsError> {
+    api::auth_request_fingerprint(email, public_key).map_err(js)
+}
+
 #[wasm_bindgen(js_name = setOrgKeys)]
 pub fn set_org_keys(org_keys_json: &str) -> Result<usize, JsError> {
     api::set_org_keys(org_keys_json).map_err(js)

@@ -2656,6 +2656,7 @@ dependencies = [
  "base64",
  "bitwarden-crypto",
  "getrandom 0.4.3",
+ "hkdf",
  "hmac",
  "regex-lite",
  "serde_json",

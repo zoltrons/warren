@@ -35,6 +35,14 @@ export type Request =
   | { type: "twoFactorSendEmail" }
   | { type: "twoFactorCancel" }
   | { type: "ssoStart" }
+  /** Log in with device: asks the account's other devices to approve this one (no master password). */
+  | { type: "deviceLogin"; email: string }
+  /** Polled while the request waits; finishes the login once another device approved it. */
+  | { type: "deviceLoginCheck" }
+  /** Pending login requests from other devices, with the fingerprint phrase each must show. */
+  | { type: "loginRequests" }
+  /** `fingerprint`: the phrase the user compared; approval is refused for a key that does not give it. */
+  | { type: "answerLoginRequest"; id: string; approve: boolean; fingerprint: string }
   | { type: "unlock"; password: string }
   | { type: "unlockPin"; pin: string }
   /** Opens the vault with the PRF output of the biometric passkey (see src/ui/biometric.ts). */
@@ -74,7 +82,8 @@ export type Request =
     }
   | { type: "setDefaultManager"; enabled: boolean }
   // vault (unlocked only)
-  | { type: "vaultList" }
+  /** `passive`: a background sync changed the list; reading it is not user activity (no auto-lock extension). */
+  | { type: "vaultList"; passive?: boolean }
   | { type: "sync"; force: boolean }
   | { type: "getItem"; id: string }
   | { type: "saveItem"; item: Record<string, unknown> }
@@ -141,6 +150,10 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   twoFactorSendEmail: obj({ type: literal("twoFactorSendEmail") }),
   twoFactorCancel: obj({ type: literal("twoFactorCancel") }),
   ssoStart: obj({ type: literal("ssoStart") }),
+  deviceLogin: obj({ type: literal("deviceLogin"), email: str }),
+  deviceLoginCheck: obj({ type: literal("deviceLoginCheck") }),
+  loginRequests: obj({ type: literal("loginRequests") }),
+  answerLoginRequest: obj({ type: literal("answerLoginRequest"), id: secret, approve: bool, fingerprint: capped(256) }),
   unlock: obj({ type: literal("unlock"), password: str }),
   unlockPin: obj({ type: literal("unlockPin"), pin: str }),
   unlockBiometric: obj({ type: literal("unlockBiometric"), prf: str }),
@@ -183,7 +196,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
       throw new ValidationError("defaultUriMatch: not an allowed choice");
     return s;
   },
-  vaultList: obj({ type: literal("vaultList") }),
+  vaultList: obj({ type: literal("vaultList"), passive: opt(bool) }),
   sync: obj({ type: literal("sync"), force: bool }),
   getItem: obj({ type: literal("getItem"), id: str }),
   saveItem: (v, p) => {
@@ -251,7 +264,17 @@ export function parseRequest(v: unknown): Request {
   return requestValidators[type as Request["type"]](v, "");
 }
 
-export type Phase = "setup" | "loggedOut" | "twoFactor" | "locked" | "unlocked";
+export type Phase = "setup" | "loggedOut" | "twoFactor" | "deviceLogin" | "locked" | "unlocked";
+
+/** A login request from another device, as the approving popup shows it. */
+export interface LoginRequest {
+  id: string;
+  fingerprint: string;
+  device: string;
+  ip: string;
+  /** epoch ms */
+  createdAt: number;
+}
 
 export interface TwoFactorChallenge {
   providers: number[];
@@ -303,6 +326,10 @@ export interface State {
   serverVersion?: string;
   email?: string;
   twoFactor?: TwoFactorChallenge;
+  /** Log in with device: the fingerprint phrase the approving device shows too. */
+  fingerprint?: string;
+  /** Login requests from other devices that came in by push and are not answered yet. */
+  loginRequests?: number;
   /** The last SSO login failed (it finishes in the background, after the popup closed). */
   ssoError?: string;
   /** PIN unlock is turned on for this account. */
@@ -453,6 +480,11 @@ export type CoreRequest =
   | { op: "prfProtect"; prf: string }
   | { op: "unlockPrf"; prf: string; protectedUserKey: string; encryptedPrivateKey?: string }
   | { op: "freeKey"; handle: number }
+  // log in with device (auth requests): RSA key pair here, user key wrapped for / by the other device
+  | { op: "authRequestCreate"; email: string }
+  | { op: "authRequestUnlock"; key: string; encryptedPrivateKey?: string }
+  | { op: "authRequestApprove"; publicKey: string }
+  | { op: "authRequestFingerprint"; email: string; publicKey: string }
   | { op: "lock" }
   /** Whether the decrypted vault is in memory (a fresh worker, or a sign-in, has none yet). */
   | { op: "vaultLoaded" }
@@ -532,6 +564,10 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   prfProtect: obj({ op: literal("prfProtect"), prf: str }),
   unlockPrf: obj({ op: literal("unlockPrf"), prf: str, protectedUserKey: str, encryptedPrivateKey: opt(str) }),
   freeKey: obj({ op: literal("freeKey"), handle: num }),
+  authRequestCreate: obj({ op: literal("authRequestCreate"), email: str }),
+  authRequestUnlock: obj({ op: literal("authRequestUnlock"), key: str, encryptedPrivateKey: opt(str) }),
+  authRequestApprove: obj({ op: literal("authRequestApprove"), publicKey: str }),
+  authRequestFingerprint: obj({ op: literal("authRequestFingerprint"), email: str, publicKey: str }),
   lock: obj({ op: literal("lock") }),
   vaultLoaded: obj({ op: literal("vaultLoaded") }),
   loadVault: obj({

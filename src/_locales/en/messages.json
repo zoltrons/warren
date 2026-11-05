@@ -1808,5 +1808,59 @@
         "content": "$1"
       }
     }
+  },
+  "logInWithDevice": {
+    "message": "Log in with device"
+  },
+  "busyRequesting": {
+    "message": "Sending the login request…"
+  },
+  "deviceLoginHint": {
+    "message": "Approve the request on another device where $P1$ is logged in, and check that it shows this phrase:",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "deviceLoginWaiting": {
+    "message": "Waiting for approval…"
+  },
+  "fingerprintPhrase": {
+    "message": "Fingerprint phrase"
+  },
+  "loginRequestTitle": {
+    "message": "Login request"
+  },
+  "loginRequestNote": {
+    "message": "A device is trying to log in as $P1$. Open Warren to confirm or deny.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "loginRequestQuestion": {
+    "message": "Are you trying to log in as $P1$? Confirm only if the other device shows the same phrase.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "loginRequestDevice": {
+    "message": "Device type"
+  },
+  "loginRequestIp": {
+    "message": "IP address"
+  },
+  "loginRequestTime": {
+    "message": "Time"
+  },
+  "confirmLogin": {
+    "message": "Confirm login"
+  },
+  "denyLogin": {
+    "message": "Deny login"
   }
 }

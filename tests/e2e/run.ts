@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium, type Locator, type Page, type Worker } from "playwright-core";
-import { passwordToken, prelogin, refreshToken, revisionDate } from "../../src/transport/auth.ts";
+import { answerAuthRequest, authRequestStatus, createAuthRequest, passwordToken, pendingAuthRequests, prelogin, refreshToken, revisionDate } from "../../src/transport/auth.ts";
 import { call } from "../../src/transport/http.ts";
 
 const BASE = process.env.VW_URL ?? "http://localhost:8080";
@@ -770,6 +770,62 @@ try {
     s.done();
     await page.getByRole("button", { name: "Sync now" }).click();
     await rows().filter({ hasText: "Added elsewhere" }).waitFor();
+  });
+
+  await step("push: a change made elsewhere shows in the open popup without a sync", async () => {
+    const s = await apiSession(vaultUser);
+    await s.create({ type: 2, name: "Pushed in", secureNote: { type: 0 } });
+    s.done();
+    await rows().filter({ hasText: "Pushed in" }).waitFor({ timeout: 10_000 });
+  });
+
+  await step("login request from another device: notification, phrase, approval hands over the user key", async () => {
+    // Another device of the same account (Vaultwarden only takes requests from known devices).
+    const other = crypto.randomUUID();
+    await passwordToken(BASE, { email: vaultUser.email, authHash: authHash(vaultUser), deviceId: other });
+    const { publicKey } = JSON.parse(wasm.authRequestCreate(vaultUser.email)) as { publicKey: string };
+    const accessCode = randomBytes(16).toString("hex");
+    const req = await createAuthRequest(BASE, { email: vaultUser.email, publicKey, deviceId: other, accessCode });
+    await page.getByRole("heading", { name: "Login request" }).waitFor({ timeout: 10_000 });
+    assert.ok((await sw.evaluate(() => chrome.notifications.getAll()))["loginRequest"], "no notification");
+    assert.equal(await page.locator(".phrase").textContent(), wasm.authRequestFingerprint(vaultUser.email, publicKey));
+    await click("Confirm login");
+    await expectUnlocked();
+    assert.ok(!(await sw.evaluate(() => chrome.notifications.getAll()))["loginRequest"], "notification left behind");
+    // The requester logs in with the access code and opens the vault with the key we sent.
+    const answer = await authRequestStatus(BASE, req.id, accessCode);
+    assert.ok(answer.requestApproved && answer.key);
+    const t = await passwordToken(BASE, { email: vaultUser.email, authHash: accessCode, deviceId: other, authRequest: req.id });
+    wasm.authRequestUnlock(answer.key!, t.PrivateKey);
+    const sync = (await call(BASE, "GET", "/api/sync?excludeDomains=true", { token: t.access_token })) as { ciphers: { organizationId?: string }[] };
+    const names = sync.ciphers.filter((c) => !c.organizationId).map((c) => JSON.parse(wasm.decryptCipher(JSON.stringify(c))).name);
+    assert.ok(names.includes("Pushed in"), names.join());
+    wasm.lock();
+  });
+
+  await step("log in with device: approved on another device, no master password", async () => {
+    await logout();
+    await fill("Email", vaultUser.email);
+    await click("Log in with device");
+    const phrase = await page.locator(".phrase").textContent();
+    // The approving device: an unlocked session that checks the phrase against the request's public key.
+    const approver = crypto.randomUUID();
+    const tok = await passwordToken(BASE, { email: vaultUser.email, authHash: authHash(vaultUser), deviceId: approver });
+    const h = wasm.deriveMasterKey(vaultUser.password, vaultUser.email, ...vaultUser.kdf);
+    wasm.unlockUserKey(h, tok.Key!, tok.PrivateKey);
+    const [r] = await pendingAuthRequests(BASE, tok.access_token);
+    assert.ok(r, "request not on the server");
+    assert.equal(wasm.authRequestFingerprint(vaultUser.email, r.publicKey), phrase);
+    await answerAuthRequest(BASE, tok.access_token, r.id, { key: wasm.authRequestApprove(r.publicKey), deviceId: approver, approve: true });
+    wasm.lock();
+    await expectUnlocked();
+    await rows().filter({ hasText: "Pushed in" }).waitFor();
+    // The stored account still unlocks with the master password.
+    await page.getByRole("button", { name: "Lock now" }).click();
+    await page.getByRole("heading", { name: "Vault locked" }).waitFor();
+    await fill("Master password", vaultUser.password);
+    await click("Unlock");
+    await expectUnlocked();
   });
 
   await step("attachments: upload in the popup, download decrypts, server copy decrypts", async () => {

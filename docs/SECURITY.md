@@ -113,8 +113,11 @@ freed rather than zeroed in place.
     whoever holds the request's private key, so approving needs the unlocked vault and an explicit click on a
     screen that shows the fingerprint phrase (account email over the requester's public key, the same phrase the
     requesting device shows). The key is wrapped for the public key fetched from the server for that request id,
-    never one supplied by a message. A push notification only announces a request; it never approves one.
-    The requesting side keeps its RSA private key in the crypto worker only, single use, gone with the lock.
+    never one supplied by a message, and only if that key gives the phrase the popup showed (`answerLoginRequest`),
+    so a server cannot display one key and swap in its own for the approval. A push notification only announces a
+    request; it never approves one. The requesting side keeps its RSA private key in the WASM only (RustCrypto, not
+    WebCrypto), single use, dropped by the lock and when the request is cancelled or expires (`cancelTwoFactor`).
+    Hub messages are capped at 64 KiB.
 
 9. **Origin keys are best effort, never fatal.** One undecryptable organization key must not make the
    personal vault unreadable (`crates/core-wasm/src/api.rs` `set_org_keys`, plus the `try/catch` in
@@ -163,7 +166,8 @@ password hardness and post-quantum safety first. A change that breaks one of the
    halves them, so they stay safe. No new 128-bit keys.
 6. **No new classical-only public-key cryptography.** New key exchange or encryption is hybrid (X25519 + ML-KEM-768,
    FIPS 203) or pure ML-KEM. New signatures are hybrid with ML-DSA (FIPS 204), or pure ML-DSA. RSA-2048 (organization
-   and sharing keys) and ES256 (passkeys) remain only because the protocol and relying parties require them.
+   and sharing keys, log in with device) and ES256 (passkeys) remain only because the protocol and relying parties
+   require them.
 7. **Post-quantum comes through `bitwarden-crypto`, never a scheme of our own.** A private format would cut Warren off
    from Vaultwarden and the other clients. When upstream ships post-quantum account keys (V2 accounts, COSE keys;
    the pinned crate already has ML-DSA-44 signing), adopt them in the first `UPSTREAM_SYNC` that Vaultwarden
@@ -199,6 +203,11 @@ password hardness and post-quantum safety first. A change that breaks one of the
   come from lockfiles, the job that holds `CRX_KEY` runs no install scripts, a release needs a green `ci` and a
   clean advisory check, and each released file carries signed build provenance (`docs/UPDATES.md`). Provenance
   shows which commit and run built a file; it cannot tell a malicious tag from a real one.
+
+- **The push connection carries the access token in its URL.** Browsers cannot set headers on a WebSocket, so
+  `/notifications/hub?access_token=…` (`src/background/push.ts`) is how the official clients connect too. A proxy that
+  logs query strings records a token that is valid for up to two hours. It reaches only the configured server
+  (invariant 7). While an account is logged in the connection, and with it the service worker, stays up.
 
 - **The inline menu's "Sign in with passkey" signs in without a window.** Picking the entry is the
   decision: with exactly one matching passkey `openConditional` (`src/background/passkey.ts`) asserts

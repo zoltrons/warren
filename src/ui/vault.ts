@@ -419,6 +419,15 @@ async function loadList(ctx: Ctx) {
   await syncNow(ctx, false);
 }
 
+/** A push sync changed the vault in the background: show the new list without leaving the current screen. */
+export async function reloadList(): Promise<void> {
+  if (!st.list || !currentCtx) return;
+  const r = await send<VaultList>({ type: "vaultList", passive: true });
+  if (r.ok) st.list = r.data;
+  await refreshPageMatches();
+  currentCtx.rerender();
+}
+
 /** Re-reads the logins matching the active tab (e.g. after the default URI match setting changed). */
 export async function refreshPageMatches(): Promise<void> {
   const p = await send<PageMatches>({ type: "pageMatches" });
