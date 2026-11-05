@@ -892,12 +892,39 @@ function listView(ctx: Ctx): HTMLElement {
 
 // ---------- this site ----------
 
-async function fill(ctx: Ctx, id: string) {
-  const r = await send<FillResult>({ type: "fill", id });
+async function fill(ctx: Ctx, id: string, anyway = false, page = st.page) {
+  // Bound to the page shown here: the worker refuses once the tab or its site changed, also after the dialog.
+  const { tabId, origin, host } = page ?? {};
+  if (tabId === undefined || !origin) return toast(ctx, t("fillFailed"));
+  const r = await send<FillResult>({ type: "fill", id, tabId, origin, anyway });
   if (r.ok && r.data.filled) window.close();
   // A flagged item: its view shows the master-password screen (itemView gets "reprompt" from getItem).
   else if (!r.ok && r.code === "reprompt") open(ctx, { kind: "item", id });
-  else toast(ctx, r.ok ? t("fillFailed") : r.error);
+  // A login saved for another site: fill only after the user says so, like the official client.
+  else if (r.ok && r.data.reason === "noMatch" && !anyway && host && (await confirmFill(host))) await fill(ctx, id, true, page);
+  else {
+    toast(ctx, r.ok ? t("fillFailed") : r.error);
+    // Show the site the browser is on now, so the next click is for the page the user sees.
+    if (!r.ok) await refreshPageMatches(true).then(() => ctx.rerender());
+  }
+}
+
+function confirmFill(host: string): Promise<boolean> {
+  const choose = (v: string) => () => d.close(v);
+  const d = h(
+    "dialog",
+    { class: "confirm", "aria-labelledby": "confirm-fill-text" },
+    h("p", { id: "confirm-fill-text" }, t("fillNoMatch", host)),
+    h(
+      "div",
+      { class: "actions" },
+      h("button", { type: "button", class: "btn text", onclick: choose("") }, t("cancel")),
+      h("button", { type: "button", class: "btn filled", onclick: choose("fill") }, t("fillAnyway")),
+    ),
+  );
+  document.body.append(d);
+  d.showModal();
+  return new Promise((resolve) => d.addEventListener("close", () => (d.remove(), resolve(d.returnValue === "fill"))));
 }
 
 const fillButton = (ctx: Ctx, i: VaultItem) =>
@@ -1286,7 +1313,7 @@ async function upload(ctx: Ctx, cipherId: string, file: File | undefined) {
   await vaultAction(ctx, { type: "addAttachment", cipherId, file: { name: file.name, data } }, "saved", false);
 }
 
-/** Fill / open actions for the item, when a web page is open (any login, saved for this site or not) or the item has a site. */
+/** Fill / open actions for the item, when a web page is open (a login for another site asks first) or the item has a site. */
 function quickActions(ctx: Ctx, id: string, uris: string[], login: boolean): Child {
   const onSite = login && !!st.page?.host;
   const url = uris.map(webUrl).find(Boolean);

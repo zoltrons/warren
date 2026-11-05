@@ -36,14 +36,15 @@ async function matches(url: URL): Promise<VaultItem[]> {
 
 /** Logins matching the tab, plus cards / identities when the user shows them in the tab view. */
 export async function pageMatches(): Promise<PageMatches> {
-  const url = httpUrl(await activeTab());
+  const tab = await activeTab();
+  const url = httpUrl(tab);
   if (!url) return { items: [] };
   const settings = await getSettings();
   const items = await matches(url);
   const wanted = [settings.showCardsOnTab ? 3 : 0, settings.showIdentitiesOnTab ? 4 : 0].filter(Boolean);
   // The bare list: list() would also decrypt the usage data, which is not needed here.
   if (wanted.length) items.push(...(await coreCall<VaultList>({ op: "listVault" })).items.filter((i) => wanted.includes(i.type) && !i.failed));
-  return { host: url.host, origin: url.origin, items };
+  return { tabId: tab?.id, host: url.host, origin: url.origin, items };
 }
 
 /**
@@ -140,8 +141,17 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   return r;
 }
 
-/** A fill the user picked in the popup: any login, saved for this site or not, like the official client. */
-export const fillActiveTab = async (id: string) => fillTab(await activeTab(), id, true);
+/**
+ * A fill the user picked in the popup. A login saved for another site fills only with `anyway` (the user accepted
+ * the "Fill anyway" dialog for this very page), like the official client. Only into
+ * the page the popup showed: a side panel stays open across tab switches and navigations, and the user chose for
+ * that site. fillTab passes `origin` down, so a navigation after this check is refused in the frame too.
+ */
+export async function fillShownTab(id: string, tabId: number, origin: string, anyway = false): Promise<FillResult> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (!tab?.active || httpUrl(tab)?.origin !== origin) throw new UserError("invalid", "The page changed. Check the site and try again.");
+  return fillTab(tab, id, anyway);
+}
 
 /** Toolbar icon per state: full color when unlocked, gray when locked, faded gray when logged out. */
 const actionIcon = (state: "warren" | "locked" | "loggedout") => Object.fromEntries([16, 19, 32, 38].map((s) => [s, `icons/${state}-${s}.png`]));

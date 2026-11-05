@@ -93,7 +93,9 @@ const vault: VaultList = {
 };
 
 const matches: PageMatches = {
+  tabId: 1,
   host: "github.com",
+  origin: "https://github.com",
   // Logins match by URI; the card and the identity only ride along because the settings show them.
   items: [items[0]!, items[9]!, items[2]!, items[6]!],
 };

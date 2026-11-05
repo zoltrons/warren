@@ -428,6 +428,17 @@
   "passkeyVerifyHint": {
     "message": "This site asks to verify it is you: enter your master password, then choose"
   },
+  "fillAnyway": {
+    "message": "Fill anyway"
+  },
+  "fillNoMatch": {
+    "message": "This login is not saved for $P1$. Filling it there can hand your password to the wrong site.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "fillFailed": {
     "message": "Could not find a login form to fill"
   },

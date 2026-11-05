@@ -696,6 +696,18 @@ a.row { text-decoration: none; color: var(--text); }
 .nav button:focus-visible .pill { box-shadow: 0 0 0 2px var(--focus-ring); }
 .nav button:disabled { opacity: 0.45; cursor: default; }
 
+/* ---------- confirm dialog ("fill anyway?") ---------- */
+
+.confirm {
+  max-width: calc(100% - 32px); padding: 16px;
+  background: var(--surface); color: var(--text);
+  border: 0; border-radius: var(--r-md);
+  box-shadow: var(--shadow-med);
+}
+.confirm p { margin: 0 0 16px; font-size: 13px; }
+.confirm .actions { flex-direction: row; justify-content: flex-end; }
+.confirm::backdrop { background: rgb(0 0 0 / 0.4); }
+
 /* ---------- popover menu (8 px radius, 4 px item radius, brand tint hover) ---------- */
 
 .menu {

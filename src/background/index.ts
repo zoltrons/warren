@@ -52,7 +52,7 @@ import { generatorPrefs, readPrivate, setGeneratorPrefs, setWordlist, updatePriv
 import { handleFrame, handlePage, showBar } from "./inline.ts";
 import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, passkeyPrompt } from "./passkey.ts";
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
-import { AUTOFILL_COMMAND, autofillFromGesture, fillActiveTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
+import { AUTOFILL_COMMAND, autofillFromGesture, fillShownTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
 import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
 import { addAttachment, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
@@ -200,7 +200,7 @@ async function handle(req: Request): Promise<unknown> {
       await requireUnlocked();
       if (!(req.type === "pageMatches" && req.passive)) await touchAutoLock();
       if (req.type === "pageMatches") return pageMatches();
-      if (req.type === "fill") return fillActiveTab(req.id);
+      if (req.type === "fill") return fillShownTab(req.id, req.tabId, req.origin, req.anyway);
       return readPageLogin();
     case "clipboardCopied":
       await scheduleClipboardClear();
