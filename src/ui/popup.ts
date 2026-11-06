@@ -51,7 +51,12 @@ let unlocks = 0;
 function setState(next: State, asked = { locks: sessionNow(), unlocks }): void {
   const open = next.phase === "unlocked";
   if (open ? asked.locks !== sessionNow() : asked.unlocks !== unlocks) return;
-  if (state?.phase === "unlocked" && (!open || state.email !== next.email)) newSession();
+  if (state?.phase === "unlocked" && (!open || state.email !== next.email)) {
+    newSession();
+    // A master password or PIN typed in the session that ended (export, PIN setup) must not wait on the lock screen.
+    draft.password = draft.pin = "";
+    ui.reveal = ui.exporting = false;
+  }
   else if (state && state.phase !== "unlocked" && open) unlocks++;
   state = next;
 }
@@ -918,7 +923,11 @@ async function importVault(file: File | undefined) {
   if (!file) return;
   Object.assign(ui, { busy: true, error: undefined, info: undefined });
   render();
-  const r = await send<{ imported: number; skipped: number }>({ type: "importVault", text: await file.text() });
+  const asked = sessionNow();
+  const text = await file.text();
+  // A lock or another account while the file was read: the import was meant for the session before.
+  if (asked !== sessionNow()) return void ((ui.busy = false), render());
+  const r = await send<{ imported: number; skipped: number }>({ type: "importVault", text });
   ui.busy = false;
   if (r.ok) {
     ui.info = t("imported", String(r.data.imported)) + (r.data.skipped ? ` ${t("importSkipped", String(r.data.skipped))}` : "");
@@ -1081,6 +1090,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
     void reloadList();
   if (area !== "session" || !changes.session || !state) return;
   const next = changes.session.newValue as { unlocked?: unknown; loginRequests?: unknown[] } | undefined;
+  // A real lock while this screen already shows one (an unlock still in flight): the answers asked before it are stale.
+  if ((changes.session.oldValue as { unlocked?: unknown } | undefined)?.unlocked === true && next?.unlocked === false && state.phase !== "unlocked") newSession();
   // A login request pushed while the popup is open shows at once.
   const requestsChanged = (next?.loginRequests?.length ?? 0) !== (state.loginRequests ?? 0);
   // loggedOut -> locked (SSO finished in another tab) leaves `unlocked` false, so a logged-out view always refreshes.

@@ -218,9 +218,10 @@ async function copyFieldName(tab: chrome.tabs.Tab | undefined, frameId: number |
   if (typeof name === "string" && name) await copyToClipboard(name.slice(0, 300));
 }
 
-export async function readPageLogin(): Promise<PageLogin | null> {
-  const tab = await activeTab();
-  if (!httpUrl(tab) || tab?.id === undefined) return null;
+/** The login typed on the page the popup showed: another one (the tab navigated, the panel lags) gives nothing. */
+export async function readPageLogin(tabId: number, origin: string): Promise<PageLogin | null> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (!tab?.active || httpUrl(tab)?.origin !== origin || tab.id === undefined) throw new UserError("invalid", "The page changed. Check the site and try again.");
   const [res] = await pageCall<PageLogin | null>({ tabId: tab.id, frameIds: [0] }, "readLogin", undefined);
   const login = res?.result ?? null;
   return login && { ...login, url: tab.url! }; // the browser's URL, not the page's own location.href

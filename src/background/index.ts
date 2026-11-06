@@ -201,7 +201,7 @@ async function handle(req: Request): Promise<unknown> {
       if (!(req.type === "pageMatches" && req.passive)) await touchAutoLock();
       if (req.type === "pageMatches") return pageMatches();
       if (req.type === "fill") return fillShownTab(req.id, req.tabId, req.origin, req.anyway);
-      return readPageLogin();
+      return readPageLogin(req.tabId, req.origin);
     case "clipboardCopied":
       await scheduleClipboardClear();
       return null;

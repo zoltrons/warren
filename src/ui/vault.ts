@@ -934,10 +934,13 @@ const fillButton = (ctx: Ctx, i: VaultItem) =>
 
 /** Save what the user typed on the page: update the login with the same username, or create one. */
 async function saveFromPage(ctx: Ctx) {
-  const r = await send<PageLogin | null>({ type: "readPageLogin" });
+  const page = st.page;
+  if (page?.tabId === undefined || !page.origin) return toast(ctx, t("noLoginOnPage"));
+  // The page the site section shows, so the logins compared below are that site's.
+  const r = await send<PageLogin | null>({ type: "readPageLogin", tabId: page.tabId, origin: page.origin });
   if (!r.ok || !r.data) return toast(ctx, r.ok ? t("noLoginOnPage") : r.error);
   const login = r.data;
-  const same = st.page?.items.find((i) => i.type === 1 && !i.readOnly && i.sub === login.username);
+  const same = page.items.find((i) => i.type === 1 && !i.readOnly && i.sub === login.username);
   if (same) {
     const item = await send<Json>({ type: "getItem", id: same.id });
     if (item.ok) return startEdit(ctx, item.data, { data: { password: login.password } });

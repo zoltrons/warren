@@ -2,7 +2,7 @@
 // Talks to the service worker only; the link (with its key fragment) is built there.
 import type { SendItem } from "../shared/messages.ts";
 import { ci } from "../shared/validate.ts";
-import { type Child, h, send, t, withChevron } from "./dom.ts";
+import { type Child, h, send, sessionNow, t, withChevron } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { copy, type Ctx, iconButton, tile, toast } from "./vault.ts";
 
@@ -168,7 +168,10 @@ async function create(ctx: Ctx, d: Draft) {
   const body = d.id
     ? { id: d.id, ...common, ...(d.kind === "text" ? { text: { text: d.text, hidden: d.hidden } } : {}) }
     : { ...common, ...(d.kind === "text" ? { text: { text: d.text, hidden: d.hidden } } : {}), hideEmail: false };
+  const asked = sessionNow();
   const file = !d.id && d.kind === "file" && d.file ? { name: d.file.name, data: new Uint8Array(await d.file.arrayBuffer()).toBase64() } : undefined;
+  // A lock or another account while the file was read: this send was meant for the session before.
+  if (asked !== sessionNow()) return void ((sd.busy = false), ctx.rerender());
   const before = new Set((sd.list ?? []).map((s) => s.id));
   const r = await send<SendItem[]>({ type: "saveSend", send: body, ...(file ? { file } : {}) });
   if (!r.ok) return ((sd.busy = false), (sd.error = r.error), ctx.rerender());

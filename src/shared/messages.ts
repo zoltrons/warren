@@ -145,7 +145,8 @@ export type Request =
    * confirmed filling a login whose URIs do not match that page.
    */
   | { type: "fill"; id: string; tabId: number; origin: string; anyway?: boolean }
-  | { type: "readPageLogin" };
+  /** What the user typed on the page the popup showed (`tabId` / `origin`, like fill). */
+  | { type: "readPageLogin"; tabId: number; origin: string };
 
 const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { type: K }>> } = {
   getState: obj({ type: literal("getState") }),
@@ -260,7 +261,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
   takeFieldPick: obj({ type: literal("takeFieldPick") }),
   fill: obj({ type: literal("fill"), id: str, tabId: num, origin: str, anyway: opt(bool) }),
-  readPageLogin: obj({ type: literal("readPageLogin") }),
+  readPageLogin: obj({ type: literal("readPageLogin"), tabId: num, origin: str }),
 };
 
 export function parseRequest(v: unknown): Request {
