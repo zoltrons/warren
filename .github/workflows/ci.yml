@@ -90,6 +90,8 @@ jobs:
         run: |
           bash tools/build-wasm.sh --features register --out dist/wasm-register
           npm run test:biometric
+      # test:biometric left an --e2e build (test hooks, optional permissions granted) in dist/ext: upload a real one.
+      - run: npm run build
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: coverage, path: coverage/lcov.info }
       # The unpacked build of this exact commit, for sideloading when reviewing a PR.
