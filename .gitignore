@@ -3,3 +3,6 @@
 /node_modules/
 /coverage/
 /dev/preview/out/
+.env*
+*.pem
+.DS_Store
