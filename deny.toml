@@ -1,4 +1,4 @@
-# Only `cargo deny check advisories` runs in CI (see ci.yml).
+# CI runs `cargo deny check advisories bans sources` (ci.yml, release.yml); licenses are not checked.
 [advisories]
 ignore = [
   # Marvin timing attack on RSA private-key ops; no patched `rsa` exists. It comes in through
@@ -6,3 +6,9 @@ ignore = [
   # observer of its timing (the advisory itself calls local use fine). Drop when rsa is patched.
   { id = "RUSTSEC-2023-0071", reason = "no fix upstream; local-only RSA use, not remotely observable" },
 ]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# bitwarden-crypto, pinned by rev (upstream.lock).
+allow-git = ["https://github.com/bitwarden/sdk-internal"]

@@ -25,9 +25,11 @@ want=$(sed -n 's/^wasm-bindgen = "\(.*\)".*/\1/p' upstream.lock)
 have=$("$WASM_BINDGEN" --version | awk '{print $2}')
 [[ "$want" == "$have" ]] || { echo "wasm-bindgen-cli $have != $want (upstream.lock)" >&2; exit 1; }
 
-# Keep the cfg from .cargo/config.toml when adding flags.
-RUSTFLAGS="--cfg getrandom_backend=\"wasm_js\" $RUSTFLAGS_EXTRA" \
-  cargo build --release --target wasm32-unknown-unknown -p warren-core-wasm $FEATURES
+# Keep the cfg from .cargo/config.toml when adding flags. The remap keeps local paths (the user name) out of
+# panic messages in the shipped wasm.
+BASE_RUSTFLAGS="--cfg getrandom_backend=\"wasm_js\" --remap-path-prefix=$HOME=~"
+RUSTFLAGS="$BASE_RUSTFLAGS $RUSTFLAGS_EXTRA" \
+  cargo build --locked --release --target wasm32-unknown-unknown -p warren-core-wasm $FEATURES
 
 mkdir -p "$OUT"
 "$WASM_BINDGEN" target/wasm32-unknown-unknown/release/warren_core_wasm.wasm \
@@ -37,7 +39,7 @@ mkdir -p "$OUT"
   "$OUT/core_wasm_bg.wasm" -o "$OUT/core_wasm_bg.wasm"
 
 # The autofill engine: separate from the module that holds the keys. No features and no SIMD to gain.
-cargo build --release --target wasm32-unknown-unknown -p autofill-core
+RUSTFLAGS="$BASE_RUSTFLAGS" cargo build --locked --release --target wasm32-unknown-unknown -p autofill-core
 "$WASM_BINDGEN" target/wasm32-unknown-unknown/release/autofill_core.wasm \
   --target web --out-dir "$OUT" --out-name autofill_core
 "$WASM_OPT" -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \

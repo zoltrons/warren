@@ -73,7 +73,7 @@ jobs:
       # Advisories warn in ci but block a release: nothing with a known high-severity hole ships.
       - run: npm audit --audit-level=high
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-        with: { command: check advisories }
+        with: { command: check advisories bans sources }
       - name: tag matches the manifest version
         run: test "v$(node -p "require('./dist/ext/manifest.json').version")" = "$GITHUB_REF_NAME"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
