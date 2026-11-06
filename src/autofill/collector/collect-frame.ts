@@ -17,16 +17,27 @@ const flatParent = (el: Element): Element | null => el.assignedSlot ?? el.parent
 
 const CLIPS = ["hidden", "clip"];
 
+/** Holds fixed-position descendants itself (a transform, a filter, containment): its overflow clips them. */
+const holdsFixed = (s: CSSStyleDeclaration) =>
+  [s.transform, s.translate, s.rotate, s.scale, s.perspective, s.filter, s.backdropFilter].some((v) => v && v !== "none") ||
+  /paint|layout|strict|content/.test(s.contain) ||
+  /transform|perspective|filter/.test(s.willChange) ||
+  (!!s.containerType && s.containerType !== "normal");
+
 /**
  * What of `r` is left after the ancestors that hide their overflow: a normal-size input in a zero-size
  * `overflow: hidden` box is a decoy too. Scrolling boxes are not clips (the user can scroll the field in).
- * shortcut: assumes every ancestor below a fixed one clips the field; an absolutely positioned field that escapes a
- * clipping ancestor without being its containing block is judged by that ancestor too. Upgrade if a real form trips it.
+ * Above a fixed box only the ancestor that holds it (holdsFixed) clips again.
+ * shortcut: an absolutely positioned field that escapes a clipping ancestor without being its containing block is
+ * judged by that ancestor too. Upgrade if a real form trips it.
  */
 function visibleRect(el: Element, r: DOMRect): { width: number; height: number } {
   let { left, top, right, bottom } = r;
+  let fixed = false;
   for (let p = flatParent(el); p && p !== document.body && p !== document.documentElement; p = flatParent(p)) {
     const s = getComputedStyle(p);
+    if (fixed && !holdsFixed(s)) continue;
+    fixed = false;
     const x = CLIPS.includes(s.overflowX);
     const y = CLIPS.includes(s.overflowY);
     if (x || y) {
@@ -34,7 +45,7 @@ function visibleRect(el: Element, r: DOMRect): { width: number; height: number }
       if (x) [left, right] = [Math.max(left, c.left), Math.min(right, c.right)];
       if (y) [top, bottom] = [Math.max(top, c.top), Math.min(bottom, c.bottom)];
     }
-    if (s.position === "fixed") break; // nothing further up clips it
+    if (s.position === "fixed") fixed = true;
   }
   return { width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
 }

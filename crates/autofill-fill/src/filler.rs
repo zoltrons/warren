@@ -81,6 +81,7 @@ fn plan_login(
     password_only: bool,
     has_totp: bool,
     autosubmit: bool,
+    new_passwords: &mut Vec<u32>,
 ) -> FillPlan {
     let state = resolve(
         page,
@@ -100,6 +101,14 @@ fn plan_login(
             submit: None,
         };
     }
+    // What the classifier calls a new password (by autocomplete, name or label): a page-load custom field skips it.
+    new_passwords.extend(
+        state
+            .fields
+            .iter()
+            .filter(|f| f.kind == autofill_clue::LoginKind::New)
+            .map(|f| f.details.field_id),
+    );
     let choice = state.choice;
     let password = choice.password.map(|i| &state.fields[i]);
     // Page load never fills a username-only step, a new/confirm password, or a sign-up form.
@@ -183,6 +192,7 @@ fn same_login(field: &FieldDetails, login: &FieldDetails) -> bool {
 }
 
 pub fn plan_fill(page: &CollectedPageDetails, intent: &FillIntent) -> FillPlan {
+    let mut new_passwords = vec![];
     let (mut plan, names, only_with_login, page_load) = match intent {
         FillIntent::Login {
             only_empty,
@@ -191,7 +201,14 @@ pub fn plan_fill(page: &CollectedPageDetails, intent: &FillIntent) -> FillPlan {
             autosubmit,
             custom_fields,
         } => (
-            plan_login(page, *only_empty, *password_only, *has_totp, *autosubmit),
+            plan_login(
+                page,
+                *only_empty,
+                *password_only,
+                *has_totp,
+                *autosubmit,
+                &mut new_passwords,
+            ),
             custom_fields,
             *only_empty || *password_only,
             *only_empty,
@@ -216,10 +233,12 @@ pub fn plan_fill(page: &CollectedPageDetails, intent: &FillIntent) -> FillPlan {
     let custom: Vec<_> = match_custom_fields(page, names)
         .into_iter()
         .filter(|(id, _)| {
+            // Nor a new-password box of the login's own form (a change-password form): a custom field linked to
+            // the saved password would put it there unasked.
             login.is_none_or(|p| {
                 page.fields
                     .iter()
-                    .any(|f| f.field_id == *id && same_login(f, p))
+                    .any(|f| f.field_id == *id && same_login(f, p) && !new_passwords.contains(id))
             })
         })
         .collect();
@@ -528,6 +547,28 @@ mod tests {
             ids(with_custom(&p, false, false, &["password"])).contains(&4),
             "a fill the user asked for goes wherever the name matches"
         );
+    }
+
+    #[test]
+    fn page_load_custom_fields_skip_a_new_password_of_the_same_form() {
+        let mut current = input(2, "password", "current");
+        current.autocomplete_type = Some("current-password".into());
+        let mut new = input(3, "password", "secret");
+        new.autocomplete_type = Some("new-password".into());
+        let p = page(vec![input(1, "text", "username"), current, new]);
+        let ids = |plan: FillPlan| plan.ops.iter().map(|o| o.field_id).collect::<Vec<_>>();
+        let page_load = ids(with_custom(&p, true, false, &["secret"]));
+        assert!(!page_load.contains(&3), "{page_load:?}");
+        // The new box named only (no autocomplete on it).
+        let mut current = input(2, "password", "current");
+        current.autocomplete_type = Some("current-password".into());
+        let named = page(vec![
+            input(1, "text", "username"),
+            current,
+            input(3, "password", "newPassword"),
+        ]);
+        let page_load = ids(with_custom(&named, true, false, &["newPassword"]));
+        assert!(!page_load.contains(&3), "{page_load:?}");
     }
 
     #[test]

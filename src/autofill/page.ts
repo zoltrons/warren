@@ -22,14 +22,18 @@ function readLogin(form?: HTMLFormElement | null): PageLogin | null {
   // Read-only fields count: sites show the account name in one and only let the password be typed.
   // `form`: the one submitted; a filled but unsent form next to it (a password change) is not read.
   const inputs = deepFields().filter((el): el is HTMLInputElement => el instanceof HTMLInputElement && isElementVisible(el) && (!form || el.form === form));
-  const filled = inputs.filter((i) => i.type === "password" && i.value);
+  const hint = (i: HTMLInputElement) => [i.name, i.id, i.placeholder, extractAriaLabel(i), extractExplicitLabels(i)].join(" ").toLowerCase();
+  const oneTimeCode = (i: HTMLInputElement) => i.autocomplete.toLowerCase().split(/\s+/).includes("one-time-code");
+  // A masked one-time code is no password: saving it would overwrite the real one. Its own name or id only, not a
+  // label: "Password (not your 2FA code)" is a password.
+  const otpBox = (i: HTMLInputElement) => oneTimeCode(i) || OTP_HINT.test(`${i.name} ${i.id}`.toLowerCase());
+  const filled = inputs.filter((i) => i.type === "password" && i.value && !otpBox(i));
   const editable = filled.filter((i) => !i.readOnly);
   const passwords = editable.length ? editable : filled;
   // On change-password forms (current / new / repeat) take the new password.
   const pass = passwords.find((i) => i.autocomplete.toLowerCase().split(/\s+/).includes("new-password")) ?? passwords.at(-1);
   if (!pass) return null;
-  const hint = (i: HTMLInputElement) => [i.name, i.id, i.placeholder, extractAriaLabel(i), extractExplicitLabels(i)].join(" ").toLowerCase();
-  const before = inputs.slice(0, inputs.indexOf(pass)).filter((i) => TEXTISH.includes(i.type) && i.value && !OTP_HINT.test(hint(i)));
+  const before = inputs.slice(0, inputs.indexOf(pass)).filter((i) => TEXTISH.includes(i.type) && i.value && !oneTimeCode(i) && !OTP_HINT.test(hint(i)));
   // A form is the boundary again; outside one, the nearest filled field before the password is it.
   const user = pass.form ? before.filter((i) => i.form === pass.form).at(-1) : before.at(-1);
   return { url: location.href, username: user?.value ?? "", password: pass.value };
