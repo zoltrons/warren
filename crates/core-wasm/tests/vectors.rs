@@ -60,7 +60,19 @@ const ENCRYPTED_PATHS: &[&str] = &[
     "attachments",
 ];
 
-/// Every string we produced must equal the upstream plaintext at the same path.
+/// No value: null, or an empty string, list or object (the two sides differ in which they write).
+fn empty(v: &Value) -> bool {
+    match v {
+        Value::Null => true,
+        Value::String(s) => s.is_empty(),
+        Value::Array(a) => a.is_empty(),
+        Value::Object(o) => o.is_empty(),
+        _ => false,
+    }
+}
+
+/// Every string we produced must equal the upstream plaintext at the same path, and every value upstream has must
+/// be there: a field we drop or leave empty is a failure too.
 fn compare(ours: &Value, expected: &Value, path: &str, errs: &mut Vec<String>) {
     match (ours, expected) {
         (Value::String(a), Value::String(b)) => {
@@ -80,6 +92,11 @@ fn compare(ours: &Value, expected: &Value, path: &str, errs: &mut Vec<String>) {
                     None => errs.push(format!("{path}.{k}: missing upstream")),
                 }
             }
+            for (k, e) in b {
+                if !empty(e) && !k.eq_ignore_ascii_case("key") && ci(a, k).is_none() {
+                    errs.push(format!("{path}.{k}: missing, want {e}"));
+                }
+            }
         }
         (Value::Array(a), Value::Array(b)) => {
             if a.len() != b.len() {
@@ -89,7 +106,9 @@ fn compare(ours: &Value, expected: &Value, path: &str, errs: &mut Vec<String>) {
                 compare(x, y, &format!("{path}[{i}]"), errs);
             }
         }
-        (Value::Null, _) | (_, Value::Null) => {}
+        (a, b) if empty(a) && empty(b) => {}
+        (Value::Null, b) => errs.push(format!("{path}: got null, want {b}")),
+        (a, Value::Null) => errs.push(format!("{path}: got {a}, want null")),
         (a, b) if a == b => {}
         (a, b) => errs.push(format!("{path}: got {a}, want {b}")),
     }
@@ -155,11 +174,13 @@ fn user_vectors_unlock_and_decrypt() {
                     .unwrap();
             let mut errs = Vec::new();
             for p in ENCRYPTED_PATHS {
-                if let (Some(a), Some(b)) = (
+                match (
                     ci(out.as_object().unwrap(), p),
                     ci(c["decrypted"].as_object().unwrap(), p),
                 ) {
-                    compare(a, b, p, &mut errs);
+                    (Some(a), Some(b)) => compare(a, b, p, &mut errs),
+                    (None, Some(b)) if !empty(b) => errs.push(format!("{p}: missing, want {b}")),
+                    _ => {}
                 }
             }
             assert!(errs.is_empty(), "{name}/{id}:\n{}", errs.join("\n"));

@@ -16,7 +16,10 @@
 
 use std::str::FromStr;
 
-use base64::{Engine, engine::general_purpose::STANDARD};
+use base64::{
+    Engine,
+    engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
+};
 use bitwarden_crypto::{
     EncString, KeyDecryptable, KeyEncryptable, OctetStreamBytes, SymmetricCryptoKey,
     SymmetricKeyAlgorithm,
@@ -138,12 +141,33 @@ fn decrypt_str(key: &SymmetricCryptoKey, s: &str) -> Result<Option<String>> {
     Ok(Some(plain))
 }
 
+/// Refuses an object holding one name twice in different case (`login` and `Login`), at any depth: this code and
+/// the TypeScript `ci` helper may each pick another one, so what was checked here would not be what is used.
+fn unique_keys(v: &Value) -> Result<()> {
+    match v {
+        Value::Object(m) => {
+            let mut seen = std::collections::HashSet::new();
+            m.iter().try_for_each(|(k, v)| {
+                // Unicode lowering, as JavaScript's toLowerCase: the Kelvin sign is a `k` there.
+                if !seen.insert(k.to_lowercase()) {
+                    return Err(format!("field {k} appears twice"));
+                }
+                unique_keys(v)
+            })
+        }
+        Value::Array(a) => a.iter().try_for_each(unique_keys),
+        _ => Ok(()),
+    }
+}
+
 pub fn decrypt(s: &Session, cipher: &mut Value) -> Result<()> {
+    let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
+    // `data` is Vaultwarden's legacy duplicate of the typed fields; drop it from the plaintext view.
+    obj.retain(|k, _| !k.eq_ignore_ascii_case("data"));
+    unique_keys(cipher)?;
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
     let (base, item) = cipher_keys(s, obj)?;
     let key = item.as_ref().unwrap_or(base);
-    // `data` is Vaultwarden's legacy duplicate of the typed fields; drop it from the plaintext view.
-    obj.retain(|k, _| !k.eq_ignore_ascii_case("data"));
     apply(obj, &mut |v| decrypt_str(key, v))?;
     // As upstream: with a cipher key, a URI must carry its own checksum, so a server cannot swap in
     // another ciphertext from the same item (e.g. the username) to point the login at a new site.
@@ -152,8 +176,9 @@ pub fn decrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     {
         uris.retain(|u| {
             u.as_object().is_some_and(|u| {
+                // Upstream reads the checksum with or without its `=` padding.
                 matches!((str_ci(u, "uri"), str_ci(u, "uriChecksum")),
-                    (Some(uri), Some(sum)) if STANDARD.encode(Sha256::digest(uri.as_bytes())) == sum)
+                    (Some(uri), Some(sum)) if STANDARD_NO_PAD.decode(sum.trim_end_matches('=')).is_ok_and(|d| d == Sha256::digest(uri.as_bytes()).as_slice()))
             })
         });
     }
@@ -357,6 +382,33 @@ mod tests {
         let uris = cipher["login"]["uris"].as_array().unwrap();
         assert_eq!(uris.len(), 1);
         assert_eq!(uris[0]["uri"], "https://kept.example");
+    }
+
+    #[test]
+    fn unpadded_checksum_is_kept_and_twice_cased_fields_are_refused() {
+        let s = session(HashMap::new());
+        let item = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let wrapped = (&OctetStreamBytes::from(item.to_encoded().to_vec()))
+            .encrypt_with_key(&s.user)
+            .unwrap()
+            .to_string();
+        let mut cipher = json!({ "type": 1, "name": "n", "key": wrapped, "login": {
+            "uris": [{ "uri": "https://example.com" }] } });
+        encrypt(&s, &mut cipher).unwrap();
+        let unpadded = "EAaArVRs5qV39C9S3zO0z9ynVoWeZkuNfeMpsVDQnOk"
+            .to_string()
+            .encrypt_with_key(&item)
+            .unwrap()
+            .to_string();
+        cipher["login"]["uris"][0]["uriChecksum"] = unpadded.into();
+        let mut twice = cipher.clone();
+        decrypt(&s, &mut cipher).unwrap();
+        assert_eq!(cipher["login"]["uris"][0]["uri"], "https://example.com");
+
+        twice["Login"] = twice["login"].clone();
+        assert!(decrypt(&s, &mut twice).is_err());
+        let mut nested = json!({ "type": 1, "name": "n", "login": { "fido2Credentials": [{ "keyValue": "", "KeyValue": "" }] } });
+        assert!(decrypt(&s, &mut nested).is_err());
     }
 
     #[test]
