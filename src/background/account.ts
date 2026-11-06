@@ -167,12 +167,22 @@ function mapLoginError(e: unknown): never {
   throw e;
 }
 
+/**
+ * A login begins with a lock and owns that lock's epoch, not a later one: a lock that comes while it runs ends it,
+ * also one that came while it read the server (`before`: lockEpoch() from before that read).
+ */
+async function loginLock(before: number): Promise<number> {
+  const epoch = await lockNow();
+  if (epoch !== before + 1) throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
+  return epoch;
+}
+
 export async function login(rawEmail: string, password: string): Promise<void> {
+  const before = lockEpoch();
   const base = await requireServer();
   const email = rawEmail.trim().toLowerCase();
   if (!email || !password) throw new UserError("invalid", "Email and master password are required");
-  // This lock's epoch, not the latest: a lock that comes while this one runs ends the login.
-  const epoch = await lockNow();
+  const epoch = await loginLock(before);
 
   const kdf = await guardKdf(base, email, await prelogin(base, email));
   const { handle, authHash } = await prepareKey(email, password, kdf);
@@ -343,10 +353,11 @@ async function afterUnlock(account: Account, epoch: number): Promise<void> {
 const DEVICE_LOGIN_TTL_MS = 5 * 60_000;
 
 export async function startDeviceLogin(rawEmail: string): Promise<void> {
+  const before = lockEpoch();
   const base = await requireServer();
   const email = rawEmail.trim().toLowerCase();
   if (!email) throw new UserError("invalid", "Enter your email address");
-  const epoch = await lockNow();
+  const epoch = await loginLock(before);
   const { publicKey, fingerprint } = await coreCall<{ publicKey: string; fingerprint: string }>({ op: "authRequestCreate", email });
   const accessCode = b64u(crypto.getRandomValues(new Uint8Array(24)));
   const r = await createAuthRequest(base, { email, publicKey, deviceId: await getDeviceId(), accessCode }).catch((e: unknown) => {
@@ -484,6 +495,9 @@ export async function verifyMasterPassword(password: string): Promise<void> {
   const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account) throw new UserError("sessionExpired", "Please log in again");
+  // An account stored by a build before the KDF floor may still have one too weak to send a hash of (see guardKdf).
+  if (tooWeak(account.kdf))
+    throw new UserError("badServer", `This account's key derivation (PBKDF2, ${account.kdf.iterations} iterations) is too weak to confirm the master password with the server. Raise it in the web vault (Settings → Security → Keys) and log in again.`);
   const { handle, authHash } = await coreCall<Prepared>({ op: "prepareKey", email: account.email, password, kdf: account.kdf });
   await coreCall({ op: "freeKey", handle }).catch(() => undefined);
   // The hash, the account it was made for and the token are one account's: a switch meanwhile sends nothing.

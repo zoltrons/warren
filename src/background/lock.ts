@@ -56,11 +56,16 @@ export async function lockNow(): Promise<number> {
   // First and synchronous: a re-prompt grant must survive no lock, even one that fails halfway.
   const mine = ++epoch;
   revokeReprompts();
-  await updateSession({ unlocked: false, unlockedUntil: undefined, pending: undefined, picker: undefined });
-  await clearPendingSaves();
-  await chrome.alarms.clear(AUTOLOCK_ALARM);
-  await coreShutdown();
+  // Every step runs even when one before it fails: the keys must die whatever happens to the bookkeeping.
+  const steps = await Promise.allSettled([
+    updateSession({ unlocked: false, unlockedUntil: undefined, pending: undefined, picker: undefined }),
+    clearPendingSaves(),
+    chrome.alarms.clear(AUTOLOCK_ALARM),
+    coreShutdown(),
+  ]);
   await closeInPageUi();
+  const failed = steps.find((s) => s.status === "rejected");
+  if (failed) throw failed.reason;
   return mine;
 }
 

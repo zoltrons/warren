@@ -17,6 +17,7 @@ import {
   type VaultItem,
 } from "../shared/messages.ts";
 import { UserError, verifyMasterPassword } from "./account.ts";
+import { ApiError } from "../transport/http.ts";
 import { coreCall } from "./core.ts";
 import { assertEpoch, lockEpoch } from "./lock.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
@@ -295,6 +296,17 @@ export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   return { kind: "create", ...base, rpName: p.call.options.rpName, userName: p.call.options.user.name, candidates: await joinable(p) };
 }
 
+/**
+ * After a replacing save that got no answer: once synced, an item that holds the new passkey gets the one it replaced.
+ * shortcut: an undo that fails as well (still offline) is lost; keep it sealed on disk if that is ever seen.
+ */
+async function undoIfTaken(p: Pending, itemId: string, credentialId: string, undo: Record<string, unknown>): Promise<void> {
+  await sync(true);
+  if (!(await candidates(p, [credentialId])).some((c) => c.itemId === itemId)) return;
+  const now = (await getLocal("vault"))?.ciphers.find((c) => ci(c, "id") === itemId);
+  await putCipher({ ...undo, lastKnownRevisionDate: ci(now, "revisionDate") ?? null });
+}
+
 export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false, password?: string): Promise<null> {
   const epoch = lockEpoch();
   const p = get(id);
@@ -338,6 +350,11 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       const saved = await putCipher(r.cipher, () => {
         if (pending.get(id) !== p) throw new UserError("sessionExpired", "The site cancelled the passkey request");
         assertEpoch(epoch);
+      }).catch(async (e: unknown) => {
+        // No answer (or a gateway's): the server may have taken the replacement all the same, and the site gets none.
+        if (r.undo && itemId && !(e instanceof UserError) && !(e instanceof ApiError && e.status < 500))
+          await undoIfTaken(p, itemId, String(r.response.id), r.undo).catch((u: unknown) => console.warn("passkey undo", u));
+        throw e;
       });
       if (pending.get(id) === p) return (p.done({ credential: r.response }), null);
       // Cancelled while the save was out: the site will never use the new passkey, so the one it replaced comes

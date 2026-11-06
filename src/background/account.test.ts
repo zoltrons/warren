@@ -169,3 +169,34 @@ test("an SSO callback that comes after a logout logs nobody in", async () => {
   assert.equal(local.account, undefined);
   assert.match(String((session.session as { ssoError?: string }).ssoError), /expired/);
 });
+
+test("a lock that came while a login read the server ends that login", async () => {
+  await logout();
+  local.server = { url: "https://vault.test" };
+  const running = login("a@b.test", "pw");
+  void lockNow(); // lands while the login still reads the server
+  await assert.rejects(running, /locked meanwhile/);
+  assert.equal(waiting.get("/identity/accounts/prelogin")?.length ?? 0, 0, "nothing was sent");
+});
+
+test("an account stored with a too weak KDF sends no hash to confirm the master password", async () => {
+  accountB();
+  (local.account as { kdf: { iterations: number } }).kdf.iterations = 5000; // stored by a build before the floor
+  coreOps.length = 0;
+  await assert.rejects(confirmReprompt("cipher-1", "pw"), /too weak/);
+  assert.ok(!coreOps.includes("prepareKey"));
+});
+
+test("a lock whose bookkeeping fails still shuts the worker down", async () => {
+  offscreen = true;
+  const set = chrome.storage.session.set;
+  chrome.storage.session.set = async () => {
+    throw new Error("quota");
+  };
+  try {
+    await assert.rejects(lockNow(), /quota/);
+  } finally {
+    chrome.storage.session.set = set;
+  }
+  assert.equal(offscreen, false, "the worker and its keys are gone");
+});

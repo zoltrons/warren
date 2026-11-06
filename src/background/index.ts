@@ -508,7 +508,8 @@ chrome.tabs.onRemoved.addListener((tabId) => void clearTabState(tabId));
 // A login is usually submitted right before a navigation: show the save bar once the next page is there.
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== "complete") return;
-  void showBar(tabId);
+  // In line with the bar's own Save and Close: a show that read the prompt before them must not bring it back.
+  queue = queue.then(() => showBar(tabId)).catch((e: unknown) => console.error(e));
   if (tab.active) void updateTabUi();
 });
 

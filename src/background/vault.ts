@@ -80,10 +80,15 @@ const refreshAfter = (p: Promise<unknown>): Promise<void> => p.then(
   (e: unknown) => console.warn("refresh after a saved change", e),
 );
 
+/** Syncs in the order they began (a cache counter, see `changes`), and the last one stored. */
+let syncsStarted = 0;
+let syncStored = 0;
+
 /** Full sync when the server's revision date moved (or `force`). Returns true if data changed. */
 export async function sync(force: boolean): Promise<boolean> {
   const epoch = lockEpoch();
   const seen = changes;
+  const ticket = ++syncsStarted;
   const { base, token } = await auth();
   const cache = await getLocal("vault");
   const revision = await revisionDate(base, token);
@@ -100,6 +105,9 @@ export async function sync(force: boolean): Promise<boolean> {
   await commit(epoch, async () => {
     // A change of ours was answered while this was out, and this answer may predate it: ask again, never undo it.
     if (changes !== seen) return void (again = true);
+    // A sync that began after this one was stored already: its answer is the newer one.
+    if (ticket < syncStored) return;
+    syncStored = ticket;
     await setLocal("vault", next);
     await load(next, epoch);
   });
@@ -147,6 +155,8 @@ export async function putCipher(enc: Record<string, unknown>, guard?: () => void
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
   // The item, the account it is for and the token are one account's (auth checks `owner` once all are read).
   const { base, token } = await auth(owner);
+  // Right before the request, with no await in between: a change a lock overtook is never sent.
+  assertEpoch(epoch);
   guard?.();
   const saved = await saveCipher(base, token, { ...enc, encryptedFor: account.userId });
   changes++;
@@ -165,8 +175,9 @@ export async function saveEncrypted(enc: Record<string, unknown>, guard?: () => 
 }
 
 /** Trash, restore, permanent delete and folder changes re-sync instead of patching the cache by hand. */
-async function thenSync(change: (base: string, token: string) => Promise<void>): Promise<VaultList> {
+async function thenSync(change: (base: string, token: string) => Promise<void>, epoch = lockEpoch()): Promise<VaultList> {
   const { base, token } = await auth();
+  assertEpoch(epoch);
   await change(base, token);
   changes++;
   await refreshAfter(sync(true));
@@ -179,9 +190,10 @@ export const purge = (id: string) => thenSync((b, t) => purgeCipher(b, t, id));
 export const deleteFolder = (id: string) => thenSync((b, t) => apiDeleteFolder(b, t, id));
 
 export async function saveFolder(name: string, id?: string): Promise<VaultList> {
+  const epoch = lockEpoch();
   // Folder names are encrypted with the user key, like a personal cipher name.
   const enc = await coreCall<{ name: string }>({ op: "prepareSave", item: { type: 2, name } });
-  return thenSync((b, t) => apiSaveFolder(b, t, enc.name, id));
+  return thenSync((b, t) => apiSaveFolder(b, t, enc.name, id), epoch);
 }
 
 /** Arms the clipboard clear according to the user's "Clear clipboard" setting (never = cancel). */
@@ -226,6 +238,7 @@ export async function exportVault(password: string): Promise<string> {
 }
 
 export async function importVault(text: string): Promise<{ imported: number; skipped: number }> {
+  const epoch = lockEpoch();
   const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
@@ -236,6 +249,7 @@ export async function importVault(text: string): Promise<{ imported: number; ski
   if (!r.ciphers.length) throw new UserError("invalid", "Nothing to import");
   const ciphers = r.ciphers.map((c) => ({ ...c, encryptedFor: account.userId }));
   const { base, token } = await auth(owner);
+  assertEpoch(epoch);
   await importCiphers(base, token, { ciphers, folders: r.folders, folderRelationships: r.folderRelationships });
   changes++;
   // Imported is imported: a failed refresh must not invite a second import of the same items.
@@ -255,8 +269,9 @@ export async function downloadAttachment(cipherId: string, attachmentId: string)
 
 export async function addAttachment(cipherId: string, file: { name: string; data: string }): Promise<VaultList> {
   if ((file.data.length * 3) / 4 > MAX_SEND_FILE_BYTES) throw new UserError("invalid", "The file is too large (max 25 MB)");
+  const epoch = lockEpoch();
   const enc = await coreCall<{ key: string; fileName: string; data: string }>({ op: "encryptAttachment", cipherId, fileName: file.name, data: file.data });
-  return thenSync((b, t) => apiAddAttachment(b, t, cipherId, { key: enc.key, fileName: enc.fileName }, Uint8Array.fromBase64(enc.data)));
+  return thenSync((b, t) => apiAddAttachment(b, t, cipherId, { key: enc.key, fileName: enc.fileName }, Uint8Array.fromBase64(enc.data)), epoch);
 }
 
 // ---------- Generator history ----------
@@ -307,7 +322,9 @@ export async function saveSend(send: Json, file?: { name: string; data: string }
   const { base, token } = await auth();
   let saved: Json;
   if (typeof send.id === "string") {
-    saved = await updateSend(base, token, send.id, await coreCall<Json>({ op: "prepareSend", send }));
+    const enc = await coreCall<Json>({ op: "prepareSend", send });
+    assertEpoch(epoch);
+    saved = await updateSend(base, token, send.id, enc);
     await cacheSends(epoch, (s) => s.map((x) => ((x as Json).id === saved.id ? saved : x)), { op: "upsertSend", send: saved });
     return sendList();
   }
@@ -315,6 +332,7 @@ export async function saveSend(send: Json, file?: { name: string; data: string }
     if ((file.data.length * 3) / 4 > MAX_SEND_FILE_BYTES) throw new UserError("invalid", "The file is too large (max 25 MB)");
     const enc = await coreCall<Json>({ op: "prepareSend", send: { ...send, type: 1, text: undefined, file: { fileName: file.name } } });
     const body = Uint8Array.fromBase64(await coreCall<string>({ op: "encryptSendFile", key: String(enc.key), data: file.data }));
+    assertEpoch(epoch);
     saved = await createFileSend(base, token, { ...enc, fileLength: body.length });
     const f = saved.file as Json | undefined;
     // Without its file the send is useless to a recipient: remove it again if the upload fails.
@@ -323,7 +341,9 @@ export async function saveSend(send: Json, file?: { name: string; data: string }
       throw e;
     });
   } else {
-    saved = await createSend(base, token, await coreCall<Json>({ op: "prepareSend", send: { ...send, type: 0 } }));
+    const enc = await coreCall<Json>({ op: "prepareSend", send: { ...send, type: 0 } });
+    assertEpoch(epoch);
+    saved = await createSend(base, token, enc);
   }
   await cacheSends(epoch, (s) => [...s, saved], { op: "upsertSend", send: saved });
   return sendList();
@@ -333,6 +353,7 @@ export async function saveSend(send: Json, file?: { name: string; data: string }
 export async function removeSendPassword(id: string): Promise<SendItem[]> {
   const epoch = lockEpoch();
   const { base, token } = await auth();
+  assertEpoch(epoch);
   const saved = await apiRemoveSendPassword(base, token, id);
   await cacheSends(epoch, (s) => s.map((x) => ((x as Json).id === saved.id ? saved : x)), { op: "upsertSend", send: saved });
   return sendList();
@@ -341,6 +362,7 @@ export async function removeSendPassword(id: string): Promise<SendItem[]> {
 export async function deleteSend(id: string): Promise<SendItem[]> {
   const epoch = lockEpoch();
   const { base, token } = await auth();
+  assertEpoch(epoch);
   await apiDeleteSend(base, token, id);
   await cacheSends(epoch, (s) => s.filter((x) => (x as { id?: unknown }).id !== id), { op: "removeSend", id });
   return sendList();
