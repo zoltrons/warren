@@ -168,11 +168,18 @@ export function prepareSave(input: Json): Json {
       login.passwordRevisionDate = now;
     }
   }
-  const enc = JSON.parse(core.encryptCipher(JSON.stringify(item))) as Json;
+  // A new item (also a clone or a passkey's new login) gets its own key, which binds its URIs to it (cipher.rs).
+  const enc = JSON.parse(core.encryptCipher(JSON.stringify(item), !existing)) as Json;
   // The revision the draft was read at, not the worker's: a sync since then must make the server refuse a stale draft.
   if (existing) enc.lastKnownRevisionDate = ci(item, "revisionDate") ?? ci(existing, "revisionDate");
   return enc;
 }
+
+/**
+ * Any text sealed with the user key: folder names, and every `encryptText` caller (seal.ts: PIN, private records,
+ * generator history). Never give it an item key: nothing would store that key, and the text could not be read again.
+ */
+export const encryptName = (name: string): string => s(o(JSON.parse(core.encryptCipher(JSON.stringify({ type: 2, name }), false)))?.name);
 
 /**
  * Save bar: the item with a new password, encrypted for the server, as of the revision the prompt was made for. A
@@ -343,7 +350,7 @@ export function prepareImport(text: string): ImportRequest {
   if (!data || data.encrypted === true || !Array.isArray(data.items)) throw new Error("This is not an unencrypted Bitwarden JSON export");
   const srcFolders = (Array.isArray(data.folders) ? data.folders : []).map(o).filter((f): f is Json => typeof f?.name === "string");
   const folderIndex = new Map(srcFolders.map((f, i) => [s(f.id), i]));
-  const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: s(prepareSave({ type: 2, name: f.name }).name) })), folderRelationships: [], skipped: 0 };
+  const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: encryptName(s(f.name)) })), folderRelationships: [], skipped: 0 };
   for (const raw of data.items) {
     const item = o(raw);
     const type = Number(item?.type);
@@ -356,7 +363,7 @@ export function prepareImport(text: string): ImportRequest {
     const { id: _id, folderId, organizationId: _org, collectionIds: _coll, revisionDate: _rev, creationDate: _cr, deletedDate: _del, attachments: _att, key: _key, ...rest } = item;
     const fi = folderIndex.get(s(folderId));
     if (fi !== undefined) out.folderRelationships.push({ key: out.ciphers.length, value: fi });
-    out.ciphers.push(JSON.parse(core.encryptCipher(JSON.stringify({ ...rest, type }))) as Json);
+    out.ciphers.push(JSON.parse(core.encryptCipher(JSON.stringify({ ...rest, type }), true)) as Json);
   }
   return out;
 }

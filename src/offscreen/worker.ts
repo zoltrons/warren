@@ -80,7 +80,7 @@ function run(req: CoreRequest): unknown {
     case "generate":
       return vault.generate(req.options);
     case "encryptText":
-      return req.values.map((name) => String(vault.prepareSave({ type: 2, name }).name));
+      return req.values.map(vault.encryptName);
     case "decryptText":
       return vault.decryptText(req.values);
     case "matchUri":

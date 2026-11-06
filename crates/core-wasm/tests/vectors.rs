@@ -191,7 +191,7 @@ fn user_vectors_unlock_and_decrypt() {
                 .as_object_mut()
                 .unwrap()
                 .insert("key".into(), c["encrypted"]["key"].clone());
-            let reenc = api::encrypt_cipher(&reenc_in.to_string()).unwrap();
+            let reenc = api::encrypt_cipher(&reenc_in.to_string(), false).unwrap();
             let back: Value = serde_json::from_str(&api::decrypt_cipher(&reenc).unwrap()).unwrap();
             let mut errs = Vec::new();
             compare(&back, &out, "roundtrip", &mut errs);

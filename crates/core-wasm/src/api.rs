@@ -321,9 +321,15 @@ pub fn decrypt_cipher(cipher_json: &str) -> Result<String> {
     Ok(cipher.to_string())
 }
 
-pub fn encrypt_cipher(cipher_json: &str) -> Result<String> {
+/// `new_key`: a cipher the server has not seen yet (new, cloned, imported) is encrypted under a fresh key of its own.
+pub fn encrypt_cipher(cipher_json: &str, new_key: bool) -> Result<String> {
     let mut cipher: Value = serde_json::from_str(cipher_json).map_err(err)?;
-    with_session(|s| crate::cipher::encrypt(s, &mut cipher))?;
+    with_session(|s| {
+        if new_key {
+            crate::cipher::add_key(s, &mut cipher)?;
+        }
+        crate::cipher::encrypt(s, &mut cipher)
+    })?;
     Ok(cipher.to_string())
 }
 

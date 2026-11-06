@@ -70,6 +70,13 @@ freed rather than zeroed in place.
    closed shadow root; bar: issued by `showBar`): without it the worker refuses, so a copy the page
    frames itself cannot read the list or drive a fill/save.
 
+   **Neither frame takes a click it was not seen for (clickjacking).** A page can lay its own element over the
+   menu, or make the menu transparent, and have the user click "through" it into a fill. `guardClicks`
+   (`src/ui/dom.ts`) watches each frame with IntersectionObserver v2 (`trackVisibility`): the browser itself reports
+   whether the frame is covered, transparent or transformed, also from a cross-origin parent. A click counts only
+   after the frame has been really visible for 300 ms, and the wait starts again whenever the menu moves. This is
+   what makes listing cards and identities on every site safe (Known gaps).
+
 5. **Only the service worker may talk to the offscreen document.** `sender.url === background.js`,
    `sender.tab` absent (`src/offscreen/offscreen.ts`). Conversely the worker answers only its parent.
 
@@ -98,14 +105,18 @@ freed rather than zeroed in place.
    attachment download URL must be on the configured server (`src/transport/vault.ts`). Response bodies
    are bounded (`readBytes` in `src/transport/http.ts`).
 
-7a. **The server cannot weaken the KDF.** It chooses the account's KDF (prelogin and token response) and receives the
-    hash the KDF produces, so a hostile server could ask for PBKDF2 at 5000 iterations and crack the master password
+7a. **The server cannot weaken the KDF below what this browser has seen, nor below a fixed floor.** It chooses the
+    account's KDF (prelogin and token response) and receives the hash the KDF produces, so a hostile server could ask for PBKDF2 at 5000 iterations and crack the master password
     offline. Every KDF from the server passes `guardKdf` (`src/background/account.ts`, rules in `kdf.ts`) before a hash
     made with it is sent or stored: the strongest KDF an account was seen with on this browser is kept per
     SHA-256 of `kdf|<server>|<email>` (also after logout), and a weaker one is refused unless it is still a safe
     setting (PBKDF2 600 000, Argon2id 64 MiB x 3), which lets a user lower a very high KDF on purpose. PBKDF2 below
     100 000 iterations is refused outright, also on a first login with no floor yet (`PBKDF2_MIN`), and settings
-    flag any KDF below the safe setting.
+    flag any KDF below the safe setting. On a first login a hostile server can therefore still pick anything from
+    PBKDF2 100 000 or from the server-side Argon2id range (16 MiB x 2 and up, `kdf_from_params`). Argon2id gets no
+    floor of its own: by an estimate, not a benchmark, 16 MiB x 2 costs a GPU attacker about as much as the PBKDF2
+    floor, and a higher one would only lock out accounts set up that way in the web vault. Measure it (hashcat on a
+    current GPU) before relying on that, and add an Argon2id floor if it turns out cheaper.
 
 8. **2FA state is scoped and short-lived.** Remember-device tokens are keyed by a SHA-256 of `<server>|<email>` (no clear-text email left after logout) so
    they are never replayed to another server; a pending 2FA login holds a master-key handle, so an
@@ -145,10 +156,13 @@ freed rather than zeroed in place.
     report per-item failures instead of failing the batch, and a failed item is never matched or filled. An export
     with an undecryptable personal item is refused rather than silently incomplete.
 
-10a. **A login's URIs are bound to it.** Field MACs do not stop a server from moving one ciphertext of an item into
-    another field. For an item with its own key, a URI whose `uriChecksum` (SHA-256 of the URI, encrypted with the
-    item) does not match is dropped on decrypt, as upstream does (`crates/core-wasm/src/cipher.rs`), so a server
-    cannot point a login at another site.
+10a. **A login's URIs are bound to it, when it has its own key.** Field MACs do not stop a server from moving one
+    ciphertext into another field, or from one item into another: they all share the user key. For an item with its
+    own key, a URI whose `uriChecksum` (SHA-256 of the URI, encrypted with the item) does not match is dropped on
+    decrypt, as upstream does (`crates/core-wasm/src/cipher.rs`), so a server cannot point that login at another site.
+    Every item Warren creates gets a fresh key of its own (`add_key`, used by `prepareSave` for new items, clones and a
+    passkey's new login, and by imports). An item another client made without one keeps none when edited here:
+    adding one would mean re-wrapping its attachment keys, so its URIs stay unbound.
 
 11. **Passkeys are bound to the origin.** `checkRpId` requires the RP ID to be the origin's host or a
     registrable parent, on a secure origin, and never a public suffix — including when the page's own
@@ -179,8 +193,11 @@ freed rather than zeroed in place.
 
 ## Cryptography direction
 
-Rules for every new or changed piece of cryptography. Within what Vaultwarden can read, they put
+Rules for every new or changed piece of cryptography. Within what Vaultwarden can read, they aim to put
 password hardness and post-quantum safety first. A change that breaks one of them needs a written reason here.
+Post-quantum is a goal, not something Warren provides today: stored data is protected by AES-256 (rule 5), but
+organization keys and log in with device rest on RSA-2048, and the only post-quantum protection in transit is
+the TLS proxy the server admin runs (rule 8), which Warren cannot see or check.
 
 1. **Argon2id for every secret derived from something a person types.** Keys only Warren reads (today the PIN key,
    `PIN_KDF` in `src/shared/constants.ts`) use Argon2id with our own parameters, never the account's. No new PBKDF2,
@@ -188,8 +205,9 @@ password hardness and post-quantum safety first. A change that breaks one of the
    passwords, PBKDF2 by spec) we follow it and steer the user to Argon2id (the PBKDF2 notice in settings).
 2. **Parameters are tuned for current hardware and only go up.** Use as much memory as an unlock in the WASM worker
    allows on a current mid-range laptop at about one second, and never less than RFC 9106's second recommended
-   setting (64 MiB, 3 passes). Review them once a year against RFC 9106 and OWASP. The server-side range checks
-   (`kdf_from_params`) follow upstream's floors and are never lowered.
+   setting (64 MiB, 3 passes). Review them once a year against RFC 9106 and OWASP. Set in 2026-11 (`PIN_KDF`
+   256 MiB x 3; safe floor 64 MiB x 3 and PBKDF2 600 000, `kdf.ts`); next review due 2027-11. The server-side range
+   checks (`kdf_from_params`) follow upstream's floors and are never lowered.
 3. **High-entropy inputs need no slow KDF.** Random keys and WebAuthn PRF output go through HKDF. Argon2 adds nothing
    there.
 4. **Every stored wrapped secret records how it was made**, for example the `EncString` type or `pinKdf`, so a stronger
@@ -207,7 +225,9 @@ password hardness and post-quantum safety first. A change that breaks one of the
 8. **Transport:** run the server behind a TLS 1.3 proxy that negotiates the hybrid X25519MLKEM768 group. Chromium
    offers it by default. Plain http is allowed only on loopback (invariant 7).
 9. **No hand-rolled primitives.** Use `bitwarden-crypto` and RustCrypto crates inside `crates/core-wasm`. WebCrypto
-   is used only for hashes that involve no key.
+   is used for hashes that involve no key, and for one thing more: passkeys' ES256 (P-256) keys are made, imported
+   and used for signing with WebCrypto in the crypto worker (`src/offscreen/fido2.ts`), and never leave it
+   (invariant 11).
 
 ## Known gaps
 
@@ -257,7 +277,9 @@ password hardness and post-quantum safety first. A change that breaks one of the
   window instead, so the flag is never bypassed by this path. The request is still tied to the
   frame's per-document nonce and the browser-reported origin (invariants 1 and 4).
 
-- **One request leaves for a third party, on an explicit click only.** "Check for data breaches" on a
+- **Third parties are reached only on an explicit click or an opt-in setting.** There are four: the data breach
+  check and OpenStreetMap (this entry), the icon service the server may redirect to (website icons, off by default)
+  and the selected email forwarding service (aliases), the two entries below. "Check for data breaches" on a
   login sends the first 5 hex digits of the password's SHA-1 to `api.pwnedpasswords.com` (k-anonymity,
   padded responses, no cookies, no referrer; `src/ui/pwned.ts`). It needs no new permission (the broad
   host permission already covers it) and nothing runs automatically. Maps links go to OpenStreetMap
@@ -292,8 +314,12 @@ password hardness and post-quantum safety first. A change that breaks one of the
 - **Attachment downloads never follow a redirect** and must stay on the configured server's origin
   (`src/transport/vault.ts`). The SSRF surface is the configured server only; the price is that an
   attachment store that redirects (e.g. S3) cannot be downloaded from.
-- **Cards and identities are listed on every site** (parity with the official clients) and fill on an
-  explicit click.
+- **Cards and identities are listed on every site**, as in the official clients, and fill only on a click in the
+  inline menu or the popup. A page cannot get that click by covering or hiding the menu (`guardClicks`, invariant 4).
 - **RUSTSEC-2023-0071 (Marvin timing attack on `rsa`) is ignored in `deny.toml`.** The crate arrives through
-  `bitwarden-crypto`, has no patched release, and its RSA operations run only locally in the offscreen worker,
-  where no remote party can observe their timing. Remove the ignore once `rsa` ships a fix.
+  `bitwarden-crypto` and still had no patched release when checked on 2026-11-06. Its RSA decryptions run only in
+  the offscreen worker, but the ciphertexts come from the server, which is the attacker this file assumes:
+  organization keys on every sync and the wrapped key of a "log in with device" answer. The attack needs a very
+  large number of decryptions timed precisely. Warren decrypts each of those once per sync or request, and the
+  server sees at most when the next request arrives, with network jitter in the way, so it gets nowhere near enough.
+  Check again at every `UPSTREAM_SYNC`, and remove the ignore once `rsa` ships a fix.

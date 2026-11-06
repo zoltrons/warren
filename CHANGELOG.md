@@ -2,6 +2,15 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Security
+
+- Every item Warren creates (new, cloned, imported, or a passkey's new login) gets its own key, as the official
+  clients do on Bitwarden's cloud. On Vaultwarden they do not create such keys themselves; that they open such items
+  there has not been tested yet. Only then are a login's websites bound to it, so a server cannot move another item's website into it
+  and have the login filled on that site. Items made earlier keep working as they are.
+
 ## 0.0.11 — 2026-11-05
 
 ### Security

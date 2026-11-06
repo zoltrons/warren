@@ -2,9 +2,9 @@
 [advisories]
 ignore = [
   # Marvin timing attack on RSA private-key ops; no patched `rsa` exists. It comes in through
-  # bitwarden-crypto, and RSA runs here only locally in the offscreen worker, with no network
-  # observer of its timing (the advisory itself calls local use fine). Drop when rsa is patched.
-  { id = "RUSTSEC-2023-0071", reason = "no fix upstream; local-only RSA use, not remotely observable" },
+  # bitwarden-crypto. The server picks the ciphertexts, but sees too few decryptions, too coarsely
+  # timed, to run the attack (docs/SECURITY.md, Known gaps). Drop when rsa is patched.
+  { id = "RUSTSEC-2023-0071", reason = "no fix upstream; one RSA decryption per sync or request, far too few timings for the attack (docs/SECURITY.md)" },
 ]
 
 [sources]

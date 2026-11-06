@@ -155,8 +155,8 @@ pub fn decrypt_cipher(cipher_json: &str) -> Result<String, JsError> {
 }
 
 #[wasm_bindgen(js_name = encryptCipher)]
-pub fn encrypt_cipher(cipher_json: &str) -> Result<String, JsError> {
-    api::encrypt_cipher(cipher_json).map_err(js)
+pub fn encrypt_cipher(cipher_json: &str, new_key: bool) -> Result<String, JsError> {
+    api::encrypt_cipher(cipher_json, new_key).map_err(js)
 }
 
 #[wasm_bindgen(js_name = decryptFolders)]

@@ -192,8 +192,8 @@ export const deleteFolder = (id: string) => thenSync((b, t) => apiDeleteFolder(b
 export async function saveFolder(name: string, id?: string): Promise<VaultList> {
   const epoch = lockEpoch();
   // Folder names are encrypted with the user key, like a personal cipher name.
-  const enc = await coreCall<{ name: string }>({ op: "prepareSave", item: { type: 2, name } });
-  return thenSync((b, t) => apiSaveFolder(b, t, enc.name, id), epoch);
+  const [enc] = await coreCall<string[]>({ op: "encryptText", values: [name] });
+  return thenSync((b, t) => apiSaveFolder(b, t, enc!, id), epoch);
 }
 
 /** Arms the clipboard clear according to the user's "Clear clipboard" setting (never = cancel). */

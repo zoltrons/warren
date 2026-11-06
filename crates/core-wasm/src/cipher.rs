@@ -214,6 +214,21 @@ fn set_uri_checksums(cipher: &mut Map<String, Value>) {
     }
 }
 
+/// Gives a new cipher its own key, wrapped like an attachment key, as the official clients do on Bitwarden's cloud
+/// (on Vaultwarden they create none): only a cipher with a key has its URIs bound to it by
+/// their checksums (see `decrypt`). Replaces any key it came with (a clone's).
+pub fn add_key(s: &Session, cipher: &mut Value) -> Result<()> {
+    let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
+    obj.retain(|k, _| !k.eq_ignore_ascii_case("key"));
+    let (base, _) = cipher_keys(s, obj)?;
+    let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let wrapped = (&OctetStreamBytes::from(key.to_encoded().to_vec()))
+        .encrypt_with_key(base)
+        .map_err(err)?;
+    obj.insert("key".into(), wrapped.to_string().into());
+    Ok(())
+}
+
 pub fn encrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
     let (base, item) = cipher_keys(s, obj)?;
@@ -382,6 +397,30 @@ mod tests {
         let uris = cipher["login"]["uris"].as_array().unwrap();
         assert_eq!(uris.len(), 1);
         assert_eq!(uris[0]["uri"], "https://kept.example");
+    }
+
+    #[test]
+    fn a_new_cipher_gets_its_own_key_and_binds_its_uris() {
+        let s = session(HashMap::new());
+        // A clone arrives with the original's key: it must not keep it.
+        let mut cipher = json!({ "type": 1, "name": "n", "Key": "2.copied", "login": {
+            "username": "https://evil.example", "uris": [{ "uri": "https://good.example" }] } });
+        add_key(&s, &mut cipher).unwrap();
+        encrypt(&s, &mut cipher).unwrap();
+        let obj = cipher.as_object().unwrap();
+        assert_eq!(
+            obj.keys().filter(|k| k.eq_ignore_ascii_case("key")).count(),
+            1
+        );
+        let item = decrypt_symmetric_key(&s.user, cipher["key"].as_str().unwrap()).unwrap();
+        assert_ne!(item.to_encoded(), s.user.to_encoded());
+        let mut plain = cipher.clone();
+        decrypt(&s, &mut plain).unwrap();
+        assert_eq!(plain["login"]["uris"][0]["uri"], "https://good.example");
+        // Without a key of its own this swap would go through (see swapped_uri_is_dropped_when_the_cipher_has_a_key).
+        cipher["login"]["uris"][0]["uri"] = cipher["login"]["username"].clone();
+        decrypt(&s, &mut cipher).unwrap();
+        assert!(cipher["login"]["uris"].as_array().unwrap().is_empty());
     }
 
     #[test]

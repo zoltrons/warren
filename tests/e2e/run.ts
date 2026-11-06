@@ -117,16 +117,17 @@ async function apiSession(u: TestUser) {
   const userId = JSON.parse(Buffer.from(tok.access_token.split(".")[1]!, "base64url").toString()).sub as string;
   const token = tok.access_token;
   return {
-    async create(plain: Record<string, unknown>) {
-      const enc = JSON.parse(wasm.encryptCipher(JSON.stringify(plain)));
+    /** `keyed`: with a key of its own, as Warren writes new items; most seeded items stay without, as on Vaultwarden. */
+    async create(plain: Record<string, unknown>, keyed = false) {
+      const enc = JSON.parse(wasm.encryptCipher(JSON.stringify(plain), keyed));
       return (await call(BASE, "POST", "/api/ciphers", { token, json: { ...enc, encryptedFor: userId } })) as { id: string };
     },
     async update(plain: Record<string, any>) {
-      const enc = JSON.parse(wasm.encryptCipher(JSON.stringify(plain)));
+      const enc = JSON.parse(wasm.encryptCipher(JSON.stringify(plain), false));
       await call(BASE, "PUT", `/api/ciphers/${plain.id}`, { token, json: { ...enc, encryptedFor: userId } });
     },
     async folder(name: string) {
-      const encName = JSON.parse(wasm.encryptCipher(JSON.stringify({ type: 2, name }))).name;
+      const encName = JSON.parse(wasm.encryptCipher(JSON.stringify({ type: 2, name }), false)).name;
       return (await call(BASE, "POST", "/api/folders", { token, json: { name: encName } })) as { id: string };
     },
     async folders() {
@@ -629,7 +630,8 @@ try {
   const api = await apiSession(vaultUser);
   const work = await api.folder("Work");
   await api.create({ type: 1, name: "GitHub", folderId: work.id, login: { username: "octo", password: "gh-secret-1", totp: TOTP_KEY, uris: [{ uri: "https://github.com/login", match: null }] }, fields: [{ name: "PIN", value: "4321", type: 1 }] });
-  await api.create({ type: 2, name: "Wifi note", notes: "SSID: home\npassword: hunter2", secureNote: { type: 0 } });
+  // Keyed, so the attachments step covers an attachment key wrapped with the item's own key.
+  await api.create({ type: 2, name: "Wifi note", notes: "SSID: home\npassword: hunter2", secureNote: { type: 0 } }, true);
   await api.create({ type: 3, name: "Visa", card: { cardholderName: "Ada L", number: "4111111111111111", code: "123", brand: "Visa", expMonth: "1", expYear: "2030" } });
   api.done();
   const rows = () => page.getByRole("list").getByRole("listitem");
@@ -924,7 +926,10 @@ try {
     const c = all.find((x) => x.name === "Work Amex");
     assert.deepEqual([c?.type, c?.card.brand, c?.card.number, c?.card.expMonth, c?.card.expYear, c?.favorite], [3, "Amex", "378282246310005", "7", "2031", true]);
     assert.deepEqual(c?.fields, [{ name: "PIN", value: "9876", type: 1, linkedId: null }]);
-    assert.equal(all.find((x) => x.name === "Work Amex (copy)")?.card.number, "378282246310005");
+    const copy = all.find((x) => x.name === "Work Amex (copy)");
+    assert.equal(copy?.card.number, "378282246310005");
+    // A new item gets a key of its own, and a clone does not keep the original's (SECURITY.md 10a).
+    assert.ok(c?.key && copy?.key && c.key !== copy.key, "new item and clone each carry their own key");
   });
 
   await step("folders: create, rename, delete (names checked on the server)", async () => {
@@ -985,6 +990,9 @@ try {
     const folders = await s.folders();
     s.done();
     assert.deepEqual([c?.login.username, c?.login.password, c?.favorite], ["imp", "imp-pw", true]);
+    // Imported with a key of its own, and its website survives the checksum check that key turns on.
+    assert.ok(c?.key, "imported item carries its own key");
+    assert.equal(c?.login.uris?.[0]?.uri, "https://imp.example");
     assert.ok(folders.includes("Imported folder"));
     await page.getByRole("button", { name: "Vault", exact: true }).click();
     await rows().filter({ hasText: "Imported login" }).waitFor();
