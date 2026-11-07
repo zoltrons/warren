@@ -1,6 +1,6 @@
 # Updates from GitHub releases
 
-Every `v*` tag builds a signed `.crx`, a `.zip` and an **`updates.xml`** (`.github/workflows/release.yml`).
+Every `v*` tag builds a signed `.crx`, a `.zip`, a CycloneDX SBOM (`.sbom.json`) and an **`updates.xml`** (`.github/workflows/release.yml`).
 The tag must be annotated: its message, the version's `CHANGELOG.md` section, becomes the release notes
 (`git tag -s vX.Y.Z --cleanup=verbatim -F notes.md`; without `verbatim` git drops the `###` headings). It must also
 be **signed** with a key listed in `.github/allowed_signers` (SSH, principal `warren-release`): the `tag-signed` job
@@ -31,7 +31,7 @@ makes the request.
   signed) with `node:crypto` only and reads it back before publishing; the job installs no npm package and starts no
   browser, so a compromised dependency never sees `CRX_KEY`. `node tools/pack-crx.mjs --verify <file.crx>` checks a
   download and prints its extension id.
-- **Every released file carries signed build provenance.** The release job attests the `.crx`, `.zip` and
+- **Every released file carries signed build provenance.** The release job attests the `.crx`, `.zip`, SBOM and
   `updates.xml` (SLSA provenance via Sigstore, `actions/attest`), so a download can be traced to the commit and
   workflow run that built it: `gh attestation verify warren-vX.Y.Z.crx --repo zoltrons/warren`. A release also
   refuses to build while `npm audit` (high) or `cargo deny check advisories` fails.

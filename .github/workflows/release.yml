@@ -76,8 +76,12 @@ jobs:
         with: { command: check advisories bans sources }
       - name: tag matches the manifest version
         run: test "v$(node -p "require('./dist/ext/manifest.json').version")" = "$GITHUB_REF_NAME"
+      # CycloneDX SBOM of every locked dependency (Cargo.lock, package-lock.json), released next to the .crx.
+      - run: docker run --rm -v "$PWD:/repo" anchore/syft:v1.57.0 scan dir:/repo --exclude ./node_modules --exclude ./target -o cyclonedx-json > "warren-$GITHUB_REF_NAME.sbom.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: extension, path: dist/ext, if-no-files-found: error }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: sbom, path: "warren-*.sbom.json", if-no-files-found: error }
 
   # Holds CRX_KEY: installs nothing and runs no package code, only node:crypto (tools/pack-crx.mjs).
   sign:
@@ -93,6 +97,8 @@ jobs:
         with: { node-version-file: .nvmrc, package-manager-cache: false }
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: extension, path: dist/ext }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { name: sbom }
       # The .crx is the released .zip, signed by tools/pack-crx.mjs on node:crypto alone: no npm package and no
       # browser ever runs next to CRX_KEY, so a compromised dependency cannot read the key.
       - name: pack .crx and .zip
@@ -118,13 +124,13 @@ jobs:
           XML
       # Verify a download with: gh attestation verify warren-vX.Y.Z.crx --repo zoltrons/warren
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with: { subject-path: "warren-*.crx\nwarren-*.zip\nupdates.xml" }
+        with: { subject-path: "warren-*.crx\nwarren-*.zip\nwarren-*.sbom.json\nupdates.xml" }
       # Release notes are the annotated tag's message (the version's CHANGELOG.md section). Read through the API:
       # a shallow tag checkout can turn an annotated tag into a lightweight one. A lightweight tag fails here.
       - run: |
           sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')"
           # A signed tag's message ends in its signature block, which is not part of the notes.
           gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.message' | sed '/^-----BEGIN SSH SIGNATURE-----$/,$d' > notes.md
-          gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip updates.xml --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" warren-*.crx warren-*.zip warren-*.sbom.json updates.xml --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}

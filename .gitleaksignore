@@ -1,0 +1,2 @@
+# Test-only passwords for the throwaway local Vaultwarden (dev/vaultwarden), not secrets.
+586b098b7c1d8bef52c779f0dda75453e3196bcc:dev/vaultwarden/test-users.json:generic-api-key:4

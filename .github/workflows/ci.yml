@@ -25,6 +25,17 @@ jobs:
       # Security lint: template injection, unpinned actions, credential persistence, cache poisoning.
       - run: docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/zizmorcore/zizmor:1.32.0 --offline --min-severity medium .github/workflows
 
+  # Committed secrets, over the whole history; known false positives are listed in .gitleaksignore.
+  secrets:
+    name: scan for secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --no-banner
+
   core:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -128,7 +139,7 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
-    needs: [workflows, core, extension, e2e]
+    needs: [workflows, secrets, core, extension, e2e]
     if: always()
     steps:
       - name: every blocking job succeeded
