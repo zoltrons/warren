@@ -10,12 +10,16 @@ export const safeKdf = (k: KdfParams): boolean =>
   k.type === KDF_ARGON2ID ? k.memory >= 64 && k.iterations >= 3 : k.iterations >= 600_000;
 
 /**
- * Below this a PBKDF2 hash falls to a GPU in hours, so no hash made with it is sent, even on a first login here where
- * there is no floor yet. The official clients' default has been 600 000 since 2023 (100 000 before); only very old
- * accounts or a hostile server have less.
+ * OWASP Password Storage minimums: no hash made below them is sent, even on a first login here where there is no floor
+ * yet. The official clients' PBKDF2 default has been 600 000 since 2023, so only very old accounts or a hostile server
+ * have less; the server-side Argon2id range starts at 16 MiB x 2.
  */
-export const PBKDF2_MIN = 100_000;
-export const tooWeak = (k: KdfParams): boolean => k.type !== KDF_ARGON2ID && k.iterations < PBKDF2_MIN;
+export const PBKDF2_MIN = 600_000;
+export const ARGON2_MIN = { memory: 19, iterations: 2 };
+export const tooWeak = (k: KdfParams): boolean =>
+  k.type === KDF_ARGON2ID ? k.memory < ARGON2_MIN.memory || k.iterations < ARGON2_MIN.iterations : k.iterations < PBKDF2_MIN;
+export const kdfText = (k: KdfParams): string =>
+  k.type === KDF_ARGON2ID ? `Argon2id, ${k.memory} MiB x ${k.iterations}` : `PBKDF2, ${k.iterations} iterations`;
 
 /** Argon2id outranks PBKDF2; within a type, more work wins (parallelism does not slow an attacker). */
 function weaker(next: KdfParams, floor: KdfParams): boolean {

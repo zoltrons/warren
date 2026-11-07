@@ -16,11 +16,13 @@ test("a weaker KDF than the account used is refused unless it is still safe", ()
   assert.equal(kdfDowngrade(argon(16, 2), pbkdf2(600_000)), false, "PBKDF2 -> Argon2id is an upgrade");
 });
 
-test("PBKDF2 under 100 000 iterations is never used; under 600 000 it is flagged", () => {
+test("below OWASP's minimums (PBKDF2 600 000, Argon2id 19 MiB x 2) a KDF is never used", () => {
   assert.equal(tooWeak(pbkdf2(5000)), true);
-  assert.equal(tooWeak(pbkdf2(99_999)), true);
-  assert.equal(tooWeak(pbkdf2(100_000)), false);
-  assert.equal(tooWeak(argon(16, 2)), false, "the server-side range check covers Argon2id");
+  assert.equal(tooWeak(pbkdf2(599_999)), true);
+  assert.equal(tooWeak(pbkdf2(600_000)), false);
+  assert.equal(tooWeak(argon(16, 2)), true);
+  assert.equal(tooWeak(argon(19, 1)), true);
+  assert.equal(tooWeak(argon(19, 2)), false);
   assert.equal(safeKdf(pbkdf2(100_000)), false);
   assert.equal(safeKdf(pbkdf2(600_000)), true);
   assert.equal(safeKdf(argon(32, 3)), false);

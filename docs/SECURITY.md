@@ -110,13 +110,12 @@ freed rather than zeroed in place.
     offline. Every KDF from the server passes `guardKdf` (`src/background/account.ts`, rules in `kdf.ts`) before a hash
     made with it is sent or stored: the strongest KDF an account was seen with on this browser is kept per
     SHA-256 of `kdf|<server>|<email>` (also after logout), and a weaker one is refused unless it is still a safe
-    setting (PBKDF2 600 000, Argon2id 64 MiB x 3), which lets a user lower a very high KDF on purpose. PBKDF2 below
-    100 000 iterations is refused outright, also on a first login with no floor yet (`PBKDF2_MIN`), and settings
-    flag any KDF below the safe setting. On a first login a hostile server can therefore still pick anything from
-    PBKDF2 100 000 or from the server-side Argon2id range (16 MiB x 2 and up, `kdf_from_params`). Argon2id gets no
-    floor of its own: by an estimate, not a benchmark, 16 MiB x 2 costs a GPU attacker about as much as the PBKDF2
-    floor, and a higher one would only lock out accounts set up that way in the web vault. Measure it (hashcat on a
-    current GPU) before relying on that, and add an Argon2id floor if it turns out cheaper.
+    setting (PBKDF2 600 000, Argon2id 64 MiB x 3), which lets a user lower a very high KDF on purpose. Anything below
+    OWASP's Password Storage minimums (PBKDF2-SHA256 600 000 iterations, Argon2id 19 MiB x 2; `PBKDF2_MIN`,
+    `ARGON2_MIN`) is refused outright, also on a first login with no floor yet, and settings flag any KDF below the
+    safe setting. On a first login a hostile server can therefore pick nothing weaker than those minimums. The price:
+    an account set below them in the web vault (PBKDF2 100 000 from before 2023, Argon2id 16 MiB x 2) cannot log in
+    until its KDF is raised.
 
 8. **2FA state is scoped and short-lived.** Remember-device tokens are keyed by a SHA-256 of `<server>|<email>` (no clear-text email left after logout) so
    they are never replayed to another server; a pending 2FA login holds a master-key handle, so an
@@ -229,6 +228,28 @@ the TLS proxy the server admin runs (rule 8), which Warren cannot see or check.
    and used for signing with WebCrypto in the crypto worker (`src/offscreen/fido2.ts`), and never leave it
    (invariant 11).
 
+## OWASP Cheat Sheet Series
+
+Checked against the [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/) on 2026-11-07; review with the
+KDF parameters (Cryptography direction rule 2), next due 2027-11. "Meets" means the rule in the right column is how
+Warren meets it. "Gap" means Warren falls short on purpose, and the gap is described here or in Known gaps.
+
+| Cheat sheet | Status | How Warren meets it, or why not |
+| --- | --- | --- |
+| Browser Extension Vulnerabilities: insecure message passing | Meets | Every listener checks `sender.id === chrome.runtime.id` and takes URL, tab and frame from `sender` (invariant 1). Every message type is allow-listed and validated (invariant 2). Content scripts count as less trusted than extension pages. |
+| Browser Extension Vulnerabilities: permissions overreach | Gap | `https://*/*` and `http://*/*` are needed to autofill any site (Known gaps). `privacy` is optional. No `tabs`, no `externally_connectable`, `incognito: not_allowed`. |
+| Browser Extension Vulnerabilities: XSS, code injection | Meets | No `innerHTML`, `eval` or remote code. The extension-page CSP is `script-src 'self' 'wasm-unsafe-eval'` with required Trusted Types (invariant 12). DOMPurify is not needed because no HTML is ever built from data. |
+| Browser Extension Vulnerabilities: CSP | Meets | `content_security_policy.extension_pages` is `script-src 'self' 'wasm-unsafe-eval'; object-src 'none'` plus required Trusted Types. `'wasm-unsafe-eval'` allows compiling the bundled WASM only, never eval of JS. |
+| Browser Extension Vulnerabilities: insecure storage | Meets | Secrets in `storage.local` are encrypted. Short-lived ones are in `storage.session`, restricted to `TRUSTED_CONTEXTS` (invariants 6, 6a). The exceptions are listed in Known gaps. |
+| Browser Extension Vulnerabilities: DOM and prototype data skimming | Meets | Nothing secret goes into the page's DOM or main world. The inline menu and save bar are extension iframes, which the page cannot read. The secret in the menu's URL fragment travels inside a closed shadow root and only authenticates the frame (invariant 4). The main-world passkey shim only forwards calls; it holds no keys and makes no decisions. The page gets a fill or a signature, never the vault. |
+| Browser Extension Vulnerabilities: malicious updates, dependencies | Meets | Self-update needs a signed CRX and a signed tag. Actions are pinned by SHA, and builds use lockfiles. `npm audit` and `cargo-deny` run on every CI run and release, and every release carries signed provenance (Known gaps, `docs/UPDATES.md`). |
+| Password Storage, Cryptographic Storage: password KDFs | Meets | No hash of the master password is made below OWASP's minimums (PBKDF2-SHA256 600 000, Argon2id 19 MiB x 2), also on a first login (invariant 7a). Warren's own KDF (`PIN_KDF`, 256 MiB x 3) and the safe setting (Argon2id 64 MiB x 3) are well above them. The algorithm and parameters are stored with every wrapped secret (Cryptography direction rule 4), as OWASP asks. |
+| Cryptographic Storage, Key Management: algorithms, keys, randomness | Meets | All symmetric encryption is AES-256 with encrypt-then-MAC, and every key is 256 bits. RSA uses OAEP and is used only where the protocol requires it. Keys are random from a CSPRNG (RustCrypto or WebCrypto) and never hardcoded; `Math.random` is not used. Each key encrypts only keys of equal or lower strength, and each item has a key of its own (invariant 10a). Keys never leave the crypto worker. A lock destroys them by ending the worker, because WASM memory cannot be reliably zeroed (Trust boundaries). |
+| WebSocket Security | Gap | The connection uses `wss://` everywhere except loopback, and messages are size-capped at 64 KiB (invariant 8c). The access token is in the query string, against OWASP, because the Bitwarden hub protocol requires it (Known gaps). |
+| Clickjacking Defense | Meets, by other means | `menu.html` and `bar.html` must be framable by any site, so `frame-ancestors 'none'` cannot apply. A click counts only after IntersectionObserver v2 has reported the frame as really visible for 300 ms (invariant 4). The two actions OWASP treats as high risk need more than a click: filling another site's login needs the "Fill anyway" dialog, and a re-prompt item needs the master password. |
+| Multifactor Authentication | Partial | 2FA is enforced by the server. Warren keeps remember-device tokens per server and account (invariant 8), but they sit on disk in clear text (Known gaps). A passkey reports UV only when the user was actually verified (invariant 11a). |
+| Software Supply Chain, CI/CD Security | Meets | Pinned actions, `zizmor`, lockfiles, signed tags, a signing job that runs no package code, and SLSA provenance via Sigstore (Known gaps, updates entry). Gitleaks scans the whole history on every CI run and blocks the `ci` gate (`.gitleaksignore` lists known test fixtures). Every release carries a CycloneDX SBOM made by syft from `Cargo.lock` and `package-lock.json`, attested like the other files. The npm packages are build tools only: nothing from npm is bundled into the extension. |
+
 ## Known gaps
 
 - **The refresh token is on disk only sealed with the user key** (`storeRefreshToken` in
@@ -263,7 +284,7 @@ the TLS proxy the server admin runs (rule 8), which Warren cannot see or check.
   What the pipeline can do about it: every action is pinned by commit SHA and linted by `zizmor`, build tools
   come from lockfiles, the job that holds `CRX_KEY` installs nothing and runs no package code or browser (the CRX is
   signed by `tools/pack-crx.mjs` on `node:crypto`) and refuses a key that does not give Warren's extension id, a release needs a green `ci` and a
-  clean advisory check, and each released file carries signed build provenance (`docs/UPDATES.md`). Provenance
+  clean advisory check, and each released file, the SBOM included, carries signed build provenance (`docs/UPDATES.md`). CI scans the history for committed secrets (gitleaks). Provenance
   shows which commit and run built a file; it cannot tell a malicious tag from a real one.
 
 - **The push connection carries the access token in its URL.** Browsers cannot set headers on a WebSocket, so

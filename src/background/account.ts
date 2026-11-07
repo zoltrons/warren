@@ -24,7 +24,7 @@ import { ApiError } from "../transport/http.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
 import { UserError } from "./errors.ts";
-import { kdfDowngrade, PBKDF2_MIN, PIN_ONLY_MIN, pinOnlyStrong, raiseFloor, tooWeak } from "./kdf.ts";
+import { ARGON2_MIN, kdfDowngrade, kdfText, PBKDF2_MIN, PIN_ONLY_MIN, pinOnlyStrong, raiseFloor, tooWeak } from "./kdf.ts";
 import { assertEpoch, assertOwner, lockEpoch, lockNow, newOwner, ownerEpoch, touchAutoLock } from "./lock.ts";
 import { migratePrivate } from "./private.ts";
 import { stopPush } from "./push.ts";
@@ -76,7 +76,7 @@ async function guardKdf(serverUrl: string, email: string, kdf: KdfParams): Promi
   if (tooWeak(kdf))
     throw new UserError(
       "badServer",
-      `This account's key derivation (PBKDF2, ${kdf.iterations} iterations) is too weak: Warren does not send a hash of your master password made with less than ${PBKDF2_MIN} iterations. Raise it in the web vault (Settings → Security → Keys, Argon2id recommended) and log in again.`,
+      `This account's key derivation (${kdfText(kdf)}) is too weak: Warren does not send a hash of your master password made with less than PBKDF2 ${PBKDF2_MIN} iterations or Argon2id ${ARGON2_MIN.memory} MiB x ${ARGON2_MIN.iterations}. Raise it in the web vault (Settings → Security → Keys, Argon2id recommended) and log in again.`,
     );
   const key = await rememberKey(`kdf|${serverUrl}`, email);
   const floors = (await getLocal("kdfFloors")) ?? {};
@@ -497,7 +497,7 @@ export async function verifyMasterPassword(password: string): Promise<void> {
   if (!account) throw new UserError("sessionExpired", "Please log in again");
   // An account stored by a build before the KDF floor may still have one too weak to send a hash of (see guardKdf).
   if (tooWeak(account.kdf))
-    throw new UserError("badServer", `This account's key derivation (PBKDF2, ${account.kdf.iterations} iterations) is too weak to confirm the master password with the server. Raise it in the web vault (Settings → Security → Keys) and log in again.`);
+    throw new UserError("badServer", `This account's key derivation (${kdfText(account.kdf)}) is too weak to confirm the master password with the server. Raise it in the web vault (Settings → Security → Keys) and log in again.`);
   const { handle, authHash } = await coreCall<Prepared>({ op: "prepareKey", email: account.email, password, kdf: account.kdf });
   await coreCall({ op: "freeKey", handle }).catch(() => undefined);
   // The hash, the account it was made for and the token are one account's: a switch meanwhile sends nothing.

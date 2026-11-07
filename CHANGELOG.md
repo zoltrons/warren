@@ -6,6 +6,12 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Security
 
+- KDF floors raised to OWASP's minimums: Warren no longer sends a hash of the master password made with PBKDF2 under
+  600 000 iterations or Argon2id under 19 MiB x 2, also on a first login. An account below them must raise its KDF in
+  the web vault before it can log in here. The extension pages' CSP now has `object-src 'none'`.
+- CI scans the whole history for committed secrets (gitleaks), and every release ships a CycloneDX SBOM with
+  signed provenance.
+
 - Every item Warren creates (new, cloned, imported, or a passkey's new login) gets its own key, as the official
   clients do on Bitwarden's cloud. On Vaultwarden they do not create such keys themselves; that they open such items
   there has not been tested yet. Only then are a login's websites bound to it, so a server cannot move another item's website into it
