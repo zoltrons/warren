@@ -2,7 +2,7 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.12 — 2026-11-07
 
 ### Security
 
@@ -17,6 +17,22 @@ All notable changes to Warren. Versions match the `v*` release tags.
   clients do on Bitwarden's cloud. On Vaultwarden they do not create such keys themselves; that they open such items
   there has not been tested yet. Only then are a login's websites bound to it, so a server cannot move another item's website into it
   and have the login filled on that site. Items made earlier keep working as they are.
+
+### Added
+
+- Organizations: create an item in a collection, move a personal item into an organization, change an item's
+  collections.
+- Duo two-step login (personal and organization Duo).
+- Export as Bitwarden CSV or password-protected JSON; import of both.
+- Blocked websites: no inline menu, page-load fill or passkey prompt on a site and its subdomains. Never-save sites
+  can be added by hand.
+- Delete an attachment; "Change password on this site"; extension width, compact mode, animations and toolbar badge
+  count settings.
+
+### Fixed
+
+- "Never save" works for sites on a non-default port: a site added in settings no longer gets the save bar, and
+  "Never" in the bar covers the site whatever its port.
 
 ## 0.0.11 — 2026-11-05
 
