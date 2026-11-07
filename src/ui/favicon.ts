@@ -1,7 +1,7 @@
 // Website icons from the server's icon service, fetched once per popup and checked for tone: a near-black logo
 // (GitHub) vanishes on a dark theme and a near-white one on a light theme, so those get a contrasting plate.
 
-export type Tone = "" | "tone-dark" | "tone-light";
+type Tone = "" | "tone-dark" | "tone-light";
 export interface Favicon {
   url: string;
   tone: Tone;

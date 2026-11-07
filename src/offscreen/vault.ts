@@ -5,8 +5,9 @@ import { csvToExport, itemsToCsv } from "../shared/csv.ts";
 import { cardBrand } from "../shared/card.ts";
 import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
-import { ci } from "../shared/validate.ts";
+import { asObject as o, asString as s, ci } from "../shared/validate.ts";
 import { Psl, uriMatches } from "../autofill/match.ts";
+import { b64u } from "../shared/url.ts";
 import * as fido2 from "./fido2.ts";
 import { restorePasskeyKeys, withoutPasskeyKeys } from "./passkey-keys.ts";
 
@@ -20,8 +21,6 @@ let collections: Collection[] = [];
 let organizations: Folder[] = [];
 let sends = new Map<string, Json>();
 
-const s = (v: unknown): string => (typeof v === "string" ? v : "");
-const o = (v: unknown): Json | undefined => (v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : undefined);
 
 /** Trashed items: shown only in the trash view, never matched or filled. */
 let trash = new Map<string, Json>();
@@ -503,7 +502,7 @@ const checkRp = async (rpId: string, origin: string) => {
 /** A stored credential's id as base64url, or undefined when it is malformed (it then matches nothing). */
 function credentialId(cred: unknown): string | undefined {
   try {
-    return fido2.b64u(fido2.credentialIdBytes(s(ci(cred, "credentialId"))));
+    return b64u(fido2.credentialIdBytes(s(ci(cred, "credentialId"))));
   } catch {
     return undefined;
   }

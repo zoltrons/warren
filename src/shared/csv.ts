@@ -1,9 +1,10 @@
 // Bitwarden's individual CSV format (clients: libs/vault-export, libs/importer bitwarden-csv-importer): logins and
 // secure notes only, one row each. Columns as upstream writes them.
-export const CSV_COLUMNS = ["folder", "favorite", "type", "name", "notes", "fields", "reprompt", "login_uri", "login_username", "login_password", "login_totp"] as const;
+const CSV_COLUMNS = ["folder", "favorite", "type", "name", "notes", "fields", "reprompt", "login_uri", "login_username", "login_password", "login_totp"] as const;
+
+import { asString as s } from "./validate.ts";
 
 type Json = Record<string, unknown>;
-const s = (v: unknown) => (typeof v === "string" ? v : "");
 const o = (v: unknown): Json => (v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : {});
 
 /** RFC 4180: quoted fields may hold commas, quotes ("") and line breaks; CRLF or LF ends a row. */
@@ -31,7 +32,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 const quote = (v: string) => (/[",\r\n]/.test(v) || /^\s|\s$/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-export const toCsv = (rows: string[][]): string => rows.map((r) => r.map(quote).join(",")).join("\n");
+const toCsv = (rows: string[][]): string => rows.map((r) => r.map(quote).join(",")).join("\n");
 
 /** Decrypted items (Bitwarden JSON shape) and folder names to the CSV rows; other item types are left out. */
 export function itemsToCsv(items: Json[], folderName: (id: string) => string): { csv: string; skipped: number } {

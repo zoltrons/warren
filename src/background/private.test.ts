@@ -57,6 +57,16 @@ test("damaged entries are dropped", () => {
   assert.deepEqual(d, { neverSave: ["x"], blocked: [], lastUsed: { a: 1 }, opened: { a: { n: 1, at: 2 } }, generator: { options: { length: 20, type: "passphrase" }, email: "", domain: "", wordlist: 0 } });
 });
 
+test("never-save hosts have one form, whatever the port: settings, save bar and older builds' entries", async () => {
+  const { hostOf } = await import("./private.ts");
+  const page = "https://nas.example:5001/login";
+  // The settings list (hostOf) and the save bar's check (inline.ts: URL hostname) must agree.
+  assert.equal(hostOf("nas.example:5001"), new URL(page).hostname);
+  assert.equal(hostOf(page), "nas.example");
+  // Older save bars stored the host with its port.
+  assert.deepEqual(sanitize({ neverSave: ["nas.example:5001", "nas.example", "[::1]:8080", "plain.example"] }).neverSave, ["nas.example", "[::1]", "plain.example"]);
+});
+
 test("the word list is stored encrypted, counted, and only added for a passphrase", async () => {
   const { setWordlist, withWordlist } = await import("./private.ts");
   const words = Array.from({ length: 120 }, (_, i) => `word${i}`);

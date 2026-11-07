@@ -1,5 +1,6 @@
 // Lock state and auto-lock (alarms + idle), and the two counters that let a lock or an account change win over
 // work already in flight.
+import { httpUrl } from "../shared/url.ts";
 import { coreShutdown } from "./core.ts";
 import { UserError } from "./errors.ts";
 import { revokeReprompts } from "./reprompt.ts";
@@ -15,7 +16,7 @@ async function closeInPageUi(): Promise<void> {
   const tabs = await chrome.tabs.query({}).catch(() => []);
   await Promise.allSettled(
     tabs.flatMap((t) =>
-      t.id === undefined || !/^https?:/.test(t.url ?? "")
+      t.id === undefined || !httpUrl(t)
         ? []
         : [
             chrome.tabs.sendMessage(t.id, { type: "inlineClose" }).catch(() => undefined),

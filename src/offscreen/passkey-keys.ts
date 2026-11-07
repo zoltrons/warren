@@ -1,11 +1,9 @@
 // A passkey's private key (`login.fido2Credentials[].keyValue`) stays in the crypto worker: the item the popup gets
 // has none, and a save puts it back from the worker's own copy.
-import { ci } from "../shared/validate.ts";
+import { asObject as o, asString as s, ci } from "../shared/validate.ts";
 
 type Json = Record<string, unknown>;
 
-const s = (v: unknown): string => (typeof v === "string" ? v : "");
-const o = (v: unknown): Json | undefined => (v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : undefined);
 const keyOf = (obj: Json, name: string) => Object.keys(obj).find((k) => k.toLowerCase() === name.toLowerCase());
 
 /** The item's passkey credentials (the server's key casing), or none. */

@@ -697,7 +697,7 @@ interface PasskeyCreateInput {
 }
 
 /** The RP's `userVerification`. WebAuthn: an unknown value is ignored, which means "preferred". */
-export type UserVerification = "required" | "preferred" | "discouraged";
+type UserVerification = "required" | "preferred" | "discouraged";
 const uvField: Validator<UserVerification> = (v) => (v === "required" || v === "discouraged" ? v : "preferred");
 
 /** Sent by the relay. The origin is never taken from here: the service worker uses port.sender.origin. */

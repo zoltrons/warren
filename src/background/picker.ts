@@ -1,6 +1,7 @@
 // "Pick from page" in the item editor. The popup closes as soon as the user clicks the page, so its unsaved
 // draft waits in the offscreen worker, where decrypted items live and a lock drops it.
-import { activeTab, httpUrl } from "./autofill.ts";
+import { activeTab } from "./autofill.ts";
+import { httpUrl } from "../shared/url.ts";
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { analyzeFocus } from "./engine.ts";

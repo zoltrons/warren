@@ -21,6 +21,7 @@ import {
   TwoFactorRequired,
 } from "../transport/auth.ts";
 import { ApiError } from "../transport/http.ts";
+import { b64u } from "../shared/url.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
 import { UserError } from "./errors.ts";
@@ -733,7 +734,6 @@ async function refreshAccessToken(): Promise<{ token: string; owner: number }> {
 // vault is still unlocked with the master password, so the account ends up "locked".
 
 const SSO_SCRIPT = "warren-sso-callback";
-const b64u = (b: Uint8Array) => b.toBase64({ alphabet: "base64url", omitPadding: true });
 const connectorUrl = (base: string) => `${base}/sso-connector.html`;
 
 export async function startSso(): Promise<void> {

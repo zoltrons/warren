@@ -5,6 +5,10 @@ export class ValidationError extends Error {
   override name = "ValidationError";
 }
 
+/** Lenient readers for decrypted JSON: a string or "", a plain object or undefined. */
+export const asString = (v: unknown): string => (typeof v === "string" ? v : "");
+export const asObject = (v: unknown): Record<string, unknown> | undefined => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined);
+
 export type Validator<T> = (v: unknown, path: string) => T;
 
 const fail = (path: string, want: string, v: unknown): never => {
@@ -17,7 +21,7 @@ export const num: Validator<number> = (v, p) => (typeof v === "number" && Number
  * A whole number in 0..max, never coerced: WebAssembly takes u8/u32 modulo 2^n, so 2^32 + 5000 would arrive as 5000
  * after every check here had seen a large number.
  */
-export const uint =
+const uint =
   (max: number): Validator<number> =>
   (v, p) =>
     Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= max ? (v as number) : fail(p, `whole number 0..${max}`, v);

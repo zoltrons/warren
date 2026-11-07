@@ -5,7 +5,7 @@ import { coreCall } from "./core.ts";
 import { getLocal, removeLocal, setLocal, updateSettings } from "./store.ts";
 import { BLOCK, seal, unseal } from "./seal.ts";
 
-export interface PrivateData {
+interface PrivateData {
   /** Hosts the save bar never asks about. */
   neverSave: string[];
   /** Hosts (and their subdomains) where the inline menu, page-load fill and passkey prompts stay away. */
@@ -24,7 +24,7 @@ export interface PrivateData {
 /** What the generator screen gets: everything but the word list itself, which stays here. */
 export type GeneratorPrefs = { options: Record<string, string | number | boolean>; email: string; domain: string; wordlist: number };
 
-export const MAX_NEVER_SAVE = 500;
+const MAX_NEVER_SAVE = 500;
 const MAX_IDS = 500;
 
 const empty = (): PrivateData => ({ neverSave: [], blocked: [], lastUsed: {}, opened: {}, generator: { options: {}, email: "", domain: "", wordlist: 0 } });
@@ -48,7 +48,8 @@ export function sanitize(v: unknown): PrivateData {
   const d = empty();
   if (!isObj(v)) return d;
   const hosts = (l: unknown) => (Array.isArray(l) ? [...new Set(l.filter((h): h is string => typeof h === "string" && !!h))].slice(-MAX_NEVER_SAVE) : []);
-  d.neverSave = hosts(v.neverSave);
+  // The save bar of older builds stored the host with its port; the list holds host names (see hostOf).
+  d.neverSave = hosts(Array.isArray(v.neverSave) ? v.neverSave.map((h) => (typeof h === "string" ? h.replace(/:\d+$/, "") : h)) : []);
   d.blocked = hosts(v.blocked);
   if (isObj(v.lastUsed)) for (const [id, at] of Object.entries(v.lastUsed)) if (typeof at === "number" && Number.isFinite(at)) d.lastUsed[id] = at;
   if (isObj(v.opened))
@@ -142,7 +143,7 @@ export async function isBlocked(url: string, unlocked: boolean): Promise<boolean
 
 // ---------- generator ----------
 
-export const MIN_WORDS = 100;
+const MIN_WORDS = 100;
 const MAX_WORDS = 100_000;
 
 export const generatorPrefs = async (): Promise<GeneratorPrefs> => (await readPrivate()).generator;

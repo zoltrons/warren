@@ -6,14 +6,12 @@
 // The SDK at the pinned rev has no WebAuthn authenticator (the official browser extension
 // implements WebAuthn in TypeScript as well), so ES256 lives here: ECDSA P-256 via WebCrypto, and the
 // private key never leaves the worker.
-import { isLoopback } from "../shared/url.ts";
-import { ci } from "../shared/validate.ts";
+import { b64u, isLoopback } from "../shared/url.ts";
+import { asString as s, ci } from "../shared/validate.ts";
 
 type Json = Record<string, unknown>;
 
-export const b64u = (b: Uint8Array): string => b.toBase64({ alphabet: "base64url", omitPadding: true });
 const fromB64u = (s: string): Uint8Array => Uint8Array.fromBase64(s, { alphabet: "base64url" });
-const s = (v: unknown): string => (typeof v === "string" ? v : "");
 
 /** Bitwarden stores 16-byte ids as GUID strings, anything else as "b64.<base64url>". */
 export function credentialIdBytes(id: string): Uint8Array {

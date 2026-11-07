@@ -2,7 +2,7 @@
 // cities come from one country (identity-data.json, built by tools/identity-data.mjs from faker's locale
 // data), so they fit together. Picks use crypto.getRandomValues, unbiased; nothing here is a secret.
 
-export interface CountryData {
+interface CountryData {
   country: string;
   female: string[];
   male: string[];

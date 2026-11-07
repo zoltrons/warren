@@ -4,7 +4,7 @@ import { KDF_ARGON2ID } from "../shared/constants.ts";
 import { type ErrorCode, PASSKEY_PORT, type PageRequest, parseFrameRequest, parsePageRequest, parseRequest, type Request, type Response, type State, type VaultItem } from "../shared/messages.ts";
 import { ValidationError } from "../shared/validate.ts";
 import { getServerInfo } from "../transport/config.ts";
-import { normalizeServerUrl } from "../shared/url.ts";
+import { httpUrl, normalizeServerUrl } from "../shared/url.ts";
 import { NetworkError } from "../transport/http.ts";
 import {
   answerLoginRequest,
@@ -386,7 +386,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, sender, reply: (r: Response<
   const tabId = sender.tab?.id;
   // Our menu/bar iframes inside a website tab, and the content script on that website.
   const frame = FRAME_PATHS.includes(extensionPath(sender.url) ?? "");
-  if (tabId !== undefined && (frame || /^https?:/.test(sender.url ?? ""))) {
+  if (tabId !== undefined && (frame || httpUrl(sender))) {
     let run: () => Promise<unknown>;
     let read: boolean;
     try {

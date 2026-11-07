@@ -9,13 +9,13 @@
 // The credential's RP ID defaults to the extension origin, so no other site or extension can use it.
 // Devices whose authenticator has no PRF support are refused instead of falling back to a weaker
 // "biometrics as a UI gate" scheme.
+import { b64u } from "../shared/url.ts";
 import { t } from "./dom.ts";
 
 type PrfClientResults = { prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } } };
 
 const random = (n: number) => crypto.getRandomValues(new Uint8Array(n));
 
-const b64uEncode = (bytes: Uint8Array) => bytes.toBase64({ alphabet: "base64url", omitPadding: true });
 const b64uDecode = (value: string) => Uint8Array.fromBase64(value, { alphabet: "base64url" }) as Uint8Array<ArrayBuffer>;
 const b64Encode = (buffer: ArrayBuffer) => new Uint8Array(buffer).toBase64();
 
@@ -86,7 +86,7 @@ export async function createBiometricCredential(email: string): Promise<{ creden
       throw friendly(e);
     }
   }
-  return { credentialId: b64uEncode(new Uint8Array(credential.rawId)), prfSalt: b64uEncode(salt), prf: b64Encode(first) };
+  return { credentialId: b64u(new Uint8Array(credential.rawId)), prfSalt: b64u(salt), prf: b64Encode(first) };
 }
 
 /** Asks the authenticator for the PRF output (with user verification) for an existing credential. */

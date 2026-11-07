@@ -2,6 +2,7 @@
 import type { FillResult, PageLogin } from "../autofill/types.ts";
 import type { PageMatches, VaultItem, VaultList } from "../shared/messages.ts";
 import { pickPageLoadLogin } from "../shared/pageload.ts";
+import { httpUrl } from "../shared/url.ts";
 import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { customFieldsOf, type FillRequest, fillInFrames, pageCall } from "./engine.ts";
@@ -17,15 +18,6 @@ const COPY_FIELD_NAME_ID = "warren-copy-field-name";
 
 export async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
   return (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
-}
-
-export function httpUrl(tab: { url?: string } | undefined): URL | undefined {
-  try {
-    const u = new URL(tab?.url ?? "");
-    return u.protocol === "https:" || u.protocol === "http:" ? u : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 async function matches(url: URL): Promise<VaultItem[]> {

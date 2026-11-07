@@ -1,3 +1,11 @@
+/** The URL of a web page (http or https), or undefined for anything else (chrome://, file:, none). */
+export function httpUrl(page: { url?: string } | undefined): URL | undefined {
+  const u = URL.parse(page?.url ?? "");
+  return u?.protocol === "https:" || u?.protocol === "http:" ? u : undefined;
+}
+
+export const b64u = (b: Uint8Array): string => b.toBase64({ alphabet: "base64url", omitPadding: true });
+
 /**
  * Loopback hosts. Plain http is tolerated for a server on this machine only (development); every
  * other host must use https, or the master password hash, the tokens and the vault travel in clear.
