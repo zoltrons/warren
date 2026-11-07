@@ -20,6 +20,7 @@ test("passkey RP ID: the origin's host or a registrable parent of it", () => {
 test("passkey RP ID: refused for other sites, public suffixes and insecure origins", () => {
   assert.throws(() => ok("example.com", "https://evil.com"), /SecurityError/);
   assert.throws(() => ok("example.com", "https://example.com.evil.net"), /SecurityError/);
+  assert.throws(() => ok("example.com", "https://evilexample.com"), /SecurityError/); // a suffix, not a parent
   assert.throws(() => ok("login.example.com", "https://example.com"), /SecurityError/); // child of the origin
   assert.throws(() => ok("com", "https://example.com"), /SecurityError/);
   assert.throws(() => ok("github.io", "https://alice.github.io"), /SecurityError/); // private-section suffix

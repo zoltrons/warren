@@ -1,0 +1,68 @@
+// guardClicks (SECURITY.md invariant 4): a click in menu.html / bar.html counts only once the browser has reported the
+// frame really visible (IntersectionObserver v2) for 300 ms, and the wait starts again when the menu moves.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+let report: ((es: { isVisible?: boolean }[]) => void) | undefined;
+let observerOptions: { trackVisibility?: boolean } | undefined;
+const listeners: Record<string, ((e: unknown) => void)[]> = {};
+const set = (k: string, v: unknown) => Object.defineProperty(globalThis, k, { value: v, configurable: true, writable: true });
+set("chrome", { i18n: { getMessage: () => "" } });
+set("localStorage", { getItem: () => null });
+set("location", { search: "" });
+set("document", { documentElement: { dataset: {} }, body: { classList: { contains: () => false } } });
+set(
+  "IntersectionObserver",
+  class {
+    constructor(cb: typeof report, options: typeof observerOptions) {
+      report = cb;
+      observerOptions = options;
+    }
+    observe() {}
+  },
+);
+set("addEventListener", (type: string, fn: (e: unknown) => void) => (listeners[type] ??= []).push(fn));
+
+let now = 1000;
+Date.now = () => now;
+const { guardClicks } = await import("./dom.ts");
+guardClicks();
+
+/** True when the guard let the click through to the buttons. */
+function click(): boolean {
+  let blocked = false;
+  for (const fn of listeners.click ?? []) fn({ stopImmediatePropagation: () => (blocked = true), preventDefault: () => undefined });
+  return !blocked;
+}
+
+test("clickjacking: the frame asks the browser to track real visibility", () => {
+  assert.equal(observerOptions?.trackVisibility, true);
+});
+
+test("clickjacking: no click before the frame was reported visible, and none in its first 300 ms", () => {
+  assert.equal(click(), false, "no visibility report yet");
+  report!([{ isVisible: true }]);
+  now += 299;
+  assert.equal(click(), false, "299 ms after it became visible");
+  now += 1;
+  assert.equal(click(), true, "300 ms after it became visible");
+});
+
+test("clickjacking: a covered or transparent frame takes no click, and the wait starts over", () => {
+  report!([{ isVisible: false }]);
+  now += 10_000;
+  assert.equal(click(), false);
+  report!([{ isVisible: true }]);
+  now += 100;
+  assert.equal(click(), false);
+  now += 200;
+  assert.equal(click(), true);
+});
+
+test("clickjacking: a menu that moved waits 300 ms again", () => {
+  for (const fn of listeners.message ?? []) fn({});
+  now += 299;
+  assert.equal(click(), false);
+  now += 1;
+  assert.equal(click(), true);
+});

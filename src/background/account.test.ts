@@ -247,3 +247,60 @@ test("Duo: the result is taken only from our tab, on the server's own connector 
   delete sess().ssoError;
   delete local.server;
 });
+
+// ---------- KDF floor (SECURITY.md invariant 7a) ----------
+
+const argon2 = (memory: number, iterations: number) => ({ kdf: 1, kdfIterations: iterations, kdfMemory: memory, kdfParallelism: 4 });
+const tokenKdf = (k: { kdf: number; kdfIterations: number; kdfMemory?: number; kdfParallelism?: number }) => ({
+  Kdf: k.kdf,
+  KdfIterations: k.kdfIterations,
+  KdfMemory: k.kdfMemory,
+  KdfParallelism: k.kdfParallelism,
+});
+const ssoJwt = (email: string) => `h.${Buffer.from(JSON.stringify({ sub: "user-f", email })).toString("base64url")}.s`;
+async function ssoLogin(email: string, kdf: ReturnType<typeof argon2> | typeof KDF) {
+  await logout();
+  local.server = { url: "https://vault.test" };
+  session.session = { unlocked: false, sso: { state: "kdf", verifier: "v", expiresAt: Date.now() + 60_000 } };
+  const done = finishSso("https://vault.test/sso-connector.html?code=c&state=kdf", 1);
+  await answer("/identity/connect/token", { access_token: ssoJwt(email), expires_in: 3600, refresh_token: "rs", Key: "2.k|k|k", ...tokenKdf(kdf) });
+  await answer("/identity/accounts/prelogin", kdf);
+  await done;
+}
+
+test("KDF floor: a server that lowers it below what this account used here gets no hash, also after a logout", async () => {
+  await logout();
+  local.server = { url: "https://vault.test" };
+  const first = login("floor@b.test", "pw");
+  await answer("/identity/accounts/prelogin", argon2(64, 3));
+  await answer("/identity/connect/token", tokens("user-f", "rf"));
+  await first;
+  await logout();
+  coreOps.length = 0;
+  const second = login("floor@b.test", "pw");
+  await answer("/identity/accounts/prelogin", argon2(19, 2)); // above the fixed minimum, below this account's floor
+  await assert.rejects(second, /much weaker/);
+  assert.ok(!coreOps.includes("prepareKey"), "no key derived, no hash made");
+});
+
+test("KDF floor: a token response that lowers the KDF stores no account", async () => {
+  await logout();
+  const running = login("token@b.test", "pw");
+  await answer("/identity/accounts/prelogin", KDF);
+  await answer("/identity/connect/token", { ...tokens("user-t", "rt"), ...tokenKdf({ kdf: 0, kdfIterations: 5000 }) });
+  await assert.rejects(running, /too weak/);
+  assert.equal(local.account, undefined);
+});
+
+test("KDF floor: an SSO login whose server lowers the KDF stores no account", async () => {
+  await ssoLogin("sso@b.test", { kdf: 0, kdfIterations: 5000 });
+  assert.equal(local.account, undefined);
+  assert.match(String((session.session as { ssoError?: string }).ssoError), /too weak/);
+});
+
+test("KDF floor: kept per account whatever case the server writes the email in", async () => {
+  // floor@b.test has an Argon2id 64 MiB x 3 floor from the first KDF test.
+  await ssoLogin(" Floor@b.test", argon2(19, 2));
+  assert.equal(local.account, undefined, "an Argon2id 19 MiB x 2 KDF was stored for an account seen with 64 MiB x 3");
+  assert.match(String((session.session as { ssoError?: string }).ssoError), /much weaker/);
+});

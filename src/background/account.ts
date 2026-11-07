@@ -784,7 +784,8 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
       if (e instanceof TwoFactorRequired) throw new UserError("badTwoFactor", "Two-step login together with SSO is not supported yet");
       mapLoginError(e);
     }
-    const email = jwtClaim(t.access_token, "email");
+    // Normalized like login(): the KDF floor is keyed by the email, and the server writes this one.
+    const email = jwtClaim(t.access_token, "email")?.trim().toLowerCase();
     if (!email) throw new UserError("badServer", "The server did not return the account email");
     if (!t.Key) throw new UserError("badServer", "This account has no master password yet; set one in the web vault first");
     const kdf = await guardKdf(base, email, kdfFromToken(t, await prelogin(base, email)));

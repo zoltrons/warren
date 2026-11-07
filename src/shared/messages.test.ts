@@ -88,3 +88,11 @@ test("inlineFocus carries bounded page details", () => {
   throws(() => parsePageRequest(big({ dataAttributes: { a: 1 } })), /string/);
   throws(() => parsePageRequest({ type: "inlineFocus", nonce: "n", details: { ...details, fields: Array(257).fill(details.fields[0]) } }), /too many/);
 });
+
+test("page and frame requests: unknown types are refused, also inherited names", () => {
+  for (const type of ["nope", "toString", "__proto__", "constructor", undefined]) {
+    throws(() => parsePageRequest({ type }), /unknown message type/);
+    throws(() => parseFrameRequest({ type, nonce: "n" }), /unknown message type/);
+  }
+  throws(() => parsePageRequest(null), /unknown message type/);
+});

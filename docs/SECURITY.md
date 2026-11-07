@@ -74,7 +74,9 @@ freed rather than zeroed in place.
    menu, or make the menu transparent, and have the user click "through" it into a fill. `guardClicks`
    (`src/ui/dom.ts`) watches each frame with IntersectionObserver v2 (`trackVisibility`): the browser itself reports
    whether the frame is covered, transparent or transformed, also from a cross-origin parent. A click counts only
-   after the frame has been really visible for 300 ms, and the wait starts again whenever the menu moves. This is
+   after the frame has been really visible for 300 ms, and the wait starts again whenever `content.js` moves the menu (a
+   page that only translates an ancestor sends no such signal, and IntersectionObserver v2 counts a 2D translation as
+   visible). This is
    what makes listing cards and identities on every site safe (Known gaps).
 
 5. **Only the service worker may talk to the offscreen document.** `sender.url === background.js`,

@@ -305,6 +305,14 @@ await scenario("a frame on another origin is refused", "decoy", async (page) => 
   const v = await values(page);
   assert.deepEqual([v.u, v.p], ["", ""]);
 });
+await scenario("a write for another origin is refused, even with a plan made in this frame", "decoy", async (page) => {
+  const details = await collect(page);
+  const plan = JSON.parse(engine.plan(JSON.stringify({ details, intent: { kind: "login" } })));
+  const ops = plan.ops.map((o) => ({ fieldId: o.fieldId, value: "secret" }));
+  assert.deepEqual(await page.evaluate((ops) => warren.execute({ origin: "https://elsewhere.example", ops }), ops), { filled: false, reason: "origin" });
+  const v = await values(page);
+  assert.deepEqual([v.u, v.p], ["", ""]);
+});
 await scenario("a login split over two shadow roots is paired", "splitShadow", async (page) => {
   assert.deepEqual(await fill(page), { filled: true });
   const v = await page.evaluate(() => ["x-a", "x-b"].map((t) => document.querySelector(t).shadowRoot.querySelector("input").value));

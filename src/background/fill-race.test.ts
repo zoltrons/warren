@@ -77,3 +77,10 @@ test("a lock while the save bar looks at the tab does not bring the typed passwo
   assert.equal(session["save:1"], undefined);
   assert.ok(!tabMessages.includes("barShow"));
 });
+
+test("a lock counts from its first tick: a check right after the call already sees it", async () => {
+  const before = lockEpoch();
+  const locking = lockNow();
+  assert.equal(lockEpoch(), before + 1);
+  await locking;
+});
