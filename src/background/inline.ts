@@ -12,7 +12,7 @@ import { conditionalReady, openConditional } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
-import { readPrivate, updatePrivate } from "./private.ts";
+import { isBlocked, readPrivate, updatePrivate } from "./private.ts";
 
 export interface InlineContext {
   frameId: number;
@@ -106,6 +106,7 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
   const ctx: InlineContext = { frameId, url, kind, nonce, signup };
   await setTabState("inline", tabId, ctx);
   if (!(await isUnlocked())) return { rows: 1 }; // "Unlock to fill"
+  if (await isBlocked(url, true)) return { rows: 0 };
   const logins = (await items(kind, url)).length;
   // A website waiting on a conditional passkey request gets one extra row for it.
   const passkey = kind === "login" && (await conditionalReady(tabId, frameId));

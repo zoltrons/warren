@@ -333,6 +333,12 @@ pub fn encrypt_cipher(cipher_json: &str, new_key: bool) -> Result<String> {
     Ok(cipher.to_string())
 }
 
+pub fn move_cipher_to_org(cipher_json: &str, org_id: &str) -> Result<String> {
+    let mut cipher: Value = serde_json::from_str(cipher_json).map_err(err)?;
+    with_session(|s| crate::cipher::move_to_org(s, &mut cipher, org_id))?;
+    Ok(cipher.to_string())
+}
+
 pub fn decrypt_folders(folders_json: &str) -> Result<String> {
     let folders: Vec<Value> = serde_json::from_str(folders_json).map_err(err)?;
     with_session(|s| Ok(crate::cipher::decrypt_folders(s, folders).to_string()))
@@ -380,6 +386,87 @@ pub fn make_registration_keys(handle: u32) -> Result<String> {
     })
 }
 
+/// Bitwarden's password-protected JSON export (sdk-internal `bitwarden-exporters/encrypted_json.rs`): the
+/// plain export encrypted with a `PinKey` from the file password, the given KDF and a random salt. The salt
+/// is the base64 *string* (as bytes), as upstream does.
+pub fn password_protect_export(plain: &str, password: &str, kdf: &Kdf) -> Result<String> {
+    if password.is_empty() {
+        return Err("The file password is empty".into());
+    }
+    let salt = STANDARD.encode(bitwarden_crypto::generate_random_bytes::<[u8; 16]>());
+    let key = PinKey::derive(password.as_bytes(), salt.as_bytes(), kdf).map_err(err)?;
+    let mut id = bitwarden_crypto::generate_random_bytes::<[u8; 16]>();
+    id[6] = (id[6] & 0x0f) | 0x40; // a v4 UUID, like upstream's validation value
+    id[8] = (id[8] & 0x3f) | 0x80;
+    let hex: String = id.iter().map(|b| format!("{b:02x}")).collect();
+    let uuid = format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    );
+    let (kdf_type, iterations, memory, parallelism) = match kdf {
+        Kdf::PBKDF2 { iterations } => (0, iterations.get(), Value::Null, Value::Null),
+        Kdf::Argon2id {
+            iterations,
+            memory,
+            parallelism,
+        } => (
+            1,
+            iterations.get(),
+            memory.get().into(),
+            parallelism.get().into(),
+        ),
+    };
+    let out = serde_json::json!({
+        "encrypted": true,
+        "passwordProtected": true,
+        "salt": salt,
+        "kdfType": kdf_type,
+        "kdfIterations": iterations,
+        "kdfMemory": memory,
+        "kdfParallelism": parallelism,
+        "encKeyValidation_DO_NOT_EDIT": uuid.encrypt_with_key(&key).map_err(err)?.to_string(),
+        "data": plain.to_owned().encrypt_with_key(&key).map_err(err)?.to_string(),
+    });
+    serde_json::to_string_pretty(&out).map_err(err)
+}
+
+/// Opens a password-protected export. Its KDF passes the same floors and caps as a server's.
+pub fn password_open_export(file: &str, password: &str) -> Result<String> {
+    let v: Value = serde_json::from_str(file)
+        .map_err(|_| "This is not a Bitwarden JSON export".to_string())?;
+    if v["passwordProtected"] != Value::Bool(true) {
+        return Err("This export is not password protected".into());
+    }
+    let n = |k: &str| {
+        v[k].as_u64()
+            .and_then(|x| u32::try_from(x).ok())
+            .unwrap_or(0)
+    };
+    let kdf = kdf_from_params(
+        u8::try_from(n("kdfType")).map_err(err)?,
+        n("kdfIterations"),
+        n("kdfMemory"),
+        n("kdfParallelism"),
+    )?;
+    let text = |k: &str| {
+        v[k].as_str()
+            .ok_or_else(|| format!("The export has no {k}"))
+    };
+    let key = PinKey::derive(password.as_bytes(), text("salt")?.as_bytes(), &kdf).map_err(err)?;
+    let check = EncString::from_str(text("encKeyValidation_DO_NOT_EDIT")?).map_err(err)?;
+    let _: String = check
+        .decrypt_with_key(&key)
+        .map_err(|_| "Wrong file password".to_string())?;
+    EncString::from_str(text("data")?)
+        .map_err(err)?
+        .decrypt_with_key(&key)
+        .map_err(err)
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -400,6 +487,23 @@ mod tests {
         assert!(kdf_from_params(1, 3, 1_000_000, 4).is_err());
         assert!(kdf_from_params(1, 3, 64, 0).is_err());
         assert!(kdf_from_params(2, 600_000, 0, 0).is_err());
+    }
+
+    #[test]
+    fn password_export_roundtrip() {
+        let kdf = kdf_from_params(0, 5000, 0, 0).unwrap();
+        let file = password_protect_export("{\"items\":[]}", "secret", &kdf).unwrap();
+        let v: Value = serde_json::from_str(&file).unwrap();
+        assert_eq!(v["kdfType"], 0);
+        assert!(password_open_export(&file, "wrong").is_err());
+        assert_eq!(
+            password_open_export(&file, "secret").unwrap(),
+            "{\"items\":[]}"
+        );
+        // A file asking for a KDF below the floor is refused before any work.
+        let weak = file.replace("\"kdfIterations\": 5000", "\"kdfIterations\": 1");
+        assert!(password_open_export(&weak, "secret").is_err());
+        assert!(password_protect_export("x", "", &kdf).is_err());
     }
 
     #[test]

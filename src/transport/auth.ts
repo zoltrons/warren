@@ -62,10 +62,12 @@ export function parseTwoFactorChallenge(body: unknown): TwoFactorChallenge | und
   const emailInfo = ci(p2, String(TWO_FACTOR.Email));
   const emailHint = ci(emailInfo, "Email");
   const webauthn = ci(p2, String(TWO_FACTOR.WebAuthn));
+  const duoProvider = [TWO_FACTOR.Duo, TWO_FACTOR.OrganizationDuo].find((p) => ids.includes(p) && typeof ci(ci(p2, String(p)), "AuthUrl") === "string");
   return {
     providers: ids,
     ...(typeof emailHint === "string" ? { emailHint } : {}),
     ...(webauthn && typeof webauthn === "object" ? { webauthn: JSON.stringify(webauthn) } : {}),
+    ...(duoProvider !== undefined ? { duo: { provider: duoProvider, url: ci(ci(p2, String(duoProvider)), "AuthUrl") as string } } : {}),
   };
 }
 

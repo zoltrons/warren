@@ -73,6 +73,8 @@ function run(req: CoreRequest): unknown {
       return vault.cipherSummary(req.id);
     case "prepareSave":
       return vault.prepareSave(req.item);
+    case "prepareShare":
+      return vault.prepareShare(req.id, req.organizationId);
     case "preparePassword":
       return vault.preparePassword(req.id, req.password, req.revisionDate);
     case "totp":
@@ -95,10 +97,10 @@ function run(req: CoreRequest): unknown {
       return vault.stashDraft(req.draft);
     case "takeDraft":
       return vault.takeDraft();
-    case "exportJson":
-      return vault.exportJson();
+    case "exportVault":
+      return vault.exportVault(req.format, req.password, req.kdf);
     case "prepareImport":
-      return vault.prepareImport(req.text);
+      return vault.prepareImport(req.text, req.password);
     case "decryptAttachment":
       return vault.decryptAttachment(req.cipherId, req.attachmentId, req.data);
     case "encryptAttachment":

@@ -16,9 +16,28 @@ export function savedTheme(): string {
     return "system"; // blocked third-party storage (menu/bar frames inside websites)
   }
 }
+/** Popup width, compact rows and animations: per-device like the theme, as data-* on <html>. */
+export const WIDTHS = ["default", "wide", "extraWide"] as const;
+export function uiPref(key: "theme" | "width" | "compact" | "motion"): string {
+  const fallback = { theme: "system", width: "default", compact: "off", motion: "on" }[key];
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+export function setUiPref(key: "theme" | "width" | "compact" | "motion", value: string) {
+  localStorage.setItem(key, value);
+  applyTheme();
+}
 export function applyTheme(theme = savedTheme()) {
-  if (theme === "system") delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = theme;
+  const d = document.documentElement.dataset;
+  if (theme === "system") delete d.theme;
+  else d.theme = theme;
+  // The passkey window is opened 400 px wide (PASSKEY_WIDTH): a wider body would cut its buttons off.
+  d.width = new URLSearchParams(location.search).has("passkey") ? "default" : uiPref("width");
+  d.compact = uiPref("compact");
+  d.motion = uiPref("motion");
 }
 applyTheme();
 

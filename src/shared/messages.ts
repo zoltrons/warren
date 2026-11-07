@@ -1,7 +1,7 @@
 // Typed message bus. Every message crossing a context boundary is validated on receipt.
 //   popup  --Request-->  service worker  --OffscreenRequest-->  offscreen doc  --postMessage-->  worker
 import { ALIAS_VENDORS, type AliasSettings, type AliasVendor } from "./alias.ts";
-import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, URI_MATCH_CHOICES } from "./constants.ts";
+import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, URI_MATCH_CHOICES } from "./constants.ts";
 import { MAX_BLOCK_PATH, MAX_BUTTONS, MAX_DATA_ATTRS, MAX_FIELDS, MAX_FORM_TEXT, MAX_FORMS, MAX_PAGE_STRING } from "./page-limits.ts";
 import { arr, bool, literal, num, obj, opt, record, str, u32, unknownValue, type Validator, ValidationError } from "./validate.ts";
 
@@ -33,6 +33,8 @@ export type Request =
   | { type: "login"; email: string; password: string }
   | { type: "twoFactorSubmit"; provider: number; token: string; remember: boolean }
   | { type: "twoFactorSendEmail" }
+  /** Opens the Duo prompt in a tab; the worker picks the result up from the server's redirect page. */
+  | { type: "twoFactorDuo"; remember: boolean }
   | { type: "twoFactorCancel" }
   | { type: "ssoStart" }
   /** Log in with device: asks the account's other devices to approve this one (no master password). */
@@ -66,6 +68,9 @@ export type Request =
       /** Clear the whole list, or remove one host from it. */
       clearNeverSave?: boolean;
       removeNeverSave?: string;
+      addNeverSave?: string;
+      addBlocked?: string;
+      removeBlocked?: string;
       defaultUriMatch?: number;
       clearClipboardDelay?: ClearClipboardDelay;
       autofillOnPageLoad?: boolean;
@@ -79,6 +84,7 @@ export type Request =
       showCardsOnTab?: boolean;
       showIdentitiesOnTab?: boolean;
       quickActionMenus?: boolean;
+      badgeCounter?: boolean;
     }
   | { type: "setDefaultManager"; enabled: boolean }
   // vault (unlocked only)
@@ -86,18 +92,24 @@ export type Request =
   | { type: "vaultList"; passive?: boolean }
   | { type: "sync"; force: boolean }
   | { type: "getItem"; id: string }
-  | { type: "saveItem"; item: Record<string, unknown> }
+  /** `collectionIds`: a new organization item's collections (required for one). */
+  | { type: "saveItem"; item: Record<string, unknown>; collectionIds?: string[] }
+  /** A personal item moves into an organization's collections (PUT /ciphers/{id}/share). */
+  | { type: "moveToOrg"; id: string; organizationId: string; collectionIds: string[] }
+  /** An organization item's collections (PUT /ciphers/{id}/collections_v2). */
+  | { type: "setCollections"; id: string; collectionIds: string[] }
   | { type: "deleteItem"; id: string }
   | { type: "restoreItem"; id: string }
   | { type: "purgeItem"; id: string }
   | { type: "downloadAttachment"; cipherId: string; attachmentId: string }
+  | { type: "deleteAttachment"; cipherId: string; attachmentId: string }
   // Bitwarden JSON (unencrypted); export re-checks the master password
-  | { type: "exportVault"; password: string }
+  | { type: "exportVault"; password: string; format: ExportFormat; filePassword?: string }
   /** Re-checks the master password for one item flagged with `reprompt` (see background/reprompt.ts). */
   | { type: "confirmReprompt"; id: string; password: string }
   /** Whether that confirmation still holds; polled by an open item, so it never extends auto-lock. */
   | { type: "repromptGranted"; id: string }
-  | { type: "importVault"; text: string }
+  | { type: "importVault"; text: string; password?: string }
   | { type: "addAttachment"; cipherId: string; file: { name: string; data: string } }
   | { type: "saveFolder"; name: string; id?: string }
   | { type: "deleteFolder"; id: string }
@@ -148,12 +160,20 @@ export type Request =
   /** What the user typed on the page the popup showed (`tabId` / `origin`, like fill). */
   | { type: "readPageLogin"; tabId: number; origin: string };
 
+/** Collection ids: a bounded list of non-empty strings. */
+const collectionIds: Validator<string[]> = (v, p) => {
+  const ids = arr(str)(v, p);
+  if (ids.length > 200 || ids.some((x) => !x || x.length > 64)) throw new ValidationError(`${p}: not a list of collection ids`);
+  return [...new Set(ids)];
+};
+
 const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { type: K }>> } = {
   getState: obj({ type: literal("getState") }),
   setServer: obj({ type: literal("setServer"), url: str }),
   login: obj({ type: literal("login"), email: str, password: str }),
   twoFactorSubmit: obj({ type: literal("twoFactorSubmit"), provider: num, token: str, remember: bool }),
   twoFactorSendEmail: obj({ type: literal("twoFactorSendEmail") }),
+  twoFactorDuo: obj({ type: literal("twoFactorDuo"), remember: bool }),
   twoFactorCancel: obj({ type: literal("twoFactorCancel") }),
   ssoStart: obj({ type: literal("ssoStart") }),
   deviceLogin: obj({ type: literal("deviceLogin"), email: str }),
@@ -184,6 +204,9 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
       autoCopyTotp: opt(bool),
       clearNeverSave: opt(bool),
       removeNeverSave: opt(str),
+      addNeverSave: opt(capped(300)),
+      addBlocked: opt(capped(300)),
+      removeBlocked: opt(str),
       defaultUriMatch: opt(num),
       clearClipboardDelay: opt(literal(...CLEAR_CLIPBOARD_CHOICES)),
       autofillOnPageLoad: opt(bool),
@@ -195,6 +218,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
       showCardsOnTab: opt(bool),
       showIdentitiesOnTab: opt(bool),
       quickActionMenus: opt(bool),
+      badgeCounter: opt(bool),
     })(v, p);
     if (s.autoLockMinutes !== undefined && !(AUTO_LOCK_CHOICES as readonly number[]).includes(s.autoLockMinutes))
       throw new ValidationError("autoLockMinutes: not an allowed choice");
@@ -206,21 +230,28 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   sync: obj({ type: literal("sync"), force: bool }),
   getItem: obj({ type: literal("getItem"), id: str }),
   saveItem: (v, p) => {
-    const s = obj({ type: literal("saveItem"), item: record })(v, p);
+    const s = obj({ type: literal("saveItem"), item: record, collectionIds: opt(collectionIds) })(v, p);
     // Login, secure note, card, identity, SSH key.
     if (![1, 2, 3, 4, 5].includes(s.item.type as number)) throw new ValidationError("item.type: this item type cannot be edited");
     if (typeof s.item.name !== "string" || !s.item.name.trim()) throw new ValidationError("item.name: required");
-    if (s.item.organizationId && !s.item.id) throw new ValidationError("new organization items are not supported");
+    if (s.item.organizationId && !s.item.id && !s.collectionIds?.length) throw new ValidationError("collectionIds: a new organization item needs a collection");
     return s;
   },
+  moveToOrg: (v, p) => {
+    const s = obj({ type: literal("moveToOrg"), id: str, organizationId: str, collectionIds })(v, p);
+    if (!s.collectionIds.length) throw new ValidationError("collectionIds: pick at least one collection");
+    return s;
+  },
+  setCollections: obj({ type: literal("setCollections"), id: str, collectionIds }),
   deleteItem: obj({ type: literal("deleteItem"), id: str }),
   restoreItem: obj({ type: literal("restoreItem"), id: str }),
   purgeItem: obj({ type: literal("purgeItem"), id: str }),
   downloadAttachment: obj({ type: literal("downloadAttachment"), cipherId: str, attachmentId: str }),
-  exportVault: obj({ type: literal("exportVault"), password: str }),
+  deleteAttachment: obj({ type: literal("deleteAttachment"), cipherId: str, attachmentId: str }),
+  exportVault: obj({ type: literal("exportVault"), password: str, format: literal(...EXPORT_FORMATS), filePassword: opt(str) }),
   confirmReprompt: obj({ type: literal("confirmReprompt"), id: str, password: str }),
   repromptGranted: obj({ type: literal("repromptGranted"), id: str }),
-  importVault: obj({ type: literal("importVault"), text: capped(MAX_IMPORT_CHARS) }),
+  importVault: obj({ type: literal("importVault"), text: capped(MAX_IMPORT_CHARS), password: opt(str) }),
   addAttachment: obj({ type: literal("addAttachment"), cipherId: str, file: obj({ name: str, data: str }) }),
   saveFolder: obj({ type: literal("saveFolder"), name: str, id: opt(str) }),
   deleteFolder: obj({ type: literal("deleteFolder"), id: str }),
@@ -287,6 +318,8 @@ export interface TwoFactorChallenge {
   emailHint?: string;
   /** WebAuthn request options (JSON) for the server's webauthn-connector.html. */
   webauthn?: string;
+  /** Duo Universal Prompt: the provider it came as (2 personal, 6 organization) and Duo's authorize URL. */
+  duo?: { provider: number; url: string };
 }
 
 export interface Settings {
@@ -300,6 +333,8 @@ export interface Settings {
   savePrompt: boolean;
   /** Hosts the user chose "never save" for. */
   neverSave: string[];
+  /** Hosts where Warren offers no inline menu, page-load fill or passkeys (encrypted; filled in while unlocked). */
+  blocked: string[];
   /** Chrome's own password saving and address/card autofill are turned off (privacy permission). */
   defaultManager: boolean;
   /** Website icons for logins, from the server's /icons service. */
@@ -324,6 +359,8 @@ export interface Settings {
   showIdentitiesOnTab: boolean;
   /** Vault rows: a copy menu and "⋮" instead of one icon per action. */
   quickActionMenus: boolean;
+  /** Number of matching logins on the toolbar icon. */
+  badgeCounter: boolean;
 }
 
 export interface State {
@@ -395,13 +432,19 @@ export interface Folder {
   name: string;
 }
 
+export interface Collection extends Folder {
+  organizationId: string;
+  /** The user may not add items to it or take them out. */
+  readOnly: boolean;
+}
+
 export interface VaultList {
   items: VaultItem[];
   folders: Folder[];
   trash: VaultItem[];
   /** Names for organization items' details. */
   organizations?: Folder[];
-  collections?: Folder[];
+  collections?: Collection[];
   syncedAt?: number;
   /** cipher id -> opens on this device ("Recently opened", "Most opened" sort); stored encrypted. */
   opened?: Record<string, { n: number; at: number }>;
@@ -471,6 +514,8 @@ export type ErrorCode =
 
 // ---------- service worker -> offscreen -> worker ----------
 
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
 export interface KdfParams {
   type: number;
   iterations: number;
@@ -507,6 +552,7 @@ export type CoreRequest =
   /** The list entry of one item: no secrets. Enough for a re-prompt or type check. */
   | { op: "cipherSummary"; id: string }
   | { op: "prepareSave"; item: Record<string, unknown> }
+  | { op: "prepareShare"; id: string; organizationId: string }
   /** Save bar: the item with a new password, encrypted; the service worker never sees the item. */
   /** `revisionDate`: the item's revision (epoch ms) the save bar asked about; refused if the item changed since. */
   | { op: "preparePassword"; id: string; password: string; revisionDate?: number }
@@ -523,8 +569,8 @@ export type CoreRequest =
   | { op: "takeDraft" }
   // attachments (bodies base64)
   | { op: "decryptAttachment"; cipherId: string; attachmentId: string; data: string }
-  | { op: "exportJson" }
-  | { op: "prepareImport"; text: string }
+  | { op: "exportVault"; format: ExportFormat; password?: string; kdf?: KdfParams }
+  | { op: "prepareImport"; text: string; password?: string }
   | { op: "encryptAttachment"; cipherId: string; fileName: string; data: string }
   // Send
   | { op: "listSends" }
@@ -601,6 +647,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   getCipher: obj({ op: literal("getCipher"), id: str }),
   cipherSummary: obj({ op: literal("cipherSummary"), id: str }),
   prepareSave: obj({ op: literal("prepareSave"), item: record }),
+  prepareShare: obj({ op: literal("prepareShare"), id: str, organizationId: str }),
   preparePassword: obj({ op: literal("preparePassword"), id: str, password: str, revisionDate: opt(num) }),
   totp: obj({ op: literal("totp"), id: str }),
   generate: obj({ op: literal("generate"), options: record }),
@@ -613,8 +660,8 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   stashDraft: obj({ op: literal("stashDraft"), draft: str }),
   takeDraft: obj({ op: literal("takeDraft") }),
   decryptAttachment: obj({ op: literal("decryptAttachment"), cipherId: str, attachmentId: str, data: str }),
-  exportJson: obj({ op: literal("exportJson") }),
-  prepareImport: obj({ op: literal("prepareImport"), text: str }),
+  exportVault: obj({ op: literal("exportVault"), format: literal(...EXPORT_FORMATS), password: opt(str), kdf: opt(kdfParams) }),
+  prepareImport: obj({ op: literal("prepareImport"), text: str, password: opt(str) }),
   encryptAttachment: obj({ op: literal("encryptAttachment"), cipherId: str, fileName: str, data: str }),
   listSends: obj({ op: literal("listSends") }),
   getSend: obj({ op: literal("getSend"), id: str }),

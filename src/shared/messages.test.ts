@@ -27,9 +27,12 @@ test("frame requests: inline actions need the nonce, bar actions need the save t
   throws(() => parseFrameRequest({ type: "barInfo" }), /token/);
 });
 
-test("popup requests: unknown types and new organization items are refused", () => {
+test("popup requests: unknown types, and new organization items without a collection, are refused", () => {
   throws(() => parseRequest({ type: "eval" }), /unknown message type/);
-  throws(() => parseRequest({ type: "saveItem", item: { type: 1, name: "n", organizationId: "org" } }), /not supported/);
+  throws(() => parseRequest({ type: "saveItem", item: { type: 1, name: "n", organizationId: "org" } }), /needs a collection/);
+  parseRequest({ type: "saveItem", item: { type: 1, name: "n", organizationId: "org" }, collectionIds: ["c"] });
+  throws(() => parseRequest({ type: "moveToOrg", id: "c1", organizationId: "org", collectionIds: [] }), /at least one/);
+  throws(() => parseRequest({ type: "setCollections", id: "c1", collectionIds: [""] }), /collection ids/);
   parseRequest({ type: "saveItem", item: { id: "c1", type: 1, name: "n", organizationId: "org" } });
   throws(() => parseRequest({ type: "saveItem", item: { type: 9, name: "n" } }), /cannot be edited/);
   throws(() => parseRequest({ type: "saveItem", item: { type: 1, name: "  " } }), /required/);
@@ -37,7 +40,7 @@ test("popup requests: unknown types and new organization items are refused", () 
 });
 
 test("popup requests: an import is size-capped", () => {
-  assert.deepEqual(parseRequest({ type: "importVault", text: "{}" }), { type: "importVault", text: "{}" });
+  assert.deepEqual(parseRequest({ type: "importVault", text: "{}" }), { type: "importVault", text: "{}", password: undefined });
   throws(() => parseRequest({ type: "importVault", text: "x".repeat(17 * 1024 * 1024) }), /too long/);
 });
 

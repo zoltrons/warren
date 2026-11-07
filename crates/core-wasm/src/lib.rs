@@ -63,6 +63,26 @@ pub fn pin_protect_user_key(
     api::pin_protect_user_key(pin, email, &kdf).map_err(js)
 }
 
+/// Bitwarden password-protected JSON export of `plain` (the unencrypted export).
+#[wasm_bindgen(js_name = passwordProtectExport)]
+pub fn password_protect_export(
+    plain: &str,
+    password: &str,
+    kdf_type: u8,
+    iterations: u32,
+    memory: u32,
+    parallelism: u32,
+) -> Result<String, JsError> {
+    let kdf = api::kdf_from_params(kdf_type, iterations, memory, parallelism).map_err(js)?;
+    api::password_protect_export(plain, password, &kdf).map_err(js)
+}
+
+/// The unencrypted export inside a password-protected one.
+#[wasm_bindgen(js_name = passwordOpenExport)]
+pub fn password_open_export(file: &str, password: &str) -> Result<String, JsError> {
+    api::password_open_export(file, password).map_err(js)
+}
+
 #[wasm_bindgen(js_name = unlockWithPin)]
 #[allow(clippy::too_many_arguments)]
 pub fn unlock_with_pin(
@@ -157,6 +177,12 @@ pub fn decrypt_cipher(cipher_json: &str) -> Result<String, JsError> {
 #[wasm_bindgen(js_name = encryptCipher)]
 pub fn encrypt_cipher(cipher_json: &str, new_key: bool) -> Result<String, JsError> {
     api::encrypt_cipher(cipher_json, new_key).map_err(js)
+}
+
+/// A decrypted personal cipher, encrypted for organization `org_id` (its item key wrapped by the org key).
+#[wasm_bindgen(js_name = moveCipherToOrg)]
+pub fn move_cipher_to_org(cipher_json: &str, org_id: &str) -> Result<String, JsError> {
+    api::move_cipher_to_org(cipher_json, org_id).map_err(js)
 }
 
 #[wasm_bindgen(js_name = decryptFolders)]

@@ -265,13 +265,57 @@ export async function submitTwoFactor(provider: number, token: string, remember:
     await completeLogin(base, pending.email, pending.kdf, pending, t, epoch);
   } catch (e) {
     if (!(e instanceof TwoFactorRequired || (e instanceof ApiError && e.status === 400))) throw e;
-    if (provider === TWO_FACTOR.WebAuthn) {
-      // Vaultwarden deletes the WebAuthn challenge on every attempt; ask for a fresh one.
+    if (provider === TWO_FACTOR.WebAuthn || provider === TWO_FACTOR.Duo || provider === TWO_FACTOR.OrganizationDuo) {
+      // Vaultwarden deletes the WebAuthn challenge (and the Duo state) on every attempt; ask for a fresh one.
       await passwordToken(base, grant).catch(async (r: unknown) => {
         if (r instanceof TwoFactorRequired) await updateSession({ pending: { ...pending, challenge: r.challenge } });
       });
     }
     throw new UserError("badTwoFactor", e instanceof ApiError ? e.message : "Invalid verification code");
+  }
+}
+
+/** Duo's authorize endpoint only, like the clients' duo-redirect connector: the server cannot send the user elsewhere. */
+export function duoUrl(raw: string): string {
+  const u = URL.parse(raw);
+  if (!u || u.protocol !== "https:" || u.username || u.password || (u.port && u.port !== "443") || u.pathname !== "/oauth/v1/authorize" || !/^api-[a-zA-Z0-9]+\.(duosecurity|duofederal)\.com$/.test(u.hostname))
+    throw new UserError("badServer", "The server sent a Duo address that is not Duo's");
+  return u.href;
+}
+
+export async function startDuo(remember: boolean): Promise<void> {
+  const { pending } = await requirePending();
+  const duo = pending.challenge.duo;
+  if (!duo) throw new UserError("invalid", "Duo two-step login is not enabled for this account");
+  const tab = await chrome.tabs.create({ url: duoUrl(duo.url) });
+  if (tab.id !== undefined) await updateSession({ duo: { tabId: tab.id, provider: duo.provider, remember }, ssoError: undefined });
+}
+
+/**
+ * Duo sends the user back to the server's duo-redirect-connector.html with `code` and `state`. Only in the tab we
+ * opened, and only on the configured server: then the result is our pending login's second factor.
+ */
+export async function duoTabUpdated(tabId: number, url: string): Promise<void> {
+  const { duo } = await getSession();
+  if (duo?.tabId !== tabId) return;
+  const server = (await getLocal("server"))?.url;
+  const u = URL.parse(url);
+  if (!server || !u) return;
+  const connector = new URL("duo-redirect-connector.html", server.endsWith("/") ? server : `${server}/`);
+  const code = u.searchParams.get("code");
+  const state = u.searchParams.get("state");
+  if (!code || !state || !u.pathname.endsWith("/duo-redirect-connector.html")) return;
+  if (u.origin !== connector.origin || u.pathname !== connector.pathname) {
+    // The server's DOMAIN setting differs from the address Warren uses: say so instead of waiting forever.
+    await updateSession({ duo: undefined, ssoError: `Duo returned to ${u.origin}${u.pathname}, not to ${connector.href}. Set the server address in Warren to the server's DOMAIN.` });
+    return;
+  }
+  await updateSession({ duo: undefined });
+  void chrome.tabs.remove(tabId).catch(() => undefined);
+  try {
+    await submitTwoFactor(duo.provider, `${code}|${state}`, duo.remember);
+  } catch (e) {
+    await updateSession({ ssoError: e instanceof Error ? e.message : String(e) });
   }
 }
 

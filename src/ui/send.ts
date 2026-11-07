@@ -19,6 +19,8 @@ interface Draft {
   name: string;
   text: string;
   hidden: boolean;
+  /** New sends: recipients do not see the sender's email address. */
+  hideEmail: boolean;
   file?: File;
   password: string;
   days: number;
@@ -29,7 +31,7 @@ interface Draft {
   removePassword: boolean;
 }
 
-const newDraft = (): Draft => ({ kind: "text", name: "", text: "", hidden: false, password: "", days: 7, maxAccess: "", disabled: false, originalHasPassword: false, removePassword: false });
+const newDraft = (): Draft => ({ kind: "text", name: "", text: "", hidden: false, hideEmail: false, password: "", days: 7, maxAccess: "", disabled: false, originalHasPassword: false, removePassword: false });
 const editDraft = (s: SendItem): Draft => ({
   ...newDraft(),
   id: s.id,
@@ -167,7 +169,7 @@ async function create(ctx: Ctx, d: Draft) {
   };
   const body = d.id
     ? { id: d.id, ...common, ...(d.kind === "text" ? { text: { text: d.text, hidden: d.hidden } } : {}) }
-    : { ...common, ...(d.kind === "text" ? { text: { text: d.text, hidden: d.hidden } } : {}), hideEmail: false };
+    : { ...common, ...(d.kind === "text" ? { text: { text: d.text, hidden: d.hidden } } : {}), hideEmail: d.hideEmail };
   const asked = sessionNow();
   const file = !d.id && d.kind === "file" && d.file ? { name: d.file.name, data: new Uint8Array(await d.file.arrayBuffer()).toBase64() } : undefined;
   // A lock or another account while the file was read: this send was meant for the session before.
@@ -200,6 +202,7 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
   const kindChip = (kind: Draft["kind"], label: string, ic: IconName) =>
     h("button", { type: "button", class: "chip", "aria-pressed": String(d.kind === kind), onclick: () => ((d.kind = kind), ctx.rerender()) }, icon(ic), label);
   const hidden = h("input", { type: "checkbox", checked: d.hidden, "aria-label": t("hideText"), onchange: (e: Event) => (d.hidden = (e.target as HTMLInputElement).checked) });
+  const hideEmail = h("input", { type: "checkbox", checked: d.hideEmail, "aria-label": t("hideEmail"), onchange: (e: Event) => (d.hideEmail = (e.target as HTMLInputElement).checked) });
   const disabled = h("input", { type: "checkbox", checked: d.disabled, "aria-label": t("disableSend"), onchange: (e: Event) => (d.disabled = (e.target as HTMLInputElement).checked) });
   const isNew = !d.id;
   // Edit: 0 keeps the current deletion date.
@@ -233,6 +236,7 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
           h("span", { class: "switch" }, h("input", { type: "checkbox", checked: d.removePassword, "aria-label": t("removePassword"), onchange: (e: Event) => ((d.removePassword = (e.target as HTMLInputElement).checked), (d.password = ""), ctx.rerender()) }), h("span")),
         )
       : null,
+    isNew ? h("label", { class: "row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideEmail")), h("span", { class: "switch" }, hideEmail, h("span"))) : null,
     isNew ? null : h("label", { class: "row" }, icon("lock"), h("div", { class: "body" }, t("disableSend")), h("span", { class: "switch" }, disabled, h("span"))),
     errorBox(),
     sd.busy ? h("div", { class: "progress" }) : null,

@@ -9,7 +9,7 @@ import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { getLocal, getSettings } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, markUsed } from "./vault.ts";
-import { readPrivate } from "./private.ts";
+import { isBlocked, readPrivate } from "./private.ts";
 
 const CONTEXT_MENU_ID = "warren-autofill";
 export const AUTOFILL_COMMAND = "autofill-login";
@@ -60,6 +60,7 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   const url = httpUrl(sender);
   if (!settings.autofillOnPageLoad || tabId === undefined || frameId === undefined || !url) return { filled: false, reason: "noFields" };
   if (!(await isUnlocked())) return { filled: false, reason: "locked" };
+  if (await isBlocked(url.href, true)) return { filled: false, reason: "noMatch" };
   // Items flagged for a master-password re-prompt never fill on page load (no user to ask).
   const pick = pickPageLoadLogin((await matches(url)).filter((i) => !i.reprompt), settings.autofillOnPageLoadDefault, (await readPrivate()).lastUsed);
   if (!pick) return { filled: false, reason: "noMatch" };
@@ -179,7 +180,8 @@ export function updateTabUi(): Promise<void> {
     const unlocked = await isUnlocked();
     const items = unlocked && url ? await matches(url) : [];
     await chrome.contextMenus.removeAll();
-    if ((await getSettings()).contextMenu) {
+    const settings = await getSettings();
+    if (settings.contextMenu) {
       const contexts: ["editable"] = ["editable"];
       chrome.contextMenus.create({ id: CONTEXT_MENU_ID, title: chrome.i18n.getMessage("ctxAutofill"), contexts }, ignoreError);
       for (const i of items)
@@ -195,7 +197,7 @@ export function updateTabUi(): Promise<void> {
       void chrome.action.setBadgeBackgroundColor({ color: "#c2113f" }); // raspberry: white count text stays readable
     }
     const badge = (tabId: number | undefined, text: string) => (tabId === undefined ? undefined : chrome.action.setBadgeText({ tabId, text }));
-    if (unlocked) await badge(tab?.id, items.length ? String(items.length) : "");
+    if (unlocked) await badge(tab?.id, items.length && settings.badgeCounter ? String(items.length) : "");
     else await Promise.all((await chrome.tabs.query({})).map((t) => badge(t.id, "")));
   }).catch((e: unknown) => console.warn("tab ui", e));
   return tabUi;

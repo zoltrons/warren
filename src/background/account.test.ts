@@ -200,3 +200,50 @@ test("a lock whose bookkeeping fails still shuts the worker down", async () => {
   }
   assert.equal(offscreen, false, "the worker and its keys are gone");
 });
+
+test("Duo: only Duo's authorize endpoint is opened, and the challenge carries its URL", async () => {
+  const { duoUrl } = await import("./account.ts");
+  const { parseTwoFactorChallenge } = await import("../transport/auth.ts");
+  const ok = "https://api-1a2b3c.duosecurity.com/oauth/v1/authorize?client_id=x&request=y";
+  assert.equal(duoUrl(ok), ok);
+  for (const bad of [
+    "http://api-1a2b3c.duosecurity.com/oauth/v1/authorize",
+    "https://api-1a2b3c.duosecurity.com.evil.test/oauth/v1/authorize",
+    "https://user:pw@api-1a2b3c.duosecurity.com/oauth/v1/authorize",
+    "https://api-1a2b3c.duosecurity.com:8443/oauth/v1/authorize",
+    "https://api-1a2b3c.duosecurity.com/elsewhere",
+    "https://evil.test/oauth/v1/authorize",
+  ])
+    assert.throws(() => duoUrl(bad), /not Duo/);
+  const c = parseTwoFactorChallenge({ TwoFactorProviders: [0, 6], TwoFactorProviders2: { "6": { AuthUrl: ok }, "0": null } });
+  assert.deepEqual(c?.duo, { provider: 6, url: ok });
+  assert.equal(parseTwoFactorChallenge({ TwoFactorProviders: [2], TwoFactorProviders2: { "2": {} } })?.duo, undefined);
+});
+
+test("Duo: the result is taken only from our tab, on the server's own connector page", async () => {
+  const { duoTabUpdated } = await import("./account.ts");
+  local.server = { url: "https://vault.example.test/vw" };
+  const sess = () => (session.session ?? {}) as { duo?: unknown; ssoError?: string };
+  session.session = { ...sess(), duo: { tabId: 7, provider: 2, remember: false } };
+  const ok = "https://vault.example.test/vw/duo-redirect-connector.html?client=browser&code=c&state=s";
+  // Another tab, another page, a missing state: ignored, the prompt keeps waiting.
+  for (const [tab, url] of [
+    [8, ok],
+    [7, "https://vault.example.test/vw/elsewhere?code=c&state=s"],
+    [7, "https://vault.example.test/vw/duo-redirect-connector.html?client=browser&code=c"],
+  ] as const) {
+    await duoTabUpdated(tab, url);
+    assert.ok(sess().duo, `${tab} ${url}`);
+  }
+  // The connector on another address (DOMAIN differs): not used, but the popup is told why.
+  await duoTabUpdated(7, "https://evil.test/vw/duo-redirect-connector.html?client=browser&code=c&state=s");
+  assert.equal(sess().duo, undefined);
+  assert.match(String(sess().ssoError), /DOMAIN/);
+  session.session = { ...sess(), ssoError: undefined, duo: { tabId: 7, provider: 2, remember: false } };
+  // The right page ends the wait; without a pending login the failure is kept for the popup.
+  await duoTabUpdated(7, ok);
+  assert.equal(sess().duo, undefined);
+  assert.ok(sess().ssoError);
+  delete sess().ssoError;
+  delete local.server;
+});

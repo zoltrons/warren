@@ -15,11 +15,24 @@ export async function fullSync(base: string, token: string): Promise<SyncRespons
   return parse(syncResponse, await call(base, "GET", "/api/sync?excludeDomains=true", { token }));
 }
 
-/** `cipher` is the encrypted CipherData; Vaultwarden requires `encryptedFor` (the user id). */
-export async function saveCipher(base: string, token: string, cipher: Record<string, unknown>): Promise<Record<string, unknown>> {
+/**
+ * `cipher` is the encrypted CipherData; Vaultwarden requires `encryptedFor` (the user id). A new organization item
+ * goes to /ciphers/create with its collections.
+ */
+export async function saveCipher(base: string, token: string, cipher: Record<string, unknown>, collectionIds?: string[]): Promise<Record<string, unknown>> {
   const id = typeof cipher.id === "string" && cipher.id ? cipher.id : undefined;
+  if (!id && collectionIds?.length) return parse(record, await call(base, "POST", "/api/ciphers/create", { token, json: { cipher, collectionIds } }));
   const path = id ? `/api/ciphers/${encodeURIComponent(id)}` : "/api/ciphers";
   return parse(record, await call(base, id ? "PUT" : "POST", path, { token, json: cipher }));
+}
+
+/** Moves a personal item into an organization (`cipher` encrypted with the organization's key). */
+export async function shareCipher(base: string, token: string, id: string, cipher: Record<string, unknown>, collectionIds: string[]): Promise<void> {
+  await call(base, "PUT", `/api/ciphers/${encodeURIComponent(id)}/share`, { token, json: { cipher, collectionIds } });
+}
+
+export async function setCipherCollections(base: string, token: string, id: string, collectionIds: string[]): Promise<void> {
+  await call(base, "PUT", `/api/ciphers/${encodeURIComponent(id)}/collections_v2`, { token, json: { collectionIds } });
 }
 
 export async function restoreCipher(base: string, token: string, id: string): Promise<void> {
@@ -87,6 +100,10 @@ export async function downloadAttachment(base: string, token: string, cipherId: 
   }
   if (!res.ok) throw new ApiError(res.status, null, `Attachment download failed (${res.status})`);
   return readBytes(res, MAX_ATTACHMENT_BYTES, "attachment");
+}
+
+export async function deleteAttachment(base: string, token: string, cipherId: string, attachmentId: string): Promise<void> {
+  await call(base, "DELETE", path(cipherId, attachmentId), { token });
 }
 
 /** Registers a new attachment (encrypted key and name) and uploads its encrypted body. */

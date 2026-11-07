@@ -34,7 +34,7 @@ export interface Ctx {
 }
 
 type Sort = "name" | "nameDesc" | "updated" | "created" | "opened";
-type Route = { kind: "list" } | { kind: "item"; id: string } | { kind: "edit"; isNew: boolean } | { kind: "folders" };
+type Route = { kind: "list" } | { kind: "item"; id: string } | { kind: "edit"; isNew: boolean } | { kind: "folders" } | { kind: "org"; id: string };
 
 interface EditDraft {
   base: Json;
@@ -45,6 +45,8 @@ interface EditDraft {
   favorite: boolean;
   /** Ask for the master password before this item is shown, copied or filled. */
   reprompt: boolean;
+  /** A new organization item's collections. */
+  collectionIds: string[];
   /** Type-specific fields (SCHEMA) by key. */
   data: Record<string, string>;
   /** Login websites with their own match strategy (null = the account default). */
@@ -135,6 +137,8 @@ const st = {
   totpFailed: undefined as string | undefined,
   /** Timestamp of the first tap of a two-tap destructive action; 0 when idle. */
   confirmDelete: 0,
+  /** Which two-tap action is armed: "item" or an attachment id. */
+  armed: "",
   draft: undefined as EditDraft | undefined,
   toast: "",
   /** Large Type screen: the text being shown. */
@@ -456,6 +460,7 @@ function open(ctx: Ctx, route: Route) {
   stopRepromptWatch();
   Object.assign(st, { route, error: undefined, confirmDelete: 0, totp: undefined, totpFailed: undefined, large: undefined, qr: undefined, notesPreview: false, pwned: undefined, memory: undefined, reveal: new Set(), copied: "", uriOpen: new Set(), picking: undefined, repromptFor: undefined, itemFailedFor: undefined });
   if (route.kind !== "edit") st.draft = undefined;
+  if (route.kind === "org") orgDraft.id = ""; // read from the item on the first render
   if (route.kind === "item") noteOpened(route.id);
   ctx.rerender();
 }
@@ -1286,12 +1291,14 @@ async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: stri
 }
 
 /** Arm a destructive action on the first tap, run it on the second; disarms itself after a while. */
-function twoTap(ctx: Ctx, run: () => void) {
-  if (!st.confirmDelete) {
-    st.confirmDelete = Date.now();
+function twoTap(ctx: Ctx, run: () => void, key = "item") {
+  if (!st.confirmDelete || st.armed !== key) {
+    const at = Date.now();
+    st.confirmDelete = at;
+    st.armed = key;
     ctx.rerender();
     setTimeout(() => {
-      if (!st.confirmDelete) return;
+      if (st.confirmDelete !== at) return; // disarmed, or armed again since
       st.confirmDelete = 0;
       if (st.route.kind === "item") ctx.rerender();
     }, 4000);
@@ -1434,6 +1441,8 @@ function uriRow(ctx: Ctx, index: number, uri: string, match: number | null, onHt
   const items: MenuItem[] = [];
   if (front) items.push({ label: t("openMainPage"), icon: "home", onClick: () => void chrome.tabs.create({ url: front }) });
   if (https) items.push({ label: t("switchToHttps"), icon: "shield", onClick: () => onHttps!(https) });
+  // The site's own "change your password" page (W3C well-known URL); sites without one usually redirect home.
+  if (href) items.push({ label: t("changePasswordPage"), icon: "key", onClick: () => void chrome.tabs.create({ url: new URL("/.well-known/change-password", href).href }) });
   const sub = [insecure ? t("insecureUri") : "", match !== null ? uriMatchLabel(match) : ""].filter(Boolean).join(" · ");
   return h(
     "div",
@@ -1524,7 +1533,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
   const org = st.list?.organizations?.find((o) => o.id === item.organizationId);
   const collections = (Array.isArray(item.collectionIds) ? (item.collectionIds as string[]) : []).map((c) => st.list?.collections?.find((x) => x.id === c)?.name).filter(Boolean);
   const date = (v: unknown) => (typeof v === "string" && v ? when(v) : "");
-  const confirm = st.confirmDelete > 0;
+  const confirm = st.confirmDelete > 0 && st.armed === "item";
   const password = type === 1 ? str(data.password) : "";
   const reused = summary?.reused ?? 0;
   const formatted = notesFormatted();
@@ -1639,6 +1648,14 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
           icon("attach"),
           h("div", { class: "body" }, h("span", { class: "title ellipsis" }, str(a.fileName) || t("untitled")), h("span", { class: "sub" }, str(a.sizeName))),
           iconButton("download", `${t("download")} ${str(a.fileName)}`, () => void download(ctx, id, str(a.id))),
+          editable && !inTrash
+            ? iconButton(
+                "trash",
+                st.confirmDelete && st.armed === str(a.id) ? t("tapAgainToDelete") : `${t("delete")} ${str(a.fileName)}`,
+                () => twoTap(ctx, () => void vaultAction(ctx, { type: "deleteAttachment", cipherId: id, attachmentId: str(a.id) }, "deleted", false), str(a.id)),
+                st.confirmDelete && st.armed === str(a.id) ? { class: "icon-btn danger" } : {},
+              )
+            : null,
         ),
       ),
       editable && !inTrash
@@ -1661,6 +1678,8 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
     h(
       "div",
       { class: "group" },
+      !inTrash && editable && !item.organizationId && writableOrgs().length ? actionRow("shield", t("moveToOrg"), () => open(ctx, { kind: "org", id })) : null,
+      !inTrash && editable && item.organizationId && writableCollections(str(item.organizationId)).length ? actionRow("folder", t("editCollections"), () => open(ctx, { kind: "org", id })) : null,
       inTrash
         ? actionRow("refresh", t("restore"), () => void vaultAction(ctx, { type: "restoreItem", id }, "restored"))
         : editable
@@ -1742,6 +1761,7 @@ export function startEdit(ctx: Ctx, item: Json | undefined, prefill: Prefill = {
     folderId: str(base.folderId),
     favorite: base.favorite === true,
     reprompt: Number(base.reprompt) === 1,
+    collectionIds: Array.isArray(base.collectionIds) ? (base.collectionIds as string[]).filter((c) => writableCollections(str(base.organizationId)).some((x) => x.id === c)) : [],
     data: { ...data, ...prefill.data },
     uris:
       prefill.uris ??
@@ -2009,7 +2029,9 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     st.busy = true;
     st.error = undefined;
     ctx.rerender();
-    const r = await send<VaultList>({ type: "saveItem", item: buildItem(d) });
+    const org = isNew ? str(d.base.organizationId) : "";
+    if (org && !d.collectionIds.length) return ((st.error = t("pickCollection")), ctx.rerender());
+    const r = await send<VaultList>({ type: "saveItem", item: buildItem(d), ...(org ? { collectionIds: d.collectionIds } : {}) });
     st.busy = false;
     if (!r.ok) return ((st.error = r.error), ctx.rerender());
     st.list = r.data;
@@ -2160,6 +2182,18 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
       ? h("button", { type: "button", class: "chip small", "aria-pressed": String(st.notesPreview), onclick: () => ((st.notesPreview = !st.notesPreview), ctx.rerender()) }, t("previewNotes"))
       : null,
     st.notesPreview && hasMarkup(d.notes) ? renderMarkdown(d.notes) : null,
+    isNew && writableOrgs().length
+      ? field(
+          "edit-owner",
+          t("owner"),
+          select(
+            () => str(d.base.organizationId),
+            (v) => ((d.base.organizationId = v || null), (d.collectionIds = []), ctx.rerender()),
+            [["", t("ownerMe")], ...writableOrgs().map((o): [string, string] => [o.id, o.name])],
+          ),
+        )
+      : null,
+    isNew && str(d.base.organizationId) ? collectionPicker(ctx, str(d.base.organizationId), d.collectionIds) : null,
     field("edit-folder", t("folder"), select(() => d.folderId, (v) => (d.folderId = v), [["", t("noFolder")], ...(st.list?.folders ?? []).map((f): [string, string] => [f.id, f.name])])),
     h("label", { class: "row check-card" }, h("div", { class: "body" }, h("span", { class: "title" }, t("favorite"))), h("span", { class: "switch" }, fav, h("span"))),
     h(
@@ -2174,6 +2208,96 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
 }
 
 // ---------- folders ----------
+
+// ---------- organizations ----------
+
+/** Collections of `orgId` the user may add items to. */
+const writableCollections = (orgId: string) => (st.list?.collections ?? []).filter((c) => c.organizationId === orgId && !c.readOnly);
+const writableOrgs = () => (st.list?.organizations ?? []).filter((o) => writableCollections(o.id).length);
+
+/** One switch per writable collection of `orgId`; `chosen` is changed in place. */
+function collectionPicker(ctx: Ctx, orgId: string, chosen: string[]): HTMLElement {
+  return h(
+    "div",
+    { class: "group", role: "group", "aria-label": t("collections") },
+    ...writableCollections(orgId).map((c) =>
+      h(
+        "label",
+        { class: "row check-card" },
+        icon("folder"),
+        h("div", { class: "body" }, h("span", { class: "title" }, c.name)),
+        h(
+          "span",
+          { class: "switch" },
+          h("input", {
+            type: "checkbox",
+            checked: chosen.includes(c.id),
+            onchange: (e: Event) => {
+              const on = (e.target as HTMLInputElement).checked;
+              const at = chosen.indexOf(c.id);
+              if (on && at < 0) chosen.push(c.id);
+              if (!on && at >= 0) chosen.splice(at, 1);
+              ctx.rerender();
+            },
+          }),
+          h("span"),
+        ),
+      ),
+    ),
+  );
+}
+
+/** Move a personal item into an organization, or change an organization item's collections. */
+const orgDraft = { id: "", orgId: "", ids: [] as string[] };
+function orgView(ctx: Ctx, id: string): HTMLElement {
+  const item = st.item && st.item.id === id ? st.item : undefined;
+  const back = () => open(ctx, { kind: "item", id });
+  const current = str(item?.organizationId);
+  if (orgDraft.id !== id && item) {
+    const ids = Array.isArray(item?.collectionIds) ? [...(item!.collectionIds as string[])] : [];
+    Object.assign(orgDraft, { id, orgId: current || (writableOrgs()[0]?.id ?? ""), ids });
+  }
+  const moving = !current;
+  // Collections the user cannot change stay as they are (the server keeps them only if sent).
+  const fixed = moving ? [] : orgDraft.ids.filter((c) => !writableCollections(current).some((x) => x.id === c));
+  const submit = () => {
+    const ids = [...new Set([...orgDraft.ids])];
+    if (!ids.length) return ((st.error = t("pickCollection")), ctx.rerender());
+    void vaultAction(ctx, moving ? { type: "moveToOrg", id, organizationId: orgDraft.orgId, collectionIds: ids } : { type: "setCollections", id, collectionIds: ids }, "saved", false).then(() => {
+      if (st.route.kind === "org" && !st.error) back();
+    });
+  };
+  return h(
+    "div",
+    { class: "page" },
+    topBar(iconButton("back", t("back"), back), h("h1", {}, t(moving ? "moveToOrg" : "editCollections"))),
+    errorBox(),
+    item ? null : h("p", { class: "caption" }, t("loading")),
+    moving
+      ? h(
+          "div",
+          { class: "field" },
+          h(
+            "label",
+            { for: "org-owner" },
+            h("span", {}, t("organization")),
+            withChevron(
+              h(
+                "select",
+                { id: "org-owner", onchange: (e: Event) => ((orgDraft.orgId = (e.target as HTMLSelectElement).value), (orgDraft.ids = []), ctx.rerender()) },
+                ...writableOrgs().map((o) => h("option", { value: o.id, selected: o.id === orgDraft.orgId }, o.name)),
+              ),
+            ),
+          ),
+        )
+      : null,
+    moving ? h("p", { class: "caption" }, t("moveToOrgHint")) : null,
+    orgDraft.orgId ? collectionPicker(ctx, orgDraft.orgId, orgDraft.ids) : null,
+    fixed.length ? h("p", { class: "caption" }, t("collectionsReadOnly", String(fixed.length))) : null,
+    st.busy ? progress() : null,
+    h("button", { type: "button", class: "btn filled wide", disabled: st.busy || !item, onclick: submit }, icon("check"), t(moving ? "moveToOrg" : "save")),
+  );
+}
 
 function foldersView(ctx: Ctx): HTMLElement {
   const names = new Map((st.list?.folders ?? []).map((f) => [f.id, f.name]));
@@ -2253,5 +2377,6 @@ export function vaultScreen(ctx: Ctx): HTMLElement {
   }
   if (r.kind === "edit" && st.draft) return editView(ctx, r.isNew);
   if (r.kind === "folders") return foldersView(ctx);
+  if (r.kind === "org") return orgView(ctx, r.id);
   return listView(ctx);
 }

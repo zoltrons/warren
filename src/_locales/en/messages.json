@@ -451,6 +451,15 @@
   "openSidePanel": {
     "message": "Open in side panel"
   },
+  "providerDuo": {
+    "message": "Duo"
+  },
+  "duoHint": {
+    "message": "Duo opens in a new tab. Approve the sign-in there; the tab closes and Warren finishes logging in. Open Warren again afterwards."
+  },
+  "launchDuo": {
+    "message": "Launch Duo"
+  },
   "providerWebAuthn": {
     "message": "Security key"
   },
@@ -488,6 +497,9 @@
   },
   "delete": {
     "message": "Delete"
+  },
+  "hideEmail": {
+    "message": "Hide my email address from recipients"
   },
   "tapAgainToDelete": {
     "message": "Tap again to delete"
@@ -988,6 +1000,30 @@
   "theme": {
     "message": "Theme"
   },
+  "extensionWidth": {
+    "message": "Extension width"
+  },
+  "width_default": {
+    "message": "Default"
+  },
+  "width_wide": {
+    "message": "Wide"
+  },
+  "width_extraWide": {
+    "message": "Extra wide"
+  },
+  "compactMode": {
+    "message": "Compact mode"
+  },
+  "showAnimations": {
+    "message": "Show animations"
+  },
+  "badgeCounter": {
+    "message": "Show the match count on the toolbar icon"
+  },
+  "badgeCounterHint": {
+    "message": "How many saved logins fit the open page."
+  },
   "theme_system": {
     "message": "System"
   },
@@ -1093,11 +1129,58 @@
   "collections": {
     "message": "Collections"
   },
+  "owner": {
+    "message": "Owner"
+  },
+  "ownerMe": {
+    "message": "Me (personal vault)"
+  },
+  "pickCollection": {
+    "message": "Pick at least one collection"
+  },
+  "moveToOrg": {
+    "message": "Move to organization"
+  },
+  "moveToOrgHint": {
+    "message": "The organization then owns the item: its members with access to these collections can see it, and you cannot move it back."
+  },
+  "editCollections": {
+    "message": "Collections"
+  },
+  "collectionsReadOnly": {
+    "message": "Also in $P1$ collection(s) you cannot change.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "exportVault": {
     "message": "Export vault"
   },
   "exportHint": {
-    "message": "Unencrypted Bitwarden JSON: keep the file safe"
+    "message": "Bitwarden JSON or CSV, or JSON protected by a file password"
+  },
+  "exportFormat": {
+    "message": "File format"
+  },
+  "exportFormat_json": {
+    "message": "JSON"
+  },
+  "exportFormat_encrypted": {
+    "message": "JSON (password protected)"
+  },
+  "exportFormat_csv": {
+    "message": "CSV"
+  },
+  "exportEncryptedHint": {
+    "message": "Only this file password opens it: any Bitwarden app can import it."
+  },
+  "exportCsvHint": {
+    "message": "Logins and secure notes only, unencrypted: keep the file safe."
+  },
+  "filePassword": {
+    "message": "File password"
   },
   "exportConfirm": {
     "message": "Export"
@@ -1105,8 +1188,11 @@
   "importVault": {
     "message": "Import items"
   },
+  "importConfirm": {
+    "message": "Import"
+  },
   "importHint": {
-    "message": "From a Bitwarden JSON export (unencrypted)"
+    "message": "From a Bitwarden JSON (also password protected) or CSV export"
   },
   "imported": {
     "message": "Imported $P1$ item(s).",
@@ -1403,6 +1489,26 @@
   "enableContextMenu": {
     "message": "Show the context menu entry"
   },
+  "addNeverSave": {
+    "message": "Never save"
+  },
+  "blockedSites": {
+    "message": "Blocked websites"
+  },
+  "blockedSitesHint": {
+    "message": "No inline menu, autofill on page load or passkey prompts on these sites and their subdomains. Read while the vault is unlocked."
+  },
+  "blockSite": {
+    "message": "Block"
+  },
+  "unblockSite": {
+    "message": "Unblock $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "removeNeverSave": {
     "message": "Never save on $P1$ again",
     "placeholders": {
@@ -1597,6 +1703,9 @@
   },
   "openMainPage": {
     "message": "Open the main page"
+  },
+  "changePasswordPage": {
+    "message": "Change password on this site"
   },
   "switchToHttps": {
     "message": "Switch to https"

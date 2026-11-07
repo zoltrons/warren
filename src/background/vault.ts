@@ -1,10 +1,12 @@
 // Vault orchestration in the service worker: encrypted cache in storage.local, sync, and writes.
 // Decryption happens in the offscreen worker; the SW only moves encrypted JSON around.
-import { CLEAR_CLIPBOARD_MS } from "../shared/constants.ts";
-import type { CoreRequest, HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import { CLEAR_CLIPBOARD_MS, PIN_KDF } from "../shared/constants.ts";
+import type { CoreRequest, ExportFormat, HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import { safeKdf } from "./kdf.ts";
 import { revisionDate } from "../transport/auth.ts";
 import {
   addAttachment as apiAddAttachment,
+  deleteAttachment as apiDeleteAttachment,
   createFileSend,
   createSend,
   deleteFolder as apiDeleteFolder,
@@ -17,6 +19,8 @@ import {
   restoreCipher,
   saveCipher,
   saveFolder as apiSaveFolder,
+  setCipherCollections,
+  shareCipher,
   trashCipher,
   updateSend,
   uploadSendFile,
@@ -142,13 +146,24 @@ export async function list(): Promise<VaultList> {
   return { ...l, syncedAt: (await getLocal("vault"))?.syncedAt, opened: await readPrivate().then((d) => d.opened, () => ({})) };
 }
 
-export const save = async (item: Record<string, unknown>): Promise<VaultList> => saveEncrypted(await coreCall<Record<string, unknown>>({ op: "prepareSave", item }));
+export const save = async (item: Record<string, unknown>, collectionIds?: string[]): Promise<VaultList> =>
+  saveEncrypted(await coreCall<Record<string, unknown>>({ op: "prepareSave", item }), undefined, collectionIds);
+
+export async function moveToOrg(id: string, organizationId: string, collectionIds: string[]): Promise<VaultList> {
+  const epoch = lockEpoch();
+  const account = await getLocal("account");
+  if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
+  const enc = await coreCall<Record<string, unknown>>({ op: "prepareShare", id, organizationId });
+  return thenSync((b, t) => shareCipher(b, t, id, { ...enc, encryptedFor: account.userId }, collectionIds), epoch);
+}
+
+export const setCollections = (id: string, collectionIds: string[]) => thenSync((b, t) => setCipherCollections(b, t, id, collectionIds));
 
 /**
  * Sends an item the worker already encrypted (prepareSave, preparePassword, passkeyCreate) and returns the
  * server's copy. `guard` runs right before the request and throws to call the save off (a cancelled passkey).
  */
-export async function putCipher(enc: Record<string, unknown>, guard?: () => void): Promise<Record<string, unknown>> {
+export async function putCipher(enc: Record<string, unknown>, guard?: () => void, collectionIds?: string[]): Promise<Record<string, unknown>> {
   const epoch = lockEpoch();
   const owner = ownerEpoch();
   const account = await getLocal("account");
@@ -158,7 +173,7 @@ export async function putCipher(enc: Record<string, unknown>, guard?: () => void
   // Right before the request, with no await in between: a change a lock overtook is never sent.
   assertEpoch(epoch);
   guard?.();
-  const saved = await saveCipher(base, token, { ...enc, encryptedFor: account.userId });
+  const saved = await saveCipher(base, token, { ...enc, encryptedFor: account.userId }, collectionIds);
   changes++;
   await refreshAfter(
     commit(epoch, async (cache) => {
@@ -169,8 +184,8 @@ export async function putCipher(enc: Record<string, unknown>, guard?: () => void
   return saved;
 }
 
-export async function saveEncrypted(enc: Record<string, unknown>, guard?: () => void): Promise<VaultList> {
-  await putCipher(enc, guard);
+export async function saveEncrypted(enc: Record<string, unknown>, guard?: () => void, collectionIds?: string[]): Promise<VaultList> {
+  await putCipher(enc, guard, collectionIds);
   return list();
 }
 
@@ -230,20 +245,24 @@ export async function clearClipboard(): Promise<void> {
 
 // ---------- Import / export ----------
 
-export async function exportVault(password: string): Promise<string> {
+export async function exportVault(password: string, format: ExportFormat, filePassword?: string): Promise<string> {
   // The whole vault in clear text: ask the server to confirm the master password first, like the official clients.
   await verifyMasterPassword(password);
+  if (format === "encrypted" && !filePassword) throw new UserError("invalid", "Enter a file password");
   await ensureLoaded();
-  return coreCall<string>({ op: "exportJson" });
+  // A file can be attacked offline: it gets the account's KDF only when that is a strong one.
+  const account = await getLocal("account");
+  const kdf = account && safeKdf(account.kdf) ? account.kdf : { ...PIN_KDF };
+  return coreCall<string>({ op: "exportVault", format, ...(format === "encrypted" ? { password: filePassword, kdf } : {}) });
 }
 
-export async function importVault(text: string): Promise<{ imported: number; skipped: number }> {
+export async function importVault(text: string, password?: string): Promise<{ imported: number; skipped: number }> {
   const epoch = lockEpoch();
   const owner = ownerEpoch();
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
   await ensureLoaded();
-  const r = await coreCall<{ ciphers: Record<string, unknown>[]; folders: unknown[]; folderRelationships: unknown[]; skipped: number }>({ op: "prepareImport", text }).catch((e: unknown) => {
+  const r = await coreCall<{ ciphers: Record<string, unknown>[]; folders: unknown[]; folderRelationships: unknown[]; skipped: number }>({ op: "prepareImport", text, ...(password ? { password } : {}) }).catch((e: unknown) => {
     throw new UserError("invalid", (e as Error).message);
   });
   if (!r.ciphers.length) throw new UserError("invalid", "Nothing to import");
@@ -272,6 +291,10 @@ export async function addAttachment(cipherId: string, file: { name: string; data
   const epoch = lockEpoch();
   const enc = await coreCall<{ key: string; fileName: string; data: string }>({ op: "encryptAttachment", cipherId, fileName: file.name, data: file.data });
   return thenSync((b, t) => apiAddAttachment(b, t, cipherId, { key: enc.key, fileName: enc.fileName }, Uint8Array.fromBase64(enc.data)), epoch);
+}
+
+export async function deleteAttachment(cipherId: string, attachmentId: string): Promise<VaultList> {
+  return thenSync((b, t) => apiDeleteAttachment(b, t, cipherId, attachmentId));
 }
 
 // ---------- Generator history ----------

@@ -134,7 +134,13 @@ async function apiSession(u: TestUser) {
       const sync = (await call(BASE, "GET", "/api/sync?excludeDomains=true", { token })) as { folders: unknown[] };
       return (JSON.parse(wasm.decryptFolders(JSON.stringify(sync.folders))).folders as { name: string }[]).map((f) => f.name);
     },
-    /** Personal items (this session holds no organization keys). */
+    /** Organization items as the server has them: owner, collections and the decrypted name. */
+    async orgCiphers() {
+      const sync = (await call(BASE, "GET", "/api/sync?excludeDomains=true", { token })) as { ciphers: { organizationId?: string; collectionIds?: string[] }[]; profile: { organizations: { id: string; key: string }[] } };
+      wasm.setOrgKeys(JSON.stringify(Object.fromEntries(sync.profile.organizations.map((o) => [o.id, o.key]))));
+      return sync.ciphers.filter((c) => c.organizationId).map((c) => ({ ...JSON.parse(wasm.decryptCipher(JSON.stringify(c))), organizationId: c.organizationId, collectionIds: c.collectionIds }) as Record<string, any>);
+    },
+    /** Personal items. */
     async ciphers() {
       const sync = (await call(BASE, "GET", "/api/sync?excludeDomains=true", { token })) as { ciphers: { organizationId?: string }[] };
       return sync.ciphers.filter((c) => !c.organizationId).map((c) => JSON.parse(wasm.decryptCipher(JSON.stringify(c))) as Record<string, any>);
@@ -998,6 +1004,101 @@ try {
     await rows().filter({ hasText: "Imported login" }).waitFor();
   });
 
+  await step("export and import: CSV, and JSON protected by a file password", async () => {
+    await page.getByRole("button", { name: "Settings" }).click();
+    const exportAs = async (format: string, filePassword?: string) => {
+      await page.getByRole("button", { name: /^Export vault/ }).click();
+      await page.getByLabel("File format").selectOption(format);
+      if (filePassword) await page.getByLabel("File password").fill(filePassword);
+      await page.getByLabel("Master password").fill(vaultUser.password);
+      const [dl] = await Promise.all([page.waitForEvent("download"), click("Export")]);
+      return { name: dl.suggestedFilename(), text: readFileSync(await dl.path(), "utf8") };
+    };
+    const csv = await exportAs("csv");
+    assert.match(csv.name, /^warren_export_\d{14}\.csv$/);
+    assert.match(csv.text.split("\n")[0]!, /^folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp$/);
+    assert.ok(csv.text.includes("GitHub") && csv.text.includes("octo"));
+    const prot = await exportAs("encrypted", "file-pass-123");
+    assert.match(prot.name, /_encrypted\.json$/);
+    const p = JSON.parse(prot.text);
+    assert.deepEqual([p.encrypted, p.passwordProtected], [true, true]);
+    assert.ok(!prot.text.includes("octo"), "clear text in a protected export");
+    // Imports: a CSV, then the protected file (asks for its password, refuses a wrong one).
+    await page.getByLabel("Import items").setInputFiles({ name: "x.csv", mimeType: "text/csv", buffer: Buffer.from("folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp\n,,login,CSV login,,,0,https://csv.example,csv-user,csv-pw,\n") });
+    await page.getByRole("status").filter({ hasText: "Imported 1 item(s)." }).waitFor();
+    // The file opens with its password outside Warren too (same format as the official clients).
+    const opened = JSON.parse(wasm.passwordOpenExport(prot.text, "file-pass-123"));
+    assert.ok(opened.items.some((i: any) => i.name === "GitHub" && i.login?.username === "octo"));
+    // A small protected file (not the whole vault again, which would double every item for later steps).
+    const small = wasm.passwordProtectExport(JSON.stringify({ encrypted: false, folders: [], items: [{ type: 2, name: "Protected note", secureNote: { type: 0 } }] }), "file-pass-123", 0, 600_000, 0, 0);
+    await page.getByLabel("Import items").setInputFiles({ name: "p.json", mimeType: "application/json", buffer: Buffer.from(small) });
+    await page.getByLabel("File password").fill("nope");
+    await click("Import");
+    await page.getByRole("alert").filter({ hasText: "Wrong file password" }).waitFor();
+    await page.getByLabel("File password").fill("file-pass-123");
+    await click("Import");
+    await page.getByRole("status").filter({ hasText: "Imported 1 item(s)." }).waitFor();
+    const s = await apiSession(vaultUser);
+    const all = await s.ciphers();
+    s.done();
+    assert.equal(all.find((x) => x.name === "CSV login")?.login.password, "csv-pw");
+    assert.ok(all.some((x) => x.name === "Protected note"), "protected export not imported");
+    await page.getByRole("button", { name: "Vault", exact: true }).click();
+  });
+
+  await step("organizations: create in a collection, move a personal item in, change its collections", async () => {
+    await page.getByRole("button", { name: "New item" }).click();
+    await page.getByRole("button", { name: "Note", exact: true }).click();
+    await fill("Name", "Org created");
+    await page.getByLabel("Owner").selectOption({ label: "Team Alpha" });
+    await page.getByRole("group", { name: "Collections" }).getByText("Engineering").click();
+    await page.getByRole("button", { name: "Save" }).click();
+    await rows().filter({ hasText: "Org created" }).waitFor();
+    await page.getByRole("button", { name: "New item" }).click();
+    await page.getByRole("button", { name: "Note", exact: true }).click();
+    await fill("Name", "Moved note");
+    await page.getByRole("button", { name: "Save" }).click();
+    await rows().filter({ hasText: "Moved note" }).click();
+    await page.getByRole("button", { name: "Move to organization" }).click();
+    await page.getByRole("group", { name: "Collections" }).getByText("Engineering").click();
+    await page.getByRole("button", { name: "Move to organization" }).click();
+    await page.getByRole("heading", { name: "Moved note" }).waitFor();
+    await page.getByText("Team Alpha", { exact: true }).waitFor();
+    const s = await apiSession(vaultUser);
+    const org = await s.orgCiphers();
+    const personal = await s.ciphers();
+    s.done();
+    const created = org.find((c) => c.name === "Org created");
+    const moved = org.find((c) => c.name === "Moved note");
+    assert.ok(created?.collectionIds?.length === 1, "created item has no collection");
+    assert.ok(moved?.key && moved.collectionIds?.length === 1, "moved item not in the collection");
+    assert.ok(!personal.some((c) => c.name === "Moved note"), "moved item still personal");
+    // Out of every collection is refused; the item keeps the one it has.
+    await page.getByRole("button", { name: "Collections", exact: true }).click();
+    await page.getByRole("heading", { name: "Collections" }).waitFor();
+    const eng = page.getByRole("group", { name: "Collections" }).getByRole("checkbox");
+    assert.equal(await eng.isChecked(), true, "current collection not shown as chosen");
+    await page.getByRole("group", { name: "Collections" }).getByText("Engineering").click();
+    assert.equal(await eng.isChecked(), false);
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("alert").filter({ hasText: "Pick at least one collection" }).waitFor();
+    await back();
+    await back();
+  });
+
+  await step("attachments: deleted after a second tap", async () => {
+    await rows().filter({ hasText: "Team wiki v2" }).first().click(); // also under "Recently opened"
+    await page.getByRole("button", { name: "Delete org.txt" }).click();
+    await page.getByRole("button", { name: "Tap again to delete" }).click();
+    await page.getByRole("status").filter({ hasText: "Deleted" }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Download org.txt" }).count(), 0);
+    const s = await apiSession(vaultUser);
+    const c = (await s.orgCiphers()).find((x) => x.name === "Team wiki v2");
+    s.done();
+    assert.equal(c?.attachments?.length ?? 0, 0);
+    await back();
+  });
+
   await step("generator: password and passphrase", async () => {
     await page.getByRole("button", { name: "Generator" }).click();
     const out = page.getByRole("status", { name: "Generated value" }).or(page.locator("output"));
@@ -1267,6 +1368,23 @@ try {
     assert.deepEqual(await fieldValues(), ["local-user", "local-pass-2"]);
     await loginPage.waitForTimeout(300);
     assert.equal(await loginPage.locator("warren-menu").count(), 0, "menu reopened after the fill");
+  });
+
+  await step("blocked websites: no inline menu there until unblocked", async () => {
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByRole("textbox", { name: "Block" }).fill("http://localhost:8099/login");
+    await page.getByRole("button", { name: "Block", exact: true }).click();
+    await page.getByText("localhost", { exact: true }).waitFor();
+    await loginPage.goto(`${SITE}/login`);
+    await loginPage.click("#u");
+    await loginPage.waitForTimeout(1500);
+    assert.equal(await loginPage.locator("warren-menu").count(), 0, "menu on a blocked site");
+    await page.getByRole("button", { name: "Unblock localhost" }).click();
+    await page.getByRole("button", { name: "Unblock localhost" }).waitFor({ state: "detached" });
+    await page.getByRole("button", { name: "Vault", exact: true }).click();
+    await loginPage.goto(`${SITE}/login`);
+    await loginPage.click("#u");
+    await frameOf(loginPage, "menu.html");
   });
 
   await step("inline menu: fields in an open shadow root and in an iframe", async () => {

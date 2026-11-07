@@ -47,13 +47,14 @@ test("clear-text data of older builds moves in, then goes", async () => {
   const d = await readPrivate();
   assert.deepEqual(d.neverSave, ["old.example"]);
   assert.deepEqual(d.lastUsed, { id1: 5 });
-  assert.deepEqual(local.settings, { savePrompt: true });
+  assert.equal(local.settings.savePrompt, true);
+  assert.equal("neverSave" in local.settings, false);
   assert.equal(local.lastUsed, undefined);
 });
 
 test("damaged entries are dropped", () => {
-  const d = sanitize({ neverSave: ["x", 3, "x", ""], lastUsed: { a: 1, b: "2" }, opened: { a: { n: 1, at: 2 }, b: { n: "1" } }, generator: { email: 4, wordlist: -3, options: { length: 20, type: "passphrase", wordlist: ["a"], email: "x", "bad key": 1, nested: {} } } });
-  assert.deepEqual(d, { neverSave: ["x"], lastUsed: { a: 1 }, opened: { a: { n: 1, at: 2 } }, generator: { options: { length: 20, type: "passphrase" }, email: "", domain: "", wordlist: 0 } });
+  const d = sanitize({ neverSave: ["x", 3, "x", ""], blocked: 5, lastUsed: { a: 1, b: "2" }, opened: { a: { n: 1, at: 2 }, b: { n: "1" } }, generator: { email: 4, wordlist: -3, options: { length: 20, type: "passphrase", wordlist: ["a"], email: "x", "bad key": 1, nested: {} } } });
+  assert.deepEqual(d, { neverSave: ["x"], blocked: [], lastUsed: { a: 1 }, opened: { a: { n: 1, at: 2 } }, generator: { options: { length: 20, type: "passphrase" }, email: "", domain: "", wordlist: 0 } });
 });
 
 test("the word list is stored encrypted, counted, and only added for a passphrase", async () => {
@@ -66,4 +67,17 @@ test("the word list is stored encrypted, counted, and only added for a passphras
   await assert.rejects(setWordlist("too\nfew"));
   assert.equal((await setWordlist("")).wordlist, 0);
   assert.equal(local.wordlist, undefined);
+});
+
+test("site lists: typed hosts are normalized, blocked hosts cover subdomains", async () => {
+  const { hostOf, blockedHost } = await import("./private.ts");
+  assert.equal(hostOf(" https://Login.Example.com/path?x "), "login.example.com");
+  assert.equal(hostOf("example.com"), "example.com");
+  assert.equal(hostOf("localhost:8099"), "localhost");
+  assert.equal(hostOf("intranet"), undefined);
+  assert.equal(hostOf("javascript:alert(1)"), undefined);
+  assert.equal(hostOf(""), undefined);
+  assert.ok(blockedHost("a.example.com", ["example.com"]));
+  assert.ok(blockedHost("example.com", ["example.com"]));
+  assert.ok(!blockedHost("badexample.com", ["example.com"]));
 });

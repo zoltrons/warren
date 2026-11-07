@@ -229,6 +229,41 @@ pub fn add_key(s: &Session, cipher: &mut Value) -> Result<()> {
     Ok(())
 }
 
+/// Moves a decrypted personal cipher into organization `org`: its item key is unwrapped with the user key and
+/// wrapped again with the organization key, so attachments (keyed by the item key) stay readable. An item without
+/// a key of its own gets a fresh one, unless it has attachments: theirs would be wrapped by the user key.
+pub fn move_to_org(s: &Session, cipher: &mut Value, org: &str) -> Result<()> {
+    let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
+    if str_ci(obj, "organizationId").is_some() {
+        return Err("The item already belongs to an organization".into());
+    }
+    let org_key = s
+        .orgs
+        .get(&org.to_ascii_lowercase())
+        .ok_or("missing organization key")?;
+    let item = match str_ci(obj, "key") {
+        Some(k) => decrypt_symmetric_key(&s.user, k)?,
+        None => {
+            let attachments = get_ci(obj, "attachments")
+                .and_then(Value::as_array)
+                .is_some_and(|a| !a.is_empty());
+            if attachments {
+                return Err(
+                    "This older item has attachments without an item key; move them by hand".into(),
+                );
+            }
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac)
+        }
+    };
+    let wrapped = (&OctetStreamBytes::from(item.to_encoded().to_vec()))
+        .encrypt_with_key(org_key)
+        .map_err(err)?;
+    obj.retain(|k, _| !k.eq_ignore_ascii_case("key") && !k.eq_ignore_ascii_case("organizationId"));
+    obj.insert("organizationId".into(), org.into());
+    obj.insert("key".into(), wrapped.to_string().into());
+    encrypt(s, cipher)
+}
+
 pub fn encrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
     let (base, item) = cipher_keys(s, obj)?;
@@ -470,6 +505,42 @@ mod tests {
         ] {
             assert!(decrypt(&s, &mut forged).is_err());
         }
+    }
+
+    #[test]
+    fn move_to_org_rewraps_the_item_key() {
+        let org = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let me = session(HashMap::from([("org-1".to_string(), org.clone())]));
+        let mut c = json!({ "type": 2, "name": "mine", "organizationId": null });
+        add_key(&me, &mut c).unwrap();
+        let personal_key = c["key"].clone();
+        let mut moved = c.clone();
+        move_to_org(&me, &mut moved, "org-1").unwrap();
+        assert_eq!(moved["organizationId"], "org-1");
+        assert_ne!(moved["key"], personal_key);
+        // Another member with only the organization key reads it, and gets the same item key back.
+        let member = session(HashMap::from([("org-1".to_string(), org)]));
+        let mut seen = moved.clone();
+        decrypt(&member, &mut seen).unwrap();
+        assert_eq!(seen["name"], "mine");
+        let k1 = decrypt_symmetric_key(&me.user, personal_key.as_str().unwrap()).unwrap();
+        let k2 = decrypt_symmetric_key(
+            member.orgs.get("org-1").unwrap(),
+            moved["key"].as_str().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(k1.to_base64(), k2.to_base64());
+        // Twice, or an unknown organization, or old attachments without an item key: refused.
+        assert!(move_to_org(&me, &mut seen, "org-1").is_err());
+        assert!(move_to_org(&me, &mut json!({ "type": 2, "name": "x" }), "org-2").is_err());
+        assert!(
+            move_to_org(
+                &me,
+                &mut json!({ "type": 2, "name": "x", "attachments": [{ "id": "a" }] }),
+                "org-1"
+            )
+            .is_err()
+        );
     }
 
     #[test]

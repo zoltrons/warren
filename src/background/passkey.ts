@@ -22,6 +22,7 @@ import { coreCall } from "./core.ts";
 import { assertEpoch, lockEpoch } from "./lock.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { getLocal, getSettings } from "./store.ts";
+import { isBlocked } from "./private.ts";
 import { ensureLoaded, isUnlocked, putCipher, requireUnlocked, sync } from "./vault.ts";
 
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
@@ -160,6 +161,8 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     pending.set(p.id, p);
     mine = p;
     p.startedLocked = !(await isUnlocked());
+    // A blocked site gets the browser's own passkey handling (a locked vault cannot read the list).
+    if (await isBlocked(origin, !p.startedLocked)) return p.done({ fallback: true });
     if (conditional) timer = setTimeout(() => void p.done({ fallback: true }), CONDITIONAL_TTL_MS);
     if (call.kind === "get") {
       if (await isUnlocked()) {

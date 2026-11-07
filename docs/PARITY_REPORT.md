@@ -139,7 +139,7 @@ Server-gated (Vaultwarden has no equivalent): Archive (premium), at-risk passwor
 
 Done since: log in with device (request and approve, with notifications) and live sync over the WebSocket hub.
 
-Not implemented yet: account switching / multiple accounts, Duo 2FA, YubiKey validation end-to-end,
+Not implemented yet (as of 2026-10-29; current list: "Parity status 2026-11-07" at the end): account switching / multiple accounts, Duo 2FA, YubiKey validation end-to-end,
 email-restricted ("hide my email") sends, CSV import/export, password-protected/encrypted JSON
 export, org item writes and org attachments, master-password re-prompt (`reprompt`), persistent PIN
 across restarts, blocked-domains and excluded-domains editors (only removal of never-save hosts),
@@ -191,3 +191,76 @@ Date: 2026-10-30. No new permissions, no native messaging helper, no remote code
 * The "system prompt may close the action popup" case is handled with an "Open in a tab" action on
   the locked screen and in Settings; it could not be reproduced here (virtual authenticator has no
   OS prompt).
+
+---
+
+# Parity status (2026-11-07)
+
+Compared with `browser-v2026.10.2` (2026-11-02; only a LastPass direct-import fix over the pinned
+`browser-v2026.10.1`) and the code at `d62f236`. Checked by reading the code, not by new tests.
+
+## Done since the lists above
+
+* Master-password re-prompt (`reprompt.ts`), also on fill, copy and passkey assertions.
+* PIN that survives a browser restart ("Lock with master password on restart" switch at PIN setup).
+* Log in with device, login request approvals, live sync over the notifications hub.
+* SSO login, WebAuthn (FIDO2) 2FA next to authenticator, email and YubiKey OTP.
+* Forwarded-email aliases in the username generator: SimpleLogin, addy.io, DuckDuckGo, Fastmail,
+  Firefox Relay, Forward Email.
+* "Have I Been Pwned" check for a password (k-anonymity, padded response).
+* Item editor: generate a username or password from the field (opens the Generator, which records history).
+* Passkeys: create, sign in, replace, sign-in without a match opens Warren's window.
+* Fill a login on a site it is not saved for, Fill button on every row, quick actions, favorites,
+  clone, password history, sort by recently / most opened, pure black theme, side panel.
+
+## Still missing
+
+Server-gated or out of scope (no Vaultwarden support or premium-only upstream): archive, at-risk
+password reports / security tasks, admin and organization management, billing and premium nudges,
+Key Connector, trusted-device encryption (admin approval), emergency access (web vault only upstream).
+
+Could be built:
+
+| Item | Note |
+|---|---|
+| Account switching / multiple accounts | One account per profile today |
+| Duo 2FA (provider 2 / 6) | Needs the Duo redirect flow; only 0, 1, 3, 7 are offered |
+| Email-restricted sends | `hideEmail` is sent as false; no `emails` list |
+| Import formats | Only unencrypted Bitwarden JSON; no CSV, no other managers (upstream has 50+ and direct LastPass / 1Password import) |
+| Encrypted export | No password-protected or account-encrypted JSON, no CSV export |
+| Organization items | No creating an item in an org, no moving to an org ("share"), no collection changes, no org attachments, `viewPassword: false` not honoured |
+| Attachments | No delete |
+| Blocked / excluded domains | No editor for "blocked interaction" sites; never-save hosts can only be removed |
+| Inline menu | No SSH key entries (logins, cards and identities only) |
+| Appearance | No extension width, compact mode, badge-counter toggle, animation toggle |
+| Change-password page | No "/.well-known/change-password" shortcut for a login |
+| Account operations | Change master password, rotate the account key, manage 2FA, delete account: web vault only |
+
+Not verified at all: YubiKey OTP against a real Yubico server, biometric unlock on real Touch ID /
+Windows Hello hardware.
+
+## Done on 2026-11-07 (easiest first)
+
+| Item | How | Verified by |
+|---|---|---|
+| Attachment delete | Trash button next to each attachment, two taps; `DELETE /api/ciphers/{id}/attachment/{att}` | e2e |
+| Change-password page | Website menu: "Change password on this site" opens `/.well-known/change-password` | — |
+| Appearance | Extension width (default/wide/extra wide), compact mode, animations switch (per device, like the theme); "Show the match count on the toolbar icon" setting | render (Helium, playwright-cli) |
+| Blocked websites | Settings list + add/remove; no inline menu, page-load fill or passkey prompt on the host and its subdomains. Encrypted with the never-save list, so a locked vault cannot tell (it only offers unlock). Never-save hosts can now be added by hand too | unit + e2e |
+| CSV export / import | Bitwarden CSV columns, logins and notes only (like upstream); import detects CSV | unit + e2e |
+| Password-protected JSON | Export and import of Bitwarden's `passwordProtected` format: `PinKey` over a random base64 salt, as `bitwarden-exporters`; the account's KDF when it is strong, else Argon2id 256 MiB×3; the file's KDF passes the server floors and caps | Rust unit + e2e (file opened in Node with the same WASM) |
+| Hide my email (Send) | Switch on new sends (`hideEmail`) | — |
+| Organization items | New item: Owner + collections (`POST /ciphers/create`); personal item: "Move to organization" (item key re-wrapped with the org key, so attachments stay readable; `PUT /ciphers/{id}/share`); org item: change collections (`collections_v2`) | Rust unit + e2e |
+| Duo 2FA (personal 2 / organization 6) | "Launch Duo" opens Duo's authorize URL (checked like the clients' connector); the worker reads `code|state` from the tab when it reaches the server's `duo-redirect-connector.html` and finishes the login | unit; **no real Duo account** |
+
+E2E: 94 of 95 steps pass against Vaultwarden 1.37.5 in Helium (the SSO step needs CI's IdP). `core_wasm.js` budget
+42 KiB (three new exports; bundled into `worker.js`, not shipped alone). WASM 820 KiB raw.
+
+## Still missing after this round
+
+* **Email-verified sends**: Vaultwarden refuses `emails` ("Sends with email verification is not supported"): server-gated.
+* **Account switching / multiple accounts**: not started. Every store (account, vault cache, settings, private
+  data, PIN, biometric key, session tokens) and the single key session in the crypto worker are one account's; it
+  needs per-account storage keys, a worker session per account, and the lock/owner epochs per account.
+* Other managers' import formats (only Bitwarden JSON/CSV), account-restricted encrypted export, `viewPassword:
+  false`, SSH keys in the inline menu, and the web-vault-only account operations stay open.

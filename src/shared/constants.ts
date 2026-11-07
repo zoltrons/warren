@@ -15,7 +15,7 @@ export const KDF_ARGON2ID = 1;
 export const PIN_KDF = { type: KDF_ARGON2ID, iterations: 3, memory: 256, parallelism: 4 } as const;
 
 /** Bitwarden TwoFactorProviderType values we handle. */
-export const TWO_FACTOR = { Authenticator: 0, Email: 1, YubiKey: 3, Remember: 5, WebAuthn: 7 } as const;
+export const TWO_FACTOR = { Authenticator: 0, Email: 1, Duo: 2, YubiKey: 3, Remember: 5, OrganizationDuo: 6, WebAuthn: 7 } as const;
 
 export const AUTO_LOCK_CHOICES = [1, 5, 15, 30, 60, 240, -1] as const; // minutes, -1 = on browser restart
 export const DEFAULT_AUTO_LOCK_MINUTES = 15;
@@ -37,3 +37,6 @@ export const CLEAR_CLIPBOARD_MS: Record<ClearClipboardDelay, number> = {
   twoMinutes: 120_000,
   fiveMinutes: 300_000,
 };
+
+/** Vault export: Bitwarden JSON, JSON protected by a file password, or CSV (logins and notes). */
+export const EXPORT_FORMATS = ["json", "encrypted", "csv"] as const;

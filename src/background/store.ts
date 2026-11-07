@@ -57,8 +57,10 @@ interface Session {
   loginRequests?: string[];
   /** SSO login in progress: PKCE verifier and the state we sent. */
   sso?: { state: string; verifier: string; expiresAt: number };
-  /** Why the last SSO login failed (shown when the popup opens next). */
+  /** Why the last SSO or Duo login failed (shown when the popup opens next). */
   ssoError?: string;
+  /** Duo prompt open in this tab, for the pending login. */
+  duo?: { tabId: number; provider: number; remember: boolean };
   /** PIN unlock: the user key wrapped with the PIN key, and wrong tries so far. `kdf` absent = PIN_KDF. */
   pin?: { email: string; key: string; attempts: number; kdf?: KdfParams };
   /** Origin the inline menu's "Create account" wants a new login for; the popup it opens takes it. */
@@ -207,9 +209,11 @@ export async function getSettings(): Promise<Settings> {
     showCardsOnTab: true,
     showIdentitiesOnTab: true,
     quickActionMenus: false,
+    badgeCounter: true,
     ...(settings as Partial<Settings>),
     // Kept encrypted (private.ts); getState fills it in while the vault is unlocked.
     neverSave: [],
+    blocked: [],
   };
 }
 
@@ -219,7 +223,7 @@ let settingsWrites: Promise<unknown> = Promise.resolve();
 export function updateSettings(change: (s: Settings) => Partial<Settings>): Promise<void> {
   const write = async () => {
     const current = await getSettings();
-    const { neverSave: _, ...next } = { ...current, ...change(current) };
+    const { neverSave: _, blocked: _b, ...next } = { ...current, ...change(current) };
     await setLocal("settings", next as Settings);
   };
   const result = settingsWrites.then(write, write);

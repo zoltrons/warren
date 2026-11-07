@@ -2,12 +2,14 @@
 // generator's address. It is stored like the vault, encrypted with the user key (one EncString in
 // storage.local "private"), so only an unlocked vault can read it. Every read and write needs the vault unlocked.
 import { coreCall } from "./core.ts";
-import { getLocal, removeLocal, setLocal } from "./store.ts";
+import { getLocal, removeLocal, setLocal, updateSettings } from "./store.ts";
 import { BLOCK, seal, unseal } from "./seal.ts";
 
 export interface PrivateData {
   /** Hosts the save bar never asks about. */
   neverSave: string[];
+  /** Hosts (and their subdomains) where the inline menu, page-load fill and passkey prompts stay away. */
+  blocked: string[];
   /** cipher id -> epoch ms of the last user-gesture fill (page-load autofill prefers it, like the clients). */
   lastUsed: Record<string, number>;
   /** cipher id -> how often and when it was last opened in the popup ("Recently opened", "Most opened" sort). */
@@ -25,7 +27,7 @@ export type GeneratorPrefs = { options: Record<string, string | number | boolean
 export const MAX_NEVER_SAVE = 500;
 const MAX_IDS = 500;
 
-const empty = (): PrivateData => ({ neverSave: [], lastUsed: {}, opened: {}, generator: { options: {}, email: "", domain: "", wordlist: 0 } });
+const empty = (): PrivateData => ({ neverSave: [], blocked: [], lastUsed: {}, opened: {}, generator: { options: {}, email: "", domain: "", wordlist: 0 } });
 
 /** Generator options are flat: short names, short values, a bounded count. */
 function options(v: unknown): Record<string, string | number | boolean> {
@@ -45,7 +47,9 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 export function sanitize(v: unknown): PrivateData {
   const d = empty();
   if (!isObj(v)) return d;
-  if (Array.isArray(v.neverSave)) d.neverSave = [...new Set(v.neverSave.filter((h): h is string => typeof h === "string" && !!h))].slice(-MAX_NEVER_SAVE);
+  const hosts = (l: unknown) => (Array.isArray(l) ? [...new Set(l.filter((h): h is string => typeof h === "string" && !!h))].slice(-MAX_NEVER_SAVE) : []);
+  d.neverSave = hosts(v.neverSave);
+  d.blocked = hosts(v.blocked);
   if (isObj(v.lastUsed)) for (const [id, at] of Object.entries(v.lastUsed)) if (typeof at === "number" && Number.isFinite(at)) d.lastUsed[id] = at;
   if (isObj(v.opened))
     for (const [id, o] of Object.entries(v.opened))
@@ -103,11 +107,37 @@ export async function migratePrivate(): Promise<void> {
     d.lastUsed = { ...(isObj(legacyUsed) ? legacyUsed : {}), ...d.lastUsed };
   });
   // Only once the encrypted copy is written does the clear-text one go.
-  if (settings?.neverSave) {
-    const { neverSave: _, ...rest } = settings;
-    await setLocal("settings", rest as never);
-  }
+  // Through the settings queue (which drops neverSave): a raw write could undo a settings change made meanwhile.
+  if (settings?.neverSave) await updateSettings(() => ({}));
   if (legacyUsed) await chrome.storage.local.remove("lastUsed");
+}
+
+// ---------- site lists ----------
+
+/** What the user typed ("example.com", a full URL) as a lower-case host name, or undefined if it is none. */
+export function hostOf(input: string): string | undefined {
+  const s = input.trim();
+  if (!s || s.length > 253) return undefined;
+  try {
+    const u = new URL(/^[a-z][\w+.-]*:\/\//i.test(s) ? s : `https://${s}`);
+    const host = u.hostname.toLowerCase();
+    return /^https?:$/.test(u.protocol) && (host.includes(".") || host === "localhost") ? host : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Blocked hosts cover their subdomains. */
+export const blockedHost = (host: string, blocked: string[]) => blocked.some((b) => host === b || host.endsWith(`.${b}`));
+
+/**
+ * Is the page's site blocked? The list is encrypted, so a locked vault cannot tell: then false, and the
+ * caller offers no more than an unlock (which reveals nothing).
+ */
+export async function isBlocked(url: string, unlocked: boolean): Promise<boolean> {
+  if (!unlocked) return false;
+  const host = hostOf(url);
+  return !!host && blockedHost(host, await readPrivate().then((d) => d.blocked, () => []));
 }
 
 // ---------- generator ----------

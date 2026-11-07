@@ -1,6 +1,7 @@
 // Decrypted vault held in the crypto worker's memory. Dropped when the worker is terminated (lock).
 import * as core from "../../dist/wasm/core_wasm.js";
-import type { Folder, PasskeyCandidate, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import type { Collection, Folder, KdfParams, PasskeyCandidate, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import { csvToExport, itemsToCsv } from "../shared/csv.ts";
 import { cardBrand } from "../shared/card.ts";
 import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
@@ -15,7 +16,7 @@ let ciphers: Map<string, Json> | undefined;
 let folders: Folder[] = [];
 /** Folders that did not decrypt: the list goes on without them, an export does not (see exportJson). */
 let brokenFolders = 0;
-let collections: Folder[] = [];
+let collections: Collection[] = [];
 let organizations: Folder[] = [];
 let sends = new Map<string, Json>();
 
@@ -60,7 +61,9 @@ export function loadVault(encCiphers: unknown[], encFolders: unknown[], encSends
   const named = (r: { folders: Json[] }) => r.folders.map((f) => ({ id: s(ci(f, "id")), name: s(ci(f, "name")) })).sort((a, b) => a.name.localeCompare(b.name));
   folders = named(fr);
   // Collection names use their organization's key (decryptFolders picks it by organizationId).
-  collections = named(JSON.parse(core.decryptFolders(JSON.stringify(encCollections))) as { folders: Json[] });
+  const decrypted = (JSON.parse(core.decryptFolders(JSON.stringify(encCollections))) as { folders: Json[] }).folders;
+  const byId = new Map(decrypted.map((c) => [s(ci(c, "id")), c]));
+  collections = named({ folders: decrypted }).map((c) => ({ ...c, organizationId: s(ci(byId.get(c.id), "organizationId")), readOnly: ci(byId.get(c.id), "readOnly") === true }));
   organizations = orgs;
 }
 
@@ -155,9 +158,11 @@ export function prepareSave(input: Json): Json {
   const existing = id ? get(id) : undefined;
   const item = restorePasskeyKeys(input, existing);
   if (existing && summary(existing).readOnly) throw new Error("item is read-only");
-  // An edit never moves an item between vaults; creating one in an organization needs collection ids (not supported yet).
+  // An edit never moves an item between vaults (that is prepareShare). A new one may be created in an organization
+  // the user can add to (the server checks the collections).
   if (existing) item.organizationId = ci(existing, "organizationId") ?? null;
-  else if (ci(item, "organizationId")) throw new Error("new organization items are not supported");
+  else if (ci(item, "organizationId") && !collections.some((c) => c.organizationId === ci(item, "organizationId") && !c.readOnly))
+    throw new Error("You cannot add items to this organization");
   if (existing && Number(item.type) === 1) {
     const oldPw = s(ci(o(ci(existing, "login")), "password"));
     const login = o(item.login);
@@ -172,6 +177,17 @@ export function prepareSave(input: Json): Json {
   const enc = JSON.parse(core.encryptCipher(JSON.stringify(item), !existing)) as Json;
   // The revision the draft was read at, not the worker's: a sync since then must make the server refuse a stale draft.
   if (existing) enc.lastKnownRevisionDate = ci(item, "revisionDate") ?? ci(existing, "revisionDate");
+  return enc;
+}
+
+/** A personal item, encrypted for organization `orgId` (its own key re-wrapped), for PUT /ciphers/{id}/share. */
+export function prepareShare(id: string, orgId: string): Json {
+  const c = get(id);
+  if (ci(c, "organizationId")) throw new Error("The item already belongs to an organization");
+  if (!organizations.some((o) => o.id === orgId)) throw new Error("Unknown organization");
+  // The worker's own copy: it still holds the passkey private keys the popup never sees.
+  const enc = JSON.parse(core.moveCipherToOrg(JSON.stringify(c), orgId)) as Json;
+  enc.lastKnownRevisionDate = ci(c, "revisionDate");
   return enc;
 }
 
@@ -319,8 +335,22 @@ export function customFieldValues(id: string): { name: string; value: string }[]
 
 const EXPORT_KEYS = ["id", "folderId", "type", "reprompt", "name", "notes", "favorite", "login", "secureNote", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport", "fields", "passwordHistory", "revisionDate", "creationDate"];
 
-/** Personal items (not the trash, not organization items) and folders, like the official individual export. */
-export function exportJson(): string {
+/**
+ * Personal items (not the trash, not organization items) and folders, like the official individual export: Bitwarden
+ * JSON, CSV (logins and notes only, like upstream), or JSON protected by a file password.
+ */
+export function exportVault(format: "json" | "csv" | "encrypted", password?: string, kdf?: KdfParams): string {
+  const plain = exportJson();
+  if (format === "json") return plain;
+  if (format === "csv") {
+    const data = JSON.parse(plain) as { folders: Folder[]; items: Json[] };
+    return itemsToCsv(data.items, (id) => data.folders.find((f) => f.id === id)?.name ?? "").csv;
+  }
+  if (!password || !kdf) throw new Error("A file password is needed");
+  return core.passwordProtectExport(plain, password, kdf.type, kdf.iterations, kdf.memory, kdf.parallelism);
+}
+
+function exportJson(): string {
   if (!ciphers) throw new Error("vault not loaded");
   const broken = [...ciphers.values()].filter((c) => c.failed && c.personal).length;
   if (broken) throw new Error(`${broken} item(s) could not be decrypted, so the export would be incomplete. Nothing was exported.`);
@@ -339,15 +369,26 @@ interface ImportRequest {
   skipped: number;
 }
 
-/** Parses an unencrypted Bitwarden JSON export and encrypts it for POST /api/ciphers/import. */
-export function prepareImport(text: string): ImportRequest {
+/**
+ * Parses a Bitwarden JSON export (unencrypted, or password protected with `password`) or a Bitwarden CSV, and
+ * encrypts it for POST /api/ciphers/import.
+ */
+export function prepareImport(text: string, password?: string): ImportRequest {
   let data: Json | undefined;
-  try {
-    data = o(JSON.parse(text));
-  } catch {
-    /* reported below */
-  }
-  if (!data || data.encrypted === true || !Array.isArray(data.items)) throw new Error("This is not an unencrypted Bitwarden JSON export");
+  if (!text.trimStart().startsWith("{")) data = csvToExport(text);
+  else
+    try {
+      data = o(JSON.parse(text));
+      if (data?.passwordProtected === true) {
+        if (!password) throw new Error("This export is protected by a file password");
+        data = o(JSON.parse(core.passwordOpenExport(text, password)));
+      }
+    } catch (e) {
+      if (e instanceof SyntaxError) data = undefined;
+      else throw e;
+    }
+  if (!data || data.encrypted === true || !Array.isArray(data.items))
+    throw new Error(data?.encrypted === true ? "Account-encrypted exports cannot be imported here; export with a file password instead" : "This is not a Bitwarden JSON or CSV export");
   const srcFolders = (Array.isArray(data.folders) ? data.folders : []).map(o).filter((f): f is Json => typeof f?.name === "string");
   const folderIndex = new Map(srcFolders.map((f, i) => [s(f.id), i]));
   const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: encryptName(s(f.name)) })), folderRelationships: [], skipped: 0 };

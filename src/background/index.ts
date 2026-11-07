@@ -26,6 +26,8 @@ import {
   relocateRefreshToken,
   sendTwoFactorEmail,
   submitTwoFactor,
+  startDuo,
+  duoTabUpdated,
   unlock,
   unlockWithBiometric,
   unlockWithPin,
@@ -48,13 +50,13 @@ import {
   updateSession,
   updateSettings,
 } from "./store.ts";
-import { generatorPrefs, readPrivate, setGeneratorPrefs, setWordlist, updatePrivate, withWordlist } from "./private.ts";
+import { generatorPrefs, hostOf, readPrivate, setGeneratorPrefs, setWordlist, updatePrivate, withWordlist } from "./private.ts";
 import { handleFrame, handlePage, showBar } from "./inline.ts";
 import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, passkeyPrompt } from "./passkey.ts";
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
 import { AUTOFILL_COMMAND, autofillFromGesture, fillShownTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
 import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
-import { addAttachment, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
+import { addAttachment, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
 async function getState(): Promise<State> {
   const [server, account, session, settings, vault, bio] = await Promise.all([
@@ -84,7 +86,7 @@ async function getState(): Promise<State> {
   const pin = { weakKdf: account.kdf.type !== KDF_ARGON2ID || !safeKdf(account.kdf), pinSet: !!account.protectedPin, pinUnlock: !!account.protectedPin && (!!account.pinKey || session.pin?.email === account.email) };
   const biometric = bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
   // The never-save list is encrypted: it is only there to show (and edit) while the vault is open.
-  if (unlocked) base.settings.neverSave = await readPrivate().then((d) => d.neverSave, () => []);
+  if (unlocked) Object.assign(base.settings, await readPrivate().then((d) => ({ neverSave: d.neverSave, blocked: d.blocked }), () => ({})));
   const requests = session.loginRequests?.length ?? 0;
   return { phase: unlocked ? "unlocked" : "locked", ...base, ...pin, ...(biometric ? { biometric } : {}), ...(requests ? { loginRequests: requests } : {}), email: account.email };
 }
@@ -112,11 +114,14 @@ async function handle(req: Request): Promise<unknown> {
     case "sync":
     case "getItem":
     case "saveItem":
+    case "moveToOrg":
+    case "setCollections":
     case "deleteItem":
     case "restoreItem":
     case "purgeItem":
     case "downloadAttachment":
     case "addAttachment":
+    case "deleteAttachment":
     case "exportVault":
     case "importVault":
     case "saveFolder":
@@ -147,14 +152,17 @@ async function handle(req: Request): Promise<unknown> {
         if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: req.id }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
         return coreCall({ op: "getCipher", id: req.id });
       }
-      if (req.type === "saveItem") return save(req.item);
+      if (req.type === "saveItem") return save(req.item, req.collectionIds);
+      if (req.type === "moveToOrg") return moveToOrg(req.id, req.organizationId, req.collectionIds);
+      if (req.type === "setCollections") return setCollections(req.id, req.collectionIds);
       if (req.type === "deleteItem") return trash(req.id);
       if (req.type === "restoreItem") return restore(req.id);
       if (req.type === "purgeItem") return purge(req.id);
       if (req.type === "downloadAttachment") return downloadAttachment(req.cipherId, req.attachmentId);
       if (req.type === "addAttachment") return addAttachment(req.cipherId, req.file);
-      if (req.type === "exportVault") return exportVault(req.password);
-      if (req.type === "importVault") return importVault(req.text);
+      if (req.type === "deleteAttachment") return deleteAttachment(req.cipherId, req.attachmentId);
+      if (req.type === "exportVault") return exportVault(req.password, req.format, req.filePassword);
+      if (req.type === "importVault") return importVault(req.text, req.password);
       if (req.type === "saveFolder") return saveFolder(req.name, req.id);
       if (req.type === "deleteFolder") return deleteFolder(req.id);
       if (req.type === "aliasSettings") return getAliasSettings(req.vendor);
@@ -215,6 +223,9 @@ async function handle(req: Request): Promise<unknown> {
       break;
     case "twoFactorSubmit":
       await submitTwoFactor(req.provider, req.token, req.remember);
+      break;
+    case "twoFactorDuo":
+      await startDuo(req.remember);
       break;
     case "twoFactorSendEmail":
       await sendTwoFactorEmail();
@@ -297,11 +308,25 @@ async function handle(req: Request): Promise<unknown> {
         showCardsOnTab: req.showCardsOnTab ?? current.showCardsOnTab,
         showIdentitiesOnTab: req.showIdentitiesOnTab ?? current.showIdentitiesOnTab,
         quickActionMenus: req.quickActionMenus ?? current.quickActionMenus,
+        badgeCounter: req.badgeCounter ?? current.badgeCounter,
       }));
       if (req.timeoutAction) await relocateRefreshToken();
-      if (req.clearNeverSave || req.removeNeverSave) {
-        await requireUnlocked(); // the list is encrypted
-        await updatePrivate((d) => (d.neverSave = req.clearNeverSave ? [] : d.neverSave.filter((h) => h !== req.removeNeverSave)));
+      if (req.clearNeverSave || req.removeNeverSave || req.addNeverSave || req.addBlocked || req.removeBlocked) {
+        await requireUnlocked(); // the lists are encrypted
+        const add = (v: string | undefined) => {
+          const host = v === undefined ? undefined : hostOf(v);
+          if (v !== undefined && !host) throw new UserError("invalid", "Enter a website such as example.com");
+          return host;
+        };
+        const never = add(req.addNeverSave);
+        const blocked = add(req.addBlocked);
+        await updatePrivate((d) => {
+          if (req.clearNeverSave) d.neverSave = [];
+          if (req.removeNeverSave) d.neverSave = d.neverSave.filter((h) => h !== req.removeNeverSave);
+          if (never) d.neverSave = [...d.neverSave.filter((h) => h !== never), never];
+          if (req.removeBlocked) d.blocked = d.blocked.filter((h) => h !== req.removeBlocked);
+          if (blocked) d.blocked = [...d.blocked.filter((h) => h !== blocked), blocked];
+        });
       }
       break;
     }
@@ -507,6 +532,7 @@ chrome.tabs.onRemoved.addListener((tabId) => void clearTabState(tabId));
 
 // A login is usually submitted right before a navigation: show the save bar once the next page is there.
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.url) void duoTabUpdated(tabId, info.url).catch((e: unknown) => console.error(e));
   if (info.status !== "complete") return;
   // In line with the bar's own Save and Close: a show that read the prompt before them must not bring it back.
   queue = queue.then(() => showBar(tabId)).catch((e: unknown) => console.error(e));

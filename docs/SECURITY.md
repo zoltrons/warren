@@ -87,23 +87,26 @@ freed rather than zeroed in place.
    vault lives in the crypto worker. Both stores are set to `TRUSTED_CONTEXTS` on *every* worker start, so
    content scripts cannot read them.
 
-6a. **What the user does is encrypted too.** Never-save hosts, last-fill and last-open stamps, generator options,
+6a. **What the user does is encrypted too.** Never-save and blocked hosts, last-fill and last-open stamps, generator options,
     the username generator's address and domain sit in one EncString (`storage.local` "private",
     `src/background/private.ts`); a custom passphrase list in another ("wordlist"), which never goes back to the
-    popup. They are read and written only while unlocked, writes are serialized, a record that does not decrypt
+    popup. They are read and written only while unlocked (so a locked vault cannot tell a blocked site and offers only an unlock there), writes are serialized, a record that does not decrypt
     is never written over, and logout removes both. Everything we encrypt ourselves (these, generator history,
     alias settings, the stored PIN) is padded to fixed blocks first (`src/background/seal.ts`), like the
     official clients' padded packer, so a ciphertext's length does not give away a password's or PIN's length
     or a record's size; values from older builds are re-padded on the next unlock. Clear text left by older builds moves in on the next unlock
     and is deleted only after the encrypted copy is written. Clear text that stays, because it is needed while
     locked or before the first render and says nothing about the vault: `settings` (lock, autofill and UI
-    switches), server URL, account email, device id, and in the extension's `localStorage` only the theme, the
+    switches), server URL, account email, device id, and in the extension's `localStorage` only the theme, popup width, compact and animation switches, the
     list's sort order, the notes formatting switch and whether "Recently opened" is shown.
 
 7. **The server is not trusted with URLs.** `http://` is refused except for loopback
    (`src/shared/url.ts`), the API client sends `credentials: "omit"`, `redirect: "error"`, and an
    attachment download URL must be on the configured server (`src/transport/vault.ts`). Response bodies
-   are bounded (`readBytes` in `src/transport/http.ts`).
+   are bounded (`readBytes` in `src/transport/http.ts`). The one server-supplied URL that leaves the server is Duo's
+   authorize URL: it opens only if it is `https://api-<id>.duosecurity.com|duofederal.com/oauth/v1/authorize` (the
+   clients' own check), and the result is read only from the tab Warren opened, on the configured server's
+   `duo-redirect-connector.html` (`duoUrl`, `duoTabUpdated` in `src/background/account.ts`).
 
 7a. **The server cannot weaken the KDF below what this browser has seen, nor below a fixed floor.** It chooses the
     account's KDF (prelogin and token response) and receives the hash the KDF produces, so a hostile server could ask for PBKDF2 at 5000 iterations and crack the master password

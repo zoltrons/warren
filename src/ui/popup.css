@@ -914,6 +914,7 @@ a.row { text-decoration: none; color: var(--text); }
 /* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
 .generated output.plain { font-size: 17px; font-weight: 600; letter-spacing: 0; word-break: normal; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
+.row.stack { align-items: stretch; gap: 8px; }
 .generated .trailing { display: flex; }
 .generated-foot { display: flex; align-items: center; gap: 8px; }
 .generated-foot:empty { display: none; }
@@ -984,6 +985,13 @@ body.frame .row { min-height: 44px; padding: 4px 8px; border-radius: var(--r-xs)
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+[data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+
+/* ---------- width and density (Settings → Appearance) ---------- */
+[data-width="wide"] body:not(.panel):not(.frame) { width: 480px; }
+[data-width="extraWide"] body:not(.panel):not(.frame) { width: 600px; }
+html[data-compact="on"]:not(.frame) .row { min-height: 40px; padding-block: 4px; }
+html[data-compact="on"]:not(.frame) .page { gap: 8px; }
 
 /* ---------- Large Type, notes toggle, rendered notes, warning sub-line ---------- */
 .large { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 12px 4px; }

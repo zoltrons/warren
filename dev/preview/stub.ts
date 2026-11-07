@@ -34,6 +34,8 @@ const settings = {
   showCardsOnTab: true,
   showIdentitiesOnTab: true,
   quickActionMenus: false,
+  badgeCounter: true,
+  blocked: [],
 };
 
 const state: State =
