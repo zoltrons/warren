@@ -9,6 +9,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - KDF floors raised to OWASP's minimums: Warren no longer sends a hash of the master password made with PBKDF2 under
   600 000 iterations or Argon2id under 19 MiB x 2, also on a first login. An account below them must raise its KDF in
   the web vault before it can log in here. The extension pages' CSP now has `object-src 'none'`.
+- `npm ci` runs no package's install script (`ignore-scripts=true` in `.npmrc`).
 - CI scans the whole history for committed secrets (gitleaks), and every release ships a CycloneDX SBOM with
   signed provenance.
 

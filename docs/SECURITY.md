@@ -230,9 +230,11 @@ the TLS proxy the server admin runs (rule 8), which Warren cannot see or check.
 
 ## OWASP Cheat Sheet Series
 
-Checked against the [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/) on 2026-11-07; review with the
+Checked against the [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/) on 2026-11-07, every sheet that
+applies to a client: from the connections Warren makes to how it stores settings. Review it together with the
 KDF parameters (Cryptography direction rule 2), next due 2027-11. "Meets" means the rule in the right column is how
-Warren meets it. "Gap" means Warren falls short on purpose, and the gap is described here or in Known gaps.
+Warren meets it. "Partial" means part of the rule is met and the rest is out of Warren's reach. "Gap" means Warren falls
+short on purpose. Either way the reason is given here or in Known gaps.
 
 | Cheat sheet | Status | How Warren meets it, or why not |
 | --- | --- | --- |
@@ -249,6 +251,19 @@ Warren meets it. "Gap" means Warren falls short on purpose, and the gap is descr
 | Clickjacking Defense | Meets, by other means | `menu.html` and `bar.html` must be framable by any site, so `frame-ancestors 'none'` cannot apply. A click counts only after IntersectionObserver v2 has reported the frame as really visible for 300 ms (invariant 4). The two actions OWASP treats as high risk need more than a click: filling another site's login needs the "Fill anyway" dialog, and a re-prompt item needs the master password. |
 | Multifactor Authentication | Partial | 2FA is enforced by the server. Warren keeps remember-device tokens per server and account (invariant 8), but they sit on disk in clear text (Known gaps). A passkey reports UV only when the user was actually verified (invariant 11a). |
 | Software Supply Chain, CI/CD Security | Meets | Pinned actions, `zizmor`, lockfiles, signed tags, a signing job that runs no package code, and SLSA provenance via Sigstore (Known gaps, updates entry). Gitleaks scans the whole history on every CI run and blocks the `ci` gate (`.gitleaksignore` lists known test fixtures). Every release carries a CycloneDX SBOM made by syft from `Cargo.lock` and `package-lock.json`, attested like the other files. The npm packages are build tools only: nothing from npm is bundled into the extension. |
+| Session Management | Partial | The access token is only in `storage.session` and the refresh token is on disk only sealed (invariant 6). Auto-lock is 15 minutes by default (1 minute to 4 hours, or on browser restart; `AUTO_LOCK_CHOICES`), and a late alarm cannot extend it. Lock drops the keys and the decrypted vault; logout also drops every token (invariants 8b, 14). The gap is on the server: Vaultwarden has no token revocation endpoint (`/identity/connect/revocation` answers 404), so logout cannot end the session there (Known gaps). |
+| Authentication | Meets | The master password is sent as typed: not trimmed, not truncated, full Unicode, and only over TLS (invariant 7). Actions OWASP counts as sensitive ask for the master password again: export, re-prompt items, and a passkey that needs UV. Approving another device needs the unlocked vault and the fingerprint phrase (invariant 8c). The PIN allows 5 tries per session. Account lockout and generic login errors are the server's job. |
+| Passkey Security | Meets | Secure origins only. The RP ID must be the origin's host or a registrable parent, never a public suffix (invariant 11), and comes from the browser-reported origin, never the page (invariant 1). UP and UV are kept apart (invariant 11a). Page-supplied options are capped (challenge 64 KiB, credential-id lists), and Warren keeps no logs of challenges or credentials. |
+| HTML5 Security: postMessage, storage, workers, links | Meets | Every `message` listener that acts on data checks `ev.source`, and the popup's WebAuthn connector also checks the server's exact origin. The passkey shim posts with `"*"` only to its own window, and only what the page receives anyway. The menu's `"moved"` message only delays clicks. `localStorage` holds UI preferences only (invariant 6a). The crypto worker parses every request (`parseCoreRequest`) and runs no code it receives. Links get `rel="noopener noreferrer"` and open through `chrome.tabs.create`. |
+| DOM Clobbering, Prototype Pollution | Meets | Extension pages build no HTML from data, so there is nothing to clobber there (invariant 12). Content scripts run in the isolated world, where the page's prototypes are not ours. A page that clobbers its own DOM can only break filling on itself, because every write re-checks origin and visibility (invariant 3). Server and page JSON goes through `JSON.parse` and validators that copy known keys only. The hub parser builds its objects with `Object.create(null)`. |
+| Transport Layer Security, Pinning | Meets | The browser validates certificates and Warren offers no bypass. Plain http works only on loopback (invariant 7), and the hybrid post-quantum TLS group is recommended (Cryptography direction rule 8). No pinning, as OWASP advises for anything but native apps: Warren does not control the self-hosted server's certificate. |
+| Secrets Management (in memory) | Partial | Keys and the decrypted vault live only in the crypto worker. Lock ends the worker, so its WASM memory is freed (Trust boundaries). JavaScript strings cannot be zeroed. A typed master password or an opened item stays in the popup's heap until garbage collection, but the popup drops it on lock (invariant 14). |
+| Logging, Error Handling | Meets | No telemetry and no remote logging. `console` gets error objects only, never tokens, keys or vault values. Server error texts shown to the user are cut to 500 characters (`errorMessage`), and an HTML error page is never shown. |
+| Input Validation | Meets | Allow-list validators at every boundary: unknown message types and choices are refused, and sizes and counts are capped (invariant 2, `page-limits.ts`). Response bodies are bounded (invariant 7). Regexes from page or vault data run on linear-time engines: `regex-lite` in the autofill engine, and `regexTest` in core-wasm for URI matching. |
+| Transaction Authorization | Meets | What the user approves is what happens. A popup fill names the tab and origin it showed (invariant 3). A device approval shows the fingerprint phrase of the key it wraps for (invariant 8c). Filling another site's login needs the "Fill anyway" dialog. Every grant is checked in the service worker, not in the UI. |
+| Third Party JavaScript, NPM Security | Meets | No remote scripts and no CDN. Nothing from npm is bundled: the npm packages are build tools only. `npm ci` with `ignore-scripts=true` (`.npmrc`), so no package's install script runs. Lockfiles, `npm audit`, and an SBOM with every release. |
+| Cross-Site Request Forgery | Meets | Server calls use a bearer token in the `Authorization` header and `credentials: "omit"`, so no cookie or ambient session can be ridden. |
+| Server Side Request Forgery | Meets | Warren only talks to the server the user configured. API calls and attachment downloads refuse redirects, and an attachment URL must be on that server (invariant 7). Alias services refuse redirects as well. Website icons follow the server's redirect on purpose (Known gaps). |
 
 ## Known gaps
 
@@ -286,6 +301,10 @@ Warren meets it. "Gap" means Warren falls short on purpose, and the gap is descr
   signed by `tools/pack-crx.mjs` on `node:crypto`) and refuses a key that does not give Warren's extension id, a release needs a green `ci` and a
   clean advisory check, and each released file, the SBOM included, carries signed build provenance (`docs/UPDATES.md`). CI scans the history for committed secrets (gitleaks). Provenance
   shows which commit and run built a file; it cannot tell a malicious tag from a real one.
+
+- **Logout cannot end the session on the server.** Vaultwarden has no token revocation endpoint, so a refresh
+  token copied before logout stays valid until the device is removed or "Deauthorize sessions" is used in the web
+  vault. Warren drops every token it holds on logout.
 
 - **The push connection carries the access token in its URL.** Browsers cannot set headers on a WebSocket, so
   `/notifications/hub?access_token=…` (`src/background/push.ts`) is how the official clients connect too. A proxy that

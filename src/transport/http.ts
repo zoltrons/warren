@@ -70,7 +70,8 @@ export function errorMessage(body: unknown, status: number): string {
     ci(body, "message"),
     ci(ci(body, "error"), "description"),
   ];
-  return candidates.find((m): m is string => typeof m === "string" && m.trim() !== "") ?? `HTTP ${status}`;
+  // Cut: a hostile server must not flood the popup with an endless error text.
+  return (candidates.find((m): m is string => typeof m === "string" && m.trim() !== "") ?? `HTTP ${status}`).slice(0, 500);
 }
 
 export async function call(base: string, method: string, path: string, opts: CallOptions = {}): Promise<unknown> {

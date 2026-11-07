@@ -25,6 +25,7 @@ test("errorMessage skips Vaultwarden's empty error_description", () => {
   assert.equal(errorMessage(body, 400), "Invalid TOTP code!");
   assert.equal(errorMessage({ error_description: "Username or password is incorrect" }, 400), "Username or password is incorrect");
   assert.equal(errorMessage(null, 502), "HTTP 502");
+  assert.equal(errorMessage({ message: "x".repeat(10_000) }, 500).length, 500, "a hostile server cannot flood the popup");
 });
 
 test("parseTwoFactorChallenge reads providers and email hint", () => {
