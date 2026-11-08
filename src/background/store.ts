@@ -242,8 +242,10 @@ export async function getDeviceId(): Promise<string> {
 
 /** Content scripts must never read our storage. session is TRUSTED_CONTEXTS by default; local is not. */
 export async function restrictStorageAccess(): Promise<void> {
-  await chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
-  await chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+  // Both, independently: a failure on one area must not skip the other, and is never silent.
+  const areas = [chrome.storage.local, chrome.storage.session];
+  const results = await Promise.allSettled(areas.map((a) => a.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" })));
+  for (const r of results) if (r.status === "rejected") console.error("storage access level not restricted", r.reason);
 }
 
 /**

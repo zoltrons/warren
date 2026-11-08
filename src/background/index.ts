@@ -577,4 +577,4 @@ void ensurePush().catch((e: unknown) => console.error(e));
 void ensurePasskeyScripts().catch((e: unknown) => console.error(e));
 // Content scripts must never be able to read our storage: apply the level on every worker start, so a
 // cold start that precedes onStartup cannot leave the cache readable by a page.
-void restrictStorageAccess().catch((e: unknown) => console.error(e));
+void restrictStorageAccess();
