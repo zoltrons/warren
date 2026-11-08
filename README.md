@@ -20,6 +20,25 @@ Your vault is decrypted only in memory and locks itself when you walk away.
 
 **Server:** the latest Vaultwarden release only. Older releases are neither tested nor supported.
 
+## Screenshots
+
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-list.png">
+  <img src="docs/screenshots/light-list.png" alt="The vault list" width="250">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-item.png">
+  <img src="docs/screenshots/light-item.png" alt="A login with passkey and one-time code" width="250">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-generator.png">
+  <img src="docs/screenshots/light-generator.png" alt="The password generator" width="250">
+</picture>
+</p>
+
+Rendered from the popup with a stubbed worker (`node dev/preview/build.mjs && node dev/preview/shot.mjs`).
+
 ## What it does
 
 **Vault**
