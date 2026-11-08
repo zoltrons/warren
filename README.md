@@ -22,14 +22,40 @@ Your vault is decrypted only in memory and locks itself when you walk away.
 
 ## What it does
 
-- Logins, cards, identities, secure notes and SSH keys: view, edit, search, folders, favorites, trash.
-- Autofill from the popup, `Ctrl+Shift+L` (`⌘⇧L` on macOS), the context menu or an inline menu on the field;
-  offers to save or update a login after you sign in.
-- Passkeys: creates and uses passkeys stored in your vault.
-- TOTP codes, password and username generator, email aliases, Send, attachments.
-- Unlock with the master password, a PIN or biometrics (WebAuthn PRF); two-step login (authenticator, email,
-  YubiKey, WebAuthn) and SSO.
-- Import and export in Bitwarden JSON (unencrypted).
+**Vault**
+- Logins, cards (with network marks), identities, secure notes, SSH keys, bank accounts, driver's licenses and
+  passports: view, edit, clone, search, folders, favorites, trash, password history, custom fields, attachments
+  (add, download, delete).
+- A list that puts "On this site" first, then favorites and recently opened; copy, open and fill buttons on every
+  row. Click a field in the item view to copy it.
+- Organizations: items in collections, move a personal item into an organization, change an item's collections.
+- Live sync over Vaultwarden's notifications; changes from other clients show immediately.
+- Import and export: Bitwarden JSON, password-protected JSON and CSV.
+
+**Autofill and passkeys**
+- Fill from the popup, `Ctrl+Shift+L` (`⌘⇧L` on macOS), the context menu or an inline menu on the field; optional
+  page-load fill, TOTP code copied after a fill, and autosubmit that never presses a destructive button.
+- Offers to save or update a login after you sign in, also on two-step sign-ins; "Change password on this site"
+  opens the site's own page.
+- Blocked sites (no inline menu, page-load fill or passkey prompt) and never-save sites you can list by hand.
+- Passkeys: create and use passkeys stored in your vault, or add one to an existing login.
+
+**Tools**
+- TOTP codes with the next code shown, QR code and large type views, data-breach check, typing practice for a
+  new password.
+- Password, passphrase, username and identity generators (identities by country), generator history, email
+  aliases, Send (text and files, with edit and disable).
+
+**Sign-in and locking**
+- Master password, PIN or biometrics (WebAuthn PRF); auto-lock or log out on a timeout, on system lock and on
+  browser start; re-prompt for the master password on protected items.
+- Two-step login (authenticator, email, YubiKey, Duo, WebAuthn), SSO, and log in with another device, including
+  approving requests from other devices.
+- Copied values are cleared after a minute by default.
+
+**Interface**
+- Popup or side panel; system, light, dark and pure black themes, compact mode, adjustable width, website icons
+  (off by default), toolbar badge with the number of logins for the page.
 
 ## Install
 
