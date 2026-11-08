@@ -2,6 +2,25 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.13 — 2026-11-08
+
+### Security
+
+- Autofill on page load fills the top frame or a frame of the tab's own origin only: a page can no longer frame
+  another site's login form, hide it, and have the saved login written into it.
+- A trailing dot ("example.com.") no longer gets a page past the blocked sites; never-save and blocked entries are
+  kept without it.
+- A passkey request the page aborts right away no longer opens the approval window, and cannot replace a saved
+  passkey the site never received.
+- A page that stops responding can no longer hold up unlock, sync or saves for the other tabs: page calls give up
+  after 10 seconds.
+- CSV export: a username that looks like a spreadsheet formula is written with a leading `'` (and read back
+  without it), so opening the export cannot run it.
+- The storage access level is set for both storage areas independently, and a failure is logged.
+- SSO logins key the KDF floor by the lowercased email, like the password login.
+- Releases: the SBOM tool runs pinned by digest with the source mounted read-only, and the signing job takes the
+  SBOM from outside its checkout.
+
 ## 0.0.12 — 2026-11-07
 
 ### Security
