@@ -237,3 +237,35 @@ test("a passkey a lock overtook while the worker made it is never saved", async 
   await Promise.race([deciding, sentOne()]);
   assert.deepEqual(saves(), [], "the passkey went to the server after the lock");
 });
+
+test("a passkey call the page aborts before it is registered opens no window and blocks no later call", async () => {
+  const port = () => {
+    const posted: unknown[] = [];
+    const on: { message?: (m: unknown) => void; disconnect?: () => void } = {};
+    onPasskeyPort({
+      sender: { id: "warren", tab: { id: 2 }, frameId: 0, origin: "https://a.test" },
+      onDisconnect: { addListener: (l: () => void) => (on.disconnect = l) },
+      onMessage: { addListener: (l: (m: unknown) => void) => (on.message = l) },
+      postMessage: (m: unknown) => posted.push(m),
+      disconnect: () => undefined,
+    } as unknown as chrome.runtime.Port);
+    return { posted, on };
+  };
+  const user = { id: "dQ", name: "u", displayName: "u" };
+  const call = { kind: "create", options: { rpName: "a", user, challenge: "Y2hhbGxlbmdl", exclude: [], discoverable: true, userVerification: "discouraged" } };
+  windowUrl = "";
+  const first = port();
+  first.on.message!(call);
+  // The relay's abort, then its disconnect, while handle() still reads the account.
+  first.on.message!({ abort: true });
+  first.on.disconnect!();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(windowUrl, "", "no approval window for a settled call");
+  assert.deepEqual(first.posted, []);
+
+  const second = port();
+  second.on.message!(call);
+  for (let i = 0; i < 200 && !windowUrl; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.ok(windowUrl, "the next call in that tab is served");
+  second.on.disconnect!();
+});

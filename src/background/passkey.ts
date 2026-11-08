@@ -87,6 +87,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
   let called = false;
   let mine: Pending | undefined;
   let closed = false;
+  let aborted = false; // may arrive before handle() has registered `mine`
   // By identity, not by id: a newer conditional call may have taken over this request's id (and window).
   const drop = () => {
     if (mine && pending.get(mine.id) === mine) mine.done({ fallback: true });
@@ -101,7 +102,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     const m = msg as { ping?: unknown; abort?: unknown } | null;
     if (m?.ping) return; // keep-alive while the user decides
     // The page aborted the call (AbortSignal) or the browser answered it first.
-    if (m?.abort) return drop();
+    if (m?.abort) return (aborted = true), drop();
     if (called) return; // one call per port
     called = true;
     let call: PasskeyCall;
@@ -160,6 +161,8 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     }
     pending.set(p.id, p);
     mine = p;
+    // Cancelled while account was read: the page has settled the call, so no window may open for it.
+    if (closed || aborted) return p.done({ fallback: true });
     p.startedLocked = !(await isUnlocked());
     // A blocked site gets the browser's own passkey handling (a locked vault cannot read the list).
     if (await isBlocked(origin, !p.startedLocked)) return p.done({ fallback: true });
