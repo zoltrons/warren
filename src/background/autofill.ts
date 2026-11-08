@@ -51,6 +51,9 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   const frameId = sender.frameId;
   const url = httpUrl(sender);
   if (!settings.autofillOnPageLoad || tabId === undefined || frameId === undefined || !url) return { filled: false, reason: "noFields" };
+  // A gesture-free fill goes only into the site the user opened: any page can frame another site's login
+  // form (made invisible from outside, where the frame's own visibility checks cannot see it).
+  if (frameId !== 0 && url.origin !== httpUrl(sender.tab)?.origin) return { filled: false, reason: "noMatch" };
   if (!(await isUnlocked())) return { filled: false, reason: "locked" };
   if (await isBlocked(url.href, true)) return { filled: false, reason: "noMatch" };
   // Items flagged for a master-password re-prompt never fill on page load (no user to ask).
