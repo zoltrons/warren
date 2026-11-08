@@ -115,7 +115,7 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
 async function loginSubmitted(tabId: number, url: string, username: string, password: string) {
   const epoch = lockEpoch();
   const settings = await getSettings();
-  const host = new URL(url).hostname; // no port: the same form hostOf gives the settings list
+  const host = new URL(url).hostname.replace(/\.$/, ""); // no port or trailing dot: the form hostOf gives the settings list
   if (!settings.savePrompt || !(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
   await ensureLoaded();
   const matches = await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch });
@@ -197,7 +197,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     if (!p.token || req.token !== p.token) throw new Error("this save prompt is no longer active");
     if (req.type === "barInfo") return { kind: p.kind, host: new URL(p.url).host, username: p.username } satisfies BarInfo;
     if (req.action === "never") {
-      const host = new URL(p.url).hostname;
+      const host = new URL(p.url).hostname.replace(/\.$/, "");
       await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
     } else if (req.action === "save") {
       if (p.kind === "update" && p.itemId) {

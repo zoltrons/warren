@@ -61,7 +61,8 @@ freed rather than zeroed in place.
    **Rules that change what a page can trigger.** A password field a page adds later offers the page-load fill
    as well, once per document: a page's script could already have added it before load. The page-load fill goes
    into the top frame or a frame of the tab's own origin only: any page can frame another site's login form and hide
-   it from outside, where the frame's own visibility checks cannot see it. "Submit after
+   it from outside, where the frame's own visibility checks cannot see it. A blocked host is compared without a
+   trailing dot (`example.com.` is `example.com`, as for the URI matcher). "Submit after
    filling" is off by default, needs a fill the user asked for (never page load, never a lone code), goes to
    one frame at most, and clicks only a submit button or one that says it logs in. Per-site recipes are compiled
    in; nothing about autofill is downloaded. `data-warren-autofilled` tells a page that a field was filled, which it

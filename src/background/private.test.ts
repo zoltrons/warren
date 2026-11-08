@@ -90,4 +90,11 @@ test("site lists: typed hosts are normalized, blocked hosts cover subdomains", a
   assert.ok(blockedHost("a.example.com", ["example.com"]));
   assert.ok(blockedHost("example.com", ["example.com"]));
   assert.ok(!blockedHost("badexample.com", ["example.com"]));
+  // A trailing dot is the same host (the URI matcher agrees), both on the page and in what was typed.
+  assert.ok(blockedHost(hostOf("https://a.example.com./")!, ["example.com"]));
+  assert.ok(blockedHost(hostOf("https://example.com./")!, [hostOf("example.com.")!]));
+  // Entries older builds stored with the dot are read without it, so they block and can be removed again.
+  const { sanitize } = await import("./private.ts");
+  assert.deepEqual(sanitize({ blocked: ["example.com."], neverSave: ["a.test.", "a.test"] }).blocked, ["example.com"]);
+  assert.deepEqual(sanitize({ neverSave: ["a.test.", "a.test"] }).neverSave, ["a.test"]);
 });

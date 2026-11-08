@@ -47,7 +47,9 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 export function sanitize(v: unknown): PrivateData {
   const d = empty();
   if (!isObj(v)) return d;
-  const hosts = (l: unknown) => (Array.isArray(l) ? [...new Set(l.filter((h): h is string => typeof h === "string" && !!h))].slice(-MAX_NEVER_SAVE) : []);
+  // Without a trailing dot, as hostOf gives them: older builds stored "example.com." as typed, and could not remove it.
+  const hosts = (l: unknown) =>
+    Array.isArray(l) ? [...new Set(l.filter((h): h is string => typeof h === "string" && !!h).map((h) => h.replace(/\.$/, "")).filter(Boolean))].slice(-MAX_NEVER_SAVE) : [];
   // The save bar of older builds stored the host with its port; the list holds host names (see hostOf).
   d.neverSave = hosts(Array.isArray(v.neverSave) ? v.neverSave.map((h) => (typeof h === "string" ? h.replace(/:\d+$/, "") : h)) : []);
   d.blocked = hosts(v.blocked);
@@ -121,7 +123,8 @@ export function hostOf(input: string): string | undefined {
   if (!s || s.length > 253) return undefined;
   try {
     const u = new URL(/^[a-z][\w+.-]*:\/\//i.test(s) ? s : `https://${s}`);
-    const host = u.hostname.toLowerCase();
+    // "example.com." is example.com (the URI matcher agrees): the dot must not slip past the blocked list.
+    const host = u.hostname.toLowerCase().replace(/\.$/, "");
     return /^https?:$/.test(u.protocol) && (host.includes(".") || host === "localhost") ? host : undefined;
   } catch {
     return undefined;
