@@ -5,7 +5,7 @@ import type { FillResult } from "../autofill/types.ts";
 import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest, VaultItem } from "../shared/messages.ts";
 import { httpUrl } from "../shared/url.ts";
 import { coreCall } from "./core.ts";
-import { analyzeFocus, customFieldsOf, fillInFrames } from "./engine.ts";
+import { analyzeFocus, customFieldsOf, fillInFrames, pageDeadline } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
@@ -169,7 +169,7 @@ export async function showBar(tabId: number, epoch = lockEpoch()): Promise<void>
   // Written back only if no lock cleared it meanwhile (checked in the tick the write goes out).
   if (epoch !== lockEpoch()) return;
   await setTabState("save", tabId, { ...p, token });
-  await chrome.tabs.sendMessage(tabId, { type: "barShow", token }, { frameId: 0 }).catch(() => undefined);
+  await pageDeadline(chrome.tabs.sendMessage(tabId, { type: "barShow", token }, { frameId: 0 })).catch(() => undefined);
 }
 
 async function onSameSite(tabId: number, url: string): Promise<boolean> {

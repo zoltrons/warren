@@ -1,4 +1,4 @@
-// Page-load autofill: what reaches a frame without a user gesture.
+// Page-load autofill and a page that never answers: what reaches a frame without a user gesture.
 import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -17,10 +17,16 @@ const noop = async () => undefined;
 };
 
 const { pageLoadFill } = await import("./autofill.ts");
+const { pageDeadline } = await import("./engine.ts");
 
 test("page-load fill refuses a frame of another origin than the tab", async () => {
   const frame = (top: string) => ({ tab: { id: 1, url: top }, frameId: 3, url: "https://victim.test/login" }) as chrome.runtime.MessageSender;
   assert.deepEqual(await pageLoadFill(frame("https://attacker.test/")), { filled: false, reason: "noMatch" });
   // Control: the same origin gets past the frame check (and stops at the locked vault).
   assert.deepEqual(await pageLoadFill(frame("https://victim.test/")), { filled: false, reason: "locked" });
+});
+
+test("a page call that never settles gives up", async () => {
+  await assert.rejects(pageDeadline(new Promise(() => undefined), 10), /did not answer/);
+  assert.equal(await pageDeadline(Promise.resolve(1), 10), 1);
 });

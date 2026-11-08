@@ -58,15 +58,25 @@ const callInPage = (name: keyof PageApi, arg: unknown) => {
 };
 
 /**
+ * A page whose main thread never yields never answers `chrome.scripting` or `tabs.sendMessage`. Give up on it, or
+ * it holds up the worker's queue (unlock, sync, saves) for every other tab.
+ */
+export function pageDeadline<T>(p: Promise<T>, ms = 10_000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error("The page did not answer")), ms)));
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
+/**
  * Calls page.js in the target frames. A page opened before the extension was installed or updated does
  * not have it yet: it gets injected there, and the frames are asked again. `guard` runs right before each call
  * goes out (the retry too) and throws to call it off.
  */
 export async function pageCall<T>(target: { tabId: number } & Target, name: keyof PageApi, arg: unknown, guard?: () => void): Promise<{ frameId: number; documentId: string; result: T }[]> {
-  const call = () => (guard?.(), chrome.scripting.executeScript({ target, func: callInPage, args: [name, arg ?? null] }));
+  const call = () => (guard?.(), pageDeadline(chrome.scripting.executeScript({ target, func: callInPage, args: [name, arg ?? null] })));
   let res = await call();
   if (res.some((r) => r.result === "missing")) {
-    await chrome.scripting.executeScript({ target, files: ["page.js"] });
+    await pageDeadline(chrome.scripting.executeScript({ target, files: ["page.js"] }));
     res = await call();
   }
   return res.flatMap((r) => (r.result && r.result !== "missing" ? [{ frameId: r.frameId, documentId: r.documentId, result: (r.result as { value: T }).value }] : []));
