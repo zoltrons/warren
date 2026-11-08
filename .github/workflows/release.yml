@@ -77,7 +77,8 @@ jobs:
       - name: tag matches the manifest version
         run: test "v$(node -p "require('./dist/ext/manifest.json').version")" = "$GITHUB_REF_NAME"
       # CycloneDX SBOM of every locked dependency (Cargo.lock, package-lock.json), released next to the .crx.
-      - run: docker run --rm -v "$PWD:/repo" anchore/syft:v1.57.0 scan dir:/repo --exclude ./node_modules --exclude ./target -o cyclonedx-json > "warren-$GITHUB_REF_NAME.sbom.json"
+      # By digest and read-only: the image runs before dist/ext is uploaded for signing, and must not be able to change it.
+      - run: docker run --rm -v "$PWD:/repo:ro" anchore/syft:v1.57.0@sha256:3c70e6d5979364cefdc22b51617a78fd264574d3bd6b4f84a351204147025e2a scan dir:/repo --exclude ./node_modules --exclude ./target -o cyclonedx-json > "warren-$GITHUB_REF_NAME.sbom.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: extension, path: dist/ext, if-no-files-found: error }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -97,8 +98,11 @@ jobs:
         with: { node-version-file: .nvmrc, package-manager-cache: false }
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: extension, path: dist/ext }
+      # Outside the checkout: an artifact of the build job must never land next to tools/pack-crx.mjs. Only the one
+      # expected file is taken from it.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with: { name: sbom }
+        with: { name: sbom, path: "${{ runner.temp }}/sbom" }
+      - run: mv "$RUNNER_TEMP/sbom/warren-$GITHUB_REF_NAME.sbom.json" .
       # The .crx is the released .zip, signed by tools/pack-crx.mjs on node:crypto alone: no npm package and no
       # browser ever runs next to CRX_KEY, so a compromised dependency cannot read the key.
       - name: pack .crx and .zip

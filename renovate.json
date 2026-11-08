@@ -27,6 +27,13 @@
     },
     {
       "customType": "regex",
+      "description": "Docker images a workflow runs by digest",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": ["docker run [^\\n]*? (?<depName>[a-z0-9./-]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]{64})"],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "description": "Last Vaultwarden release reviewed (upstream.lock); tests always run latest",
       "managerFilePatterns": ["/^upstream\\.lock$/"],
       "matchStrings": ["version = \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""],
