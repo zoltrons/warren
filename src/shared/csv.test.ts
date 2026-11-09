@@ -46,4 +46,8 @@ test("csv: a formula-looking username is defused on export and restored on impor
   // A username that already starts with ' and a formula character survives the round trip.
   const [kept] = csvToExport(itemsToCsv([{ type: 1, name: "b", login: { username: "'=x" } }], () => "").csv).items as Record<string, any>[];
   assert.equal(kept.login.username, "'=x");
+  // The name too: a passkey item is named by the site (rp.name).
+  const named = itemsToCsv([{ type: 1, name: evil, login: {} }], () => "").csv;
+  assert.equal(parseCsv(named)[1]![3], `'${evil}`);
+  assert.equal(csvToExport(named).items[0]!.name, evil);
 });

@@ -128,7 +128,9 @@ only ever be sent to the service it belongs to.
 
 ## Permissions
 
-`storage`, `alarms`, `idle`, `offscreen`, `clipboardWrite` (clearing copied secrets), `scripting`,
+`storage`, `alarms`, `idle`, `offscreen`, `clipboardWrite` and `clipboardRead` (clearing copied secrets, and only
+while the clipboard still holds them), `unlimitedStorage` (the encrypted vault cache is one `storage.local`
+value; without it a vault over 10 MB could not be stored and would not load), `scripting`,
 `contextMenus`, `sidePanel` (the popup UI also opens in the side panel: `sidepanel.html`, same bundle),
 `notifications` (another device's "log in with device" request arrives by push while the popup is closed).
 

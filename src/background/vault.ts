@@ -1,6 +1,7 @@
 // Vault orchestration in the service worker: encrypted cache in storage.local, sync, and writes.
 // Decryption happens in the offscreen worker; the SW only moves encrypted JSON around.
 import { CLEAR_CLIPBOARD_MS, PIN_KDF } from "../shared/constants.ts";
+import { clipboardDigest } from "../shared/digest.ts";
 import type { CoreRequest, ExportFormat, HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
 import { safeKdf } from "./kdf.ts";
 import { revisionDate } from "../transport/auth.ts";
@@ -33,7 +34,7 @@ import { assertEpoch, lockEpoch, ownerEpoch } from "./lock.ts";
 import { readPrivate, updatePrivate } from "./private.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { BLOCK, seal, unseal } from "./seal.ts";
-import { getLocal, getSession, getSettings, removeLocal, setLocal, type VaultCache } from "./store.ts";
+import { getLocal, getSession, getSettings, removeLocal, setLocal, updateSession, type VaultCache } from "./store.ts";
 
 export const CLIPBOARD_ALARM = "clipboard";
 
@@ -102,7 +103,7 @@ export async function sync(force: boolean): Promise<boolean> {
   }
   const r = await fullSync(base, token);
   const orgKeys = Object.fromEntries((r.profile.organizations ?? []).filter((o) => o.key).map((o) => [o.id, o.key!]));
-  // shortcut: whole vault in one storage.local key (10 MB quota, no unlimitedStorage); move to IndexedDB if vaults outgrow it.
+  // shortcut: whole vault in one storage.local key (no quota: unlimitedStorage); move to IndexedDB if one set() of it gets slow.
   const orgs = (r.profile.organizations ?? []).map((o) => ({ id: o.id, name: o.name ?? "" }));
   const next: VaultCache = { revision, syncedAt: Date.now(), ciphers: r.ciphers, folders: r.folders, sends: r.sends ?? [], orgKeys, collections: r.collections ?? [], orgs };
   let again = false;
@@ -212,10 +213,11 @@ export async function saveFolder(name: string, id?: string): Promise<VaultList> 
 }
 
 /** Arms the clipboard clear according to the user's "Clear clipboard" setting (never = cancel). */
-export async function scheduleClipboardClear(): Promise<void> {
+export async function scheduleClipboardClear(hash: string): Promise<void> {
   const { clearClipboardDelay } = await getSettings();
   const ms = CLEAR_CLIPBOARD_MS[clearClipboardDelay] ?? CLEAR_CLIPBOARD_MS.oneMinute;
   if (!ms) return void (await chrome.alarms.clear(CLIPBOARD_ALARM));
+  await updateSession({ clipboardHash: hash });
   await chrome.alarms.create(CLIPBOARD_ALARM, { delayInMinutes: ms / 60_000 });
 }
 
@@ -223,7 +225,7 @@ export async function scheduleClipboardClear(): Promise<void> {
 export async function copyToClipboard(text: string): Promise<boolean> {
   const ok = await coreCall<boolean>({ op: "writeClipboard", text });
   // A failed write must not arm the clear: it would wipe whatever the user has on the clipboard.
-  if (ok) await scheduleClipboardClear();
+  if (ok) await scheduleClipboardClear(await clipboardDigest(text));
   return ok;
 }
 
@@ -239,7 +241,10 @@ export const getSend = (id: string) => coreCall<Record<string, unknown>>({ op: "
 export async function clearClipboard(): Promise<void> {
   // Close the document only if this call opened it: an open one may hold a pending 2FA key or an unlock in progress.
   const wasAlive = await coreAlive();
-  await coreCall({ op: "writeClipboard", text: "" });
+  // Only what we copied: something the user copied since stays. Without a hash (session gone) it clears as before.
+  const { clipboardHash } = await getSession();
+  await coreCall({ op: "clearClipboard", ...(clipboardHash ? { hash: clipboardHash } : {}) });
+  await updateSession({ clipboardHash: undefined });
   if (!wasAlive) await chrome.offscreen.closeDocument().catch(() => undefined);
 }
 

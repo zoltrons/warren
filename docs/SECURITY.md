@@ -191,7 +191,11 @@ freed rather than zeroed in place.
     creates the crypto worker's URL and refuses any origin but the extension's.
 
 13. **Clipboard copies are cleared on a timer** (1 minute by default), and the clear is armed only when the write
-    actually happened — never after a failed copy that would otherwise erase the user's clipboard.
+    actually happened — never after a failed copy that would otherwise erase the user's clipboard. The clear
+    first reads the clipboard (`clipboardRead`, in the offscreen document, at that moment only) and leaves it
+    alone when it holds something else than what Warren copied; the text read is hashed, compared and dropped.
+    What is kept to compare is a SHA-256 of the copied value in `storage.session` (memory only), removed by the
+    clear. If the clipboard cannot be read or the hash is gone, it is cleared as before.
 
 14. **Locking tears down in-page UI.** Auto-lock, logout and login call `lockNow`, which closes the
     inline menu and save bar in every tab: those frames show decrypted item names, so they must not
@@ -356,6 +360,10 @@ short on purpose. Either way the reason is given here or in Known gaps.
   `src/background/passkey.ts`) and attachment downloads — see `src/background/reprompt.ts`. Page-load
   autofill skips flagged items entirely. **Not** covered: an org policy that forces the flag is only
   honored as far as Vaultwarden reports it on each cipher.
+- **`clipboardRead` and `unlimitedStorage`.** The clipboard is read only by the timed clear (invariant 13), to
+  avoid erasing something the user copied after a secret; nothing read is stored or sent. `unlimitedStorage`
+  lifts the 10 MB `storage.local` quota for the encrypted vault cache, which is a single value: over the quota
+  a sync could not store it and the vault would not load. It grants no access to anything.
 - **The extension holds broad host permissions** (`https://*/*`, `http://*/*`) because autofill needs to
   inject into arbitrary sites. It is the largest standing privilege we have; do not add more without a
   written reason.

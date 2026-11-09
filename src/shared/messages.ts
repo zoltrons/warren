@@ -130,7 +130,8 @@ export type Request =
   | { type: "setGeneratorPrefs"; options?: Record<string, unknown>; email?: string; domain?: string }
   /** The custom passphrase list, one word per line ("" removes it); it never comes back to the popup. */
   | { type: "setWordlist"; text: string }
-  | { type: "clipboardCopied" }
+  /** The UI copied something itself: `hash` is its clipboardDigest, so the clear only erases that. */
+  | { type: "clipboardCopied"; hash: string }
   // Send
   | { type: "sendList" }
   | { type: "getSend"; id: string }
@@ -272,7 +273,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   generatorPrefs: obj({ type: literal("generatorPrefs") }),
   setGeneratorPrefs: obj({ type: literal("setGeneratorPrefs"), options: opt(record), email: opt(capped(320)), domain: opt(capped(253)) }),
   setWordlist: obj({ type: literal("setWordlist"), text: capped(2 * 1024 * 1024) }),
-  clipboardCopied: obj({ type: literal("clipboardCopied") }),
+  clipboardCopied: obj({ type: literal("clipboardCopied"), hash: str }),
   sendList: obj({ type: literal("sendList") }),
   getSend: obj({ type: literal("getSend"), id: str }),
   saveSend: (v, p) => {
@@ -585,7 +586,9 @@ export type CoreRequest =
   /** Result: the item to save, already encrypted (the new private key never leaves the worker), and the page's response. */
   | { op: "passkeyCreate"; input: PasskeyCreateInput; itemId?: string }
   // handled by the offscreen document itself, not the worker
-  | { op: "writeClipboard"; text: string };
+  | { op: "writeClipboard"; text: string }
+  /** Empties the clipboard, but with a `hash` only while it still holds the text with that clipboardDigest. */
+  | { op: "clearClipboard"; hash?: string };
 
 export type CoreResult = { ok: true; value: unknown } | { ok: false; error: string };
 
@@ -673,6 +676,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str, uv: bool }),
   passkeyCreate: obj({ op: literal("passkeyCreate"), input: passkeyCreateInput, itemId: opt(str) }),
   writeClipboard: obj({ op: literal("writeClipboard"), text: str }),
+  clearClipboard: obj({ op: literal("clearClipboard"), hash: opt(str) }),
 };
 
 export function parseCoreRequest(v: unknown): CoreRequest {

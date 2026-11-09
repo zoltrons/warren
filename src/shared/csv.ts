@@ -34,11 +34,12 @@ export function parseCsv(text: string): string[][] {
 const quote = (v: string) => (/[",\r\n]/.test(v) || /^\s|\s$/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 const toCsv = (rows: string[][]): string => rows.map((r) => r.map(quote).join(",")).join("\n");
 
-// A spreadsheet runs a cell starting with = + - @ (or TAB/CR) as a formula. Of all columns only the username comes from
-// a page (the save bar stores what it typed), so only it gets a leading ' (OWASP CSV injection), which csvToExport takes
-// off again. The others stay as typed: a note that is a "- " list must not gain a ' in another password manager.
+// A spreadsheet runs a cell starting with = + - @ (or TAB/CR) as a formula. Two columns come from a page: the username
+// (the save bar stores what was typed) and the name (a new passkey item is named after the site's rp.name). Only they get
+// a leading ' (OWASP CSV injection), which csvToExport takes off again. The others stay as typed: a note that is a "- "
+// list must not gain a ' in another password manager.
 const FORMULA = /^'*[=+\-@\t\r]/;
-const DEFUSED = "login_username";
+const DEFUSED: readonly string[] = ["name", "login_username"];
 const defuse = (v: string) => (FORMULA.test(v) ? `'${v}` : v);
 const undefuse = (v: string) => (v.startsWith("'") && FORMULA.test(v.slice(1)) ? v.slice(1) : v);
 
@@ -68,8 +69,7 @@ export function itemsToCsv(items: Json[], folderName: (id: string) => string): {
       type === 1 ? s(login.totp) : "",
     ]);
   }
-  const u = CSV_COLUMNS.indexOf(DEFUSED);
-  return { csv: toCsv(rows.map((r, i) => (i ? r.with(u, defuse(r[u]!)) : r))), skipped };
+  return { csv: toCsv(rows.map((r, i) => (i ? r.map((v, c) => (DEFUSED.includes(CSV_COLUMNS[c]!) ? defuse(v) : v)) : r))), skipped };
 }
 
 /** A Bitwarden CSV as the JSON export shape prepareImport takes: { folders: [{id, name}], items }. */
@@ -77,7 +77,7 @@ export function csvToExport(text: string): { folders: { id: string; name: string
   const [header, ...rows] = parseCsv(text);
   const col = new Map((header ?? []).map((h, i) => [h.trim().toLowerCase(), i]));
   if (!col.has("name") || !col.has("type")) throw new Error("This is not a Bitwarden CSV export (needs at least the name and type columns)");
-  const get = (r: string[], k: string) => (k === DEFUSED ? undefuse : (v: string) => v)(r[col.get(k) ?? -1] ?? "");
+  const get = (r: string[], k: string) => (DEFUSED.includes(k) ? undefuse : (v: string) => v)(r[col.get(k) ?? -1] ?? "");
   const folders = new Map<string, string>();
   const items = rows.map((r): Json => {
     const folder = get(r, "folder").trim();

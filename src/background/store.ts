@@ -51,6 +51,8 @@ interface Session {
   /** The refresh token in memory; on disk only sealed, and with "log out" as the timeout action not at all. */
   refreshToken?: string;
   pending?: PendingLogin;
+  /** clipboardDigest of the last value we copied: the timed clear leaves anything else alone. */
+  clipboardHash?: string;
   /** Log in with device: our request waiting for another device. Its RSA key lives in the crypto worker. */
   deviceLogin?: { email: string; id: string; accessCode: string; fingerprint: string; expiresAt: number };
   /** Ids of other devices' login requests that came in by push and are not answered yet. */

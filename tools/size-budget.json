@@ -7,5 +7,10 @@
   "dist/wasm/autofill_core_bg.wasm": 307200,
   "dist/wasm/autofill_core.js": 16384,
   "dist/ext/page.js": 15360,
-  "dist/ext/content.js": 15360
+  "dist/ext/content.js": 15360,
+  "dist/ext/background.js": 112640,
+  "dist/ext/offscreen.js": 15360,
+  "dist/ext/worker.js": 57344,
+  "dist/ext/popup.js": 147456,
+  "dist/ext/popup.css": 54272
 }

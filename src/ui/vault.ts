@@ -10,6 +10,7 @@ import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
 import { type Clause, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
 import { passwordLevel } from "../shared/strength.ts";
+import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
 import { type Child, h, inPanel, send, t, when, withChevron } from "./dom.ts";
@@ -262,7 +263,7 @@ export function toast(ctx: Ctx, text: string) {
 
 export async function copy(ctx: Ctx, value: string, key?: string) {
   await navigator.clipboard.writeText(value);
-  void send({ type: "clipboardCopied" }); // schedules clearing
+  void send({ type: "clipboardCopied", hash: await clipboardDigest(value) }); // schedules clearing
   toast(ctx, t("copied"));
   if (!key) return;
   // The copy icon turns into a check for a moment, so the action is visible without reading the toast.

@@ -1,4 +1,5 @@
 // Offscreen document: owns the crypto worker and relays requests from the service worker only.
+import { clipboardDigest } from "../shared/digest.ts";
 import { type CoreResult, OFFSCREEN_TARGET, parseCoreRequest } from "../shared/messages.ts";
 
 // Trusted Types (manifest CSP): the worker is the only script URL our pages build, and it must stay in the extension.
@@ -62,8 +63,8 @@ chrome.runtime.onMessage.addListener((msg: unknown, sender, reply: (r: CoreResul
     reply({ ok: true, value: true });
     return false;
   }
-  if (req.op === "writeClipboard") {
-    void writeClipboard(req.text).then(
+  if (req.op === "writeClipboard" || req.op === "clearClipboard") {
+    void (req.op === "writeClipboard" ? writeClipboard(req.text) : clearClipboard(req.hash)).then(
       (ok) => reply({ ok: true, value: ok }),
       (e: unknown) => reply({ ok: false, error: e instanceof Error ? e.message : String(e) }),
     );
@@ -99,4 +100,23 @@ async function writeClipboard(text: string): Promise<boolean> {
   } finally {
     document.removeEventListener("copy", onCopy);
   }
+}
+
+/** The clipboard's text, or undefined when it cannot be read. No focus here either, so execCommand (needs clipboardRead). */
+function readClipboard(): string | undefined {
+  const box = document.body.appendChild(document.createElement("textarea"));
+  try {
+    box.focus();
+    return document.execCommand("paste") ? box.value : undefined;
+  } finally {
+    box.remove();
+  }
+}
+
+/** Empties the clipboard unless it verifiably holds something other than the text behind `hash`. */
+async function clearClipboard(hash?: string): Promise<boolean> {
+  const now = hash === undefined ? undefined : readClipboard();
+  // Copied by the user since: not ours to erase. Unreadable or no hash: clear, the secret may still be there.
+  if (now !== undefined && (await clipboardDigest(now)) !== hash) return false;
+  return writeClipboard("");
 }

@@ -8,3 +8,7 @@ test("short and plain is weak, long and mixed is very strong", () => {
   assert.equal(passwordLevel("correct-Horse-battery-9-staple"), 3);
   assert.equal(passwordLevel(""), 0);
 });
+
+test("a common word with digits and symbols around it is weak", () => {
+  for (const pw of ["Password123!", "Qwerty123456", "iloveyou2024!"]) assert.equal(passwordLevel(pw), 0);
+});

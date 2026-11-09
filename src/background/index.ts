@@ -211,7 +211,7 @@ async function handle(req: Request): Promise<unknown> {
       if (req.type === "fill") return fillShownTab(req.id, req.tabId, req.origin, req.anyway);
       return readPageLogin(req.tabId, req.origin);
     case "clipboardCopied":
-      await scheduleClipboardClear();
+      await scheduleClipboardClear(req.hash);
       return null;
     case "getState":
       break;
