@@ -33,7 +33,9 @@ export function checkRpId(rpId: string, origin: string, isPublicSuffix: (d: stri
   // their own host and no rule lists them. An empty label ("com.", a dotted host's "co.uk.") would slip past the
   // suffix list, which knows only the dotless names: such an id is refused outright.
   const labelled = id.split(".").every(Boolean);
-  if (!secure || !labelled || !(host === id || host.endsWith(`.${id}`)) || (isPublicSuffix(id) && !isLoopback(id)))
+  // An IP address has no parent domain: "1.1" is not a parent of 192.168.1.1 (nor of 10.0.1.1).
+  const ip = /^[\d.]+$/.test(host) || host.startsWith("[");
+  if (!secure || !labelled || !(host === id || (!ip && host.endsWith(`.${id}`))) || (isPublicSuffix(id) && !isLoopback(id)))
     throw new Error("SecurityError: the relying party id is not valid for this origin");
 }
 

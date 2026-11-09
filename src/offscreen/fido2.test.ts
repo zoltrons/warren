@@ -26,6 +26,10 @@ test("passkey RP ID: refused for other sites, public suffixes and insecure origi
   assert.throws(() => ok("github.io", "https://alice.github.io"), /SecurityError/); // private-section suffix
   assert.throws(() => ok("github.io", "https://github.io"), /SecurityError/); // ...also for its own host
   assert.throws(() => ok("example.com", "http://example.com"), /SecurityError/);
+  // An IP address is only ever its own RP ID: its tail is shared by unrelated hosts.
+  ok("192.168.1.1", "https://192.168.1.1");
+  assert.throws(() => ok("1.1", "https://192.168.1.1"), /SecurityError/);
+  assert.throws(() => ok("168.1.1", "https://192.168.1.1"), /SecurityError/);
   // A trailing dot is not a way around the suffix list.
   assert.throws(() => ok("com.", "https://example.com."), /SecurityError/);
   assert.throws(() => ok("co.uk.", "https://shop.co.uk."), /SecurityError/);

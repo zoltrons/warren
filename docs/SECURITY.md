@@ -111,7 +111,9 @@ freed rather than zeroed in place.
    are bounded (`readBytes` in `src/transport/http.ts`). The one server-supplied URL that leaves the server is Duo's
    authorize URL: it opens only if it is `https://api-<id>.duosecurity.com|duofederal.com/oauth/v1/authorize` (the
    clients' own check), and the result is read only from the tab Warren opened, on the configured server's
-   `duo-redirect-connector.html` (`duoUrl`, `duoTabUpdated` in `src/background/account.ts`).
+   `duo-redirect-connector.html` (`duoUrl`, `duoTabUpdated` in `src/background/account.ts`). The one server page
+   Warren frames, `webauthn-connector.html` for a security-key second factor, is sandboxed without top navigation
+   (`webauthnBox` in `src/ui/popup.ts`): it cannot replace the popup or its tab with a page of its own.
 
 7a. **The server cannot weaken the KDF below what this browser has seen, nor below a fixed floor.** It chooses the
     account's KDF (prelogin and token response) and receives the hash the KDF produces, so a hostile server could ask for PBKDF2 at 5000 iterations and crack the master password
@@ -173,7 +175,7 @@ freed rather than zeroed in place.
 
 11. **Passkeys are bound to the origin.** `checkRpId` requires the RP ID to be the origin's host or a
     registrable parent, on a secure origin, and never a public suffix — including when the page's own
-    host *is* the public suffix. Signing happens in the worker, and the private key never leaves it: `getCipher`
+    host *is* the public suffix. An IP address has no parent: it is only ever its own RP ID. Signing happens in the worker, and the private key never leaves it: `getCipher`
     hands out items without `keyValue` and `prepareSave` restores it from the same item only
     (`src/offscreen/passkey-keys.ts`), so a clone does not copy a passkey. A new passkey is put into its item and
     encrypted in the worker (`passkeyCreate` answers with the ciphertext), so its key is never in the service worker.

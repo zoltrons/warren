@@ -363,6 +363,9 @@ function webauthnBox(s: State): Child {
   webauthnFrame = h("iframe", {
     class: "webauthn",
     title: t("providerWebAuthn"),
+    // The server's page gets no top navigation: one click in it must not swap this window for a page of the
+    // server's that asks for the master password (the official clients sandbox the connector the same way).
+    sandbox: "allow-scripts allow-same-origin",
     allow: "publickey-credentials-get *",
     src: `${s.serverUrl}/webauthn-connector.html?${params}`,
   });
