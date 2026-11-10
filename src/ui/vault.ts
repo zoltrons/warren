@@ -9,7 +9,7 @@ import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
 import { type Clause, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
-import { passwordLevel } from "../shared/strength.ts";
+import { loadCommonWords, passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
@@ -19,6 +19,9 @@ import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { pwnedCount } from "./pwned.ts";
 import { qrSvg } from "./qr.ts";
+
+// Loaded when the popup opens, so the first strength label already uses the full list.
+void loadCommonWords();
 
 type Json = Record<string, unknown>;
 export interface Ctx {

@@ -53,7 +53,7 @@ by role, tightest where a cost is paid most often:
 | Service worker | `background.js` 192 KiB | Restarts often (MV3). |
 | Offscreen | `offscreen.js` 32, `worker.js` 128 KiB | Loaded when the offscreen document starts. |
 | WASM | `core_wasm_bg.wasm` 1.5 MiB, `autofill_core_bg.wasm` 512 KiB (their JS glue is bundled into `worker.js` / `background.js`) | Instantiated once; grows with sdk-internal. |
-| Data | `psl.json` 256, `identity-data.json` 96, `messages.json` 96 KiB | Grow with upstream lists and strings. |
+| Data | `psl.json` 256, `common-words.json` 160, `identity-data.json` 96, `messages.json` 96 KiB | Grow with upstream lists and strings. |
 
 A change that goes over a ceiling raises it in the same commit and says why in the commit message. A new shipped
 file over 8 KiB gets a ceiling from its role.
@@ -122,6 +122,7 @@ file over 8 KiB gets a ceiling from its role.
 | `tools/mutate.mjs` | Mutation check for SECURITY.md invariants (docs/VERIFICATION.md). |
 | `tools/icons.mjs` | PNG icons from `brand/*.svg`. |
 | `tools/identity-data.mjs` | Builds `src/ui/identity-data.json` for the identity generator. |
+| `tools/common-words.mjs` | Builds `src/shared/common-words.json` (base words of the 10 000 most common passwords) for the strength check. |
 | `tools/sync-upstream.mjs` | Read-only diff report of upstream since the pins. |
 | `tools/pack-crx.mjs`, `verify-tag.sh` | Release signing and tag verification. |
 | `dev/vaultwarden/` | Local Vaultwarden (latest) + mock IdP + test users, for e2e. |

@@ -3,6 +3,7 @@
 // memory that Argon2id grew to 64+ MiB).
 import init, * as core from "../../dist/wasm/core_wasm.js";
 import { type CoreRequest, type CoreResult, parseCoreRequest } from "../shared/messages.ts";
+import { loadCommonWords } from "../shared/strength.ts";
 import * as vault from "./vault.ts";
 
 const ready = init({ module_or_path: new URL("core_wasm_bg.wasm", import.meta.url) });
@@ -66,7 +67,7 @@ function run(req: CoreRequest): unknown {
     case "upsertCipher":
       return vault.upsertCipher(req.cipher);
     case "listVault":
-      return vault.listVault();
+      return loadCommonWords().then(vault.listVault);
     case "getCipher":
       return vault.getCipher(req.id);
     case "cipherSummary":

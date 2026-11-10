@@ -15,5 +15,6 @@
   "dist/ext/popup.css": 98304,
   "dist/ext/psl.json": 262144,
   "dist/ext/identity-data.json": 98304,
-  "dist/ext/_locales/en/messages.json": 98304
+  "dist/ext/_locales/en/messages.json": 98304,
+  "dist/ext/common-words.json": 163840
 }
