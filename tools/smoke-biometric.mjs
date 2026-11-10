@@ -111,6 +111,7 @@ try {
   // Logging out must forget the wrapped key (the account is gone).
   await page.getByRole("navigation").getByRole("button", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Log out", exact: true }).click();
+  await page.getByRole("button", { name: "Click again to log out", exact: true }).click(); // Log out takes two clicks
   await poll("logout", async () => !(await storedBiometric()));
   console.log("ok: logout removes the biometric key");
   await cdp.detach();

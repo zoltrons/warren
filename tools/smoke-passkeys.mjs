@@ -33,7 +33,8 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const site = `http://localhost:${server.address().port}`;
 
 const ctx = await chromium.launchPersistentContext(profile, {
-  channel: "chromium",
+  // CHROME_PATH=... runs a specific Chromium 156+ build (as smoke-biometric.mjs does); CI uses Playwright's.
+  ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: "chromium" }),
   headless: !process.env.HEADED,
   // Playwright adds --disable-extensions, which would make --load-extension a no-op.
   ignoreDefaultArgs: ["--disable-extensions"],
