@@ -68,17 +68,22 @@ for (const k of new Set([...Object.keys(darkVars), ...Object.keys(darkMedia)]))
 
 const BGS = ["bg", "surface", "surface-sunken", "surface-raised"];
 const PAIRS = [
-  ...["text", "muted", "link", "success", "warning", "critical", "attention"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
+  ...["text", "muted", "link", "digit", "success", "warning", "critical", "attention"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
   ...["primary", "primary-hover", "primary-pressed"].map((bg) => ["on-primary", bg, "text"]),
   ["text", "selected", "text"], ["text", "pressed", "text"], ["link", "primary-weak", "text"], ["critical", "critical-weak", "text"],
   ...["primary", "favorite"].flatMap((fg) => ["bg", "surface"].map((bg) => [fg, bg, "ui"])),
   ...["bg", "surface", "surface-sunken"].map((bg) => ["faint", bg, "ui"]),
+  // Switches: the off track against its card, and the knob against both tracks (WCAG 1.4.11).
+  ["focus-ring", "bg", "ui"], ["focus-ring", "surface", "ui"],
+  ["switch-off", "surface", "ui"], ["switch-thumb", "switch-off", "ui"], ["switch-thumb", "switch-on", "ui"],
 ];
 const MIN = { text: 4.5, ui: 3 };
 
 const rows = [];
 for (const [name, t] of [["light", light], ["dark", { ...light, ...darkVars }], ["black", { ...light, ...darkVars, ...blackVars }]]) {
   const color = (k, under) => {
+    const alias = /^var\(--([\w-]+)\)$/.exec(t[k]); // a token that names another one
+    if (alias) return color(alias[1], under);
     const c = parse(t[k]);
     return c[3] < 1 ? over(c, under ?? color("surface")) : c;
   };

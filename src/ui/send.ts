@@ -2,7 +2,7 @@
 // Talks to the service worker only; the link (with its key fragment) is built there.
 import type { SendItem } from "../shared/messages.ts";
 import { ci } from "../shared/validate.ts";
-import { type Child, h, send, sessionNow, t, withChevron } from "./dom.ts";
+import { type Child, day, h, plural, send, sessionNow, t, withChevron } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { copy, type Ctx, iconButton, tile, toast } from "./vault.ts";
 
@@ -78,6 +78,12 @@ function errorBox(): Child {
 async function remove(ctx: Ctx, id: string) {
   if (sd.confirmDelete !== id) {
     sd.confirmDelete = id;
+    // Disarms on its own, as the vault's delete does (twoTap), so a stray click later cannot delete.
+    setTimeout(() => {
+      if (sd.confirmDelete !== id) return;
+      sd.confirmDelete = "";
+      ctx.rerender();
+    }, 4000);
     return ctx.rerender();
   }
   sd.confirmDelete = "";
@@ -115,11 +121,16 @@ async function editSend(ctx: Ctx, item: SendItem) {
 
 function listView(ctx: Ctx): HTMLElement {
   const items = sd.list ?? [];
-  const date = (iso: string) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const date = (iso: string) => (iso ? day(iso) : "");
   return h(
     "div",
     { class: "page" },
-    h("div", { class: "top" }, h("h1", { class: "grow" }, t("send"))),
+    h(
+      "div",
+      { class: "top" },
+      h("h1", { class: "grow" }, t("send")),
+      h("button", { type: "button", class: "icon-btn sm add", "aria-label": t("newSend"), title: t("newSend"), onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus")),
+    ),
     errorBox(),
     sd.loading && !sd.list
       ? h("div", { class: "progress" })
@@ -131,25 +142,42 @@ function listView(ctx: Ctx): HTMLElement {
               h(
                 "div",
                 { class: "row", role: "listitem" },
-                tile(s.name, s.type === 1 ? 2 : 1),
+                // The name opens the Send for editing, as a vault row opens its item; status is written out under it.
                 h(
-                  "div",
-                  { class: "body" },
-                  h("span", { class: "title" }, s.failed ? t("decryptFailed") : s.name),
-                  h("span", { class: "sub" }, [t("sendDeletes", date(s.deletionDate)), s.hasPassword ? t("password") : "", s.disabled ? t("sendDisabled") : ""].filter(Boolean).join(" · ")),
+                  s.failed ? "div" : "button",
+                  s.failed ? { class: "row-main" } : { type: "button", class: "row-main", onclick: () => ((sd.error = undefined), void editSend(ctx, s)) },
+                  tile(s.name, s.type === 1 ? 2 : 1),
+                  h(
+                    "div",
+                    { class: "body" },
+                    h("span", { class: "title" }, s.failed ? t("decryptFailed") : s.name),
+                    h("span", { class: "sub wrap" }, t("sendDeletes", date(s.deletionDate))),
+                    s.hasPassword || s.disabled
+                      ? h("span", { class: `sub wrap${s.disabled ? " warn-text" : ""}` }, [s.hasPassword ? t("sendPasswordProtected") : "", s.disabled ? t("sendDisabled") : ""].filter(Boolean).join(", "))
+                      : null,
+                    sd.confirmDelete === s.id ? h("span", { class: "sub wrap warn-text", role: "status" }, t("tapAgainToDelete")) : null,
+                  ),
                 ),
                 h(
                   "span",
                   { class: "field-actions" },
-                  s.failed ? null : iconButton("copy", `${t("copyLink")} ${s.name}`, () => void copy(ctx, s.link)),
-                  s.failed ? null : iconButton("edit", `${t("edit")} ${s.name}`, () => ((sd.error = undefined), void editSend(ctx, s))),
-                  iconButton("trash", sd.confirmDelete === s.id ? t("tapAgainToDelete") : `${t("delete")} ${s.name}`, () => void remove(ctx, s.id), sd.confirmDelete === s.id ? { class: "icon-btn danger" } : {}),
+                  s.failed ? null : iconButton("copy", t("copyLinkNamed", s.name), () => void copy(ctx, s.link)),
+                  s.failed ? null : iconButton("edit", t("editNamed", s.name), () => ((sd.error = undefined), void editSend(ctx, s))),
+                  // Armed, the icon turns red in place (the row does not shift) and the row says it in words below.
+                  sd.confirmDelete === s.id
+                    ? iconButton("trash", t("tapAgainToDelete"), () => void remove(ctx, s.id), { class: "icon-btn danger" })
+                    : iconButton("trash", t("deleteNamed", s.name), () => void remove(ctx, s.id)),
                 ),
               ),
             ),
           )
-        : h("div", { class: "empty" }, icon("send"), h("strong", {}, t("noSends"))),
-    h("button", { type: "button", class: "fab icon", "aria-label": t("newSend"), title: t("newSend"), onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus")),
+        : h(
+            "div",
+            { class: "empty" },
+            h("strong", {}, t("noSends")),
+            h("p", {}, t("noSendsHint")),
+            h("button", { type: "button", class: "btn filled small", onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus"), t("newSend")),
+          ),
   );
 }
 
@@ -207,7 +235,7 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
   const isNew = !d.id;
   // Edit: 0 keeps the current deletion date.
   const dayChoices: number[] = isNew ? [...DELETION_DAYS] : [0, ...DELETION_DAYS];
-  const dayLabel = (n: number) => (n ? t("days", String(n)) : t("sendDeletes", d.deletionDate ? new Date(d.deletionDate).toLocaleDateString() : ""));
+  const dayLabel = (n: number) => (n ? plural("days", n) : t("sendDeletes", d.deletionDate ? day(d.deletionDate) : ""));
   return h(
     "form",
     { class: "page", onsubmit: (e: Event) => (e.preventDefault(), void create(ctx, d)) },
@@ -217,9 +245,16 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
     d.kind === "text"
       ? field("send-text", t("sendText"), h("textarea", { rows: 4, value: d.text, oninput: (e: Event) => (d.text = (e.target as HTMLTextAreaElement).value) }))
       : isNew
-        ? field("send-file", t("sendFile"), h("input", { type: "file", onchange: (e: Event) => (d.file = (e.target as HTMLInputElement).files?.[0]) }))
+        ? // The app's own row instead of the browser's "Choose File / no file selected"; it names the chosen file.
+          h(
+            "label",
+            { class: "row form-row" },
+            icon("attach"),
+            h("div", { class: "body" }, h("span", { class: "title" }, d.file?.name ?? t("chooseFile"))),
+            h("input", { type: "file", class: "sr-only", "aria-label": t("sendFile"), onchange: (e: Event) => ((d.file = (e.target as HTMLInputElement).files?.[0]), ctx.rerender()) }),
+          )
         : null,
-    d.kind === "text" ? h("label", { class: "row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideText")), h("span", { class: "switch" }, hidden, h("span"))) : null,
+    d.kind === "text" ? h("label", { class: "row form-row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideText")), h("span", { class: "switch" }, hidden, h("span"))) : null,
     field(
       "send-days",
       t("deleteAfter"),
@@ -236,7 +271,7 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
           h("span", { class: "switch" }, h("input", { type: "checkbox", checked: d.removePassword, "aria-label": t("removePassword"), onchange: (e: Event) => ((d.removePassword = (e.target as HTMLInputElement).checked), (d.password = ""), ctx.rerender()) }), h("span")),
         )
       : null,
-    isNew ? h("label", { class: "row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideEmail")), h("span", { class: "switch" }, hideEmail, h("span"))) : null,
+    isNew ? h("label", { class: "row form-row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideEmail")), h("span", { class: "switch" }, hideEmail, h("span"))) : null,
     isNew ? null : h("label", { class: "row" }, icon("lock"), h("div", { class: "body" }, t("disableSend")), h("span", { class: "switch" }, disabled, h("span"))),
     errorBox(),
     sd.busy ? h("div", { class: "progress" }) : null,

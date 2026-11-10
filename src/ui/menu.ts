@@ -43,7 +43,7 @@ async function render() {
         row(tile(i.name, i.type), i.name || t("untitled"), i.sub, async () => {
           const f = await ask({ type: "inlineFill", id: i.id, nonce });
           if (!f.ok) app.replaceChildren(h("div", { class: "note" }, f.error));
-        }, `${t("fill")} ${i.name}`),
+        }, t("fillNamed", i.name)),
       ),
     ),
   );

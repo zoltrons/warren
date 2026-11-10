@@ -57,12 +57,12 @@ const scenes = {
   list: async (page) => page.getByRole("searchbox").waitFor(),
   item: async (page) => {
     await page.getByRole("searchbox").waitFor();
-    await page.getByRole("listitem").filter({ hasText: "GitHub" }).click();
+    await page.getByRole("listitem").filter({ hasText: "GitHub" }).first().locator(".row-main").click();
     await page.getByRole("heading", { name: "GitHub" }).waitFor();
   },
   editor: async (page) => {
     await page.getByRole("searchbox").waitFor();
-    await page.getByRole("listitem").filter({ hasText: "GitHub" }).click();
+    await page.getByRole("listitem").filter({ hasText: "GitHub" }).first().locator(".row-main").click();
     await page.getByRole("button", { name: "Edit" }).click();
   },
   settings: async (page) => {
@@ -103,9 +103,8 @@ const scenes = {
   },
   trashUndo: async (page) => {
     await page.getByRole("searchbox").waitFor();
-    await page.getByRole("listitem").filter({ hasText: "GitHub" }).click();
+    await page.getByRole("listitem").filter({ hasText: "GitHub" }).first().locator(".row-main").click();
     await page.getByRole("button", { name: "Move to trash" }).click();
-    await page.getByRole("button", { name: /Move to trash|Tap again/ }).click();
     await page.getByRole("button", { name: "Undo" }).waitFor();
   },
   passkey: async (page) => page.getByRole("heading").first().waitFor(),
@@ -146,7 +145,7 @@ for (const scheme of ["light", "dark"]) {
   const page = await open("/?scene=list");
   await page.getByRole("searchbox").waitFor();
   await page.evaluate(() => {
-    document.querySelector("[role=listitem]").click();
+    document.querySelector("[role=listitem] > .row-main").click();
     document.querySelector("button[aria-label='Lock now']").click();
   });
   await page.waitForTimeout(600);

@@ -25,7 +25,7 @@ set("addEventListener", (type: string, fn: (e: unknown) => void) => (listeners[t
 
 let now = 1000;
 Date.now = () => now;
-const { guardClicks, leave } = await import("./dom.ts");
+const { guardClicks, leave, plural, wordsStartWith } = await import("./dom.ts");
 guardClicks();
 
 /** True when the guard let the click through to the buttons. */
@@ -82,4 +82,20 @@ test("leave: a second removal while a row is still leaving is ignored, so it can
     mock.timers.reset();
   }
   assert.deepEqual(removed, ["a"]);
+});
+
+test("settings search matches the start of words only", () => {
+  assert.ok(wordsStartWith("Lock when the computer locks", "lock"));
+  assert.ok(wordsStartWith("Auto-lock", "lock"));
+  assert.ok(!wordsStartWith("Blocked websites", "lock"));
+  assert.ok(wordsStartWith("Kilit ekranı", "KILIT EKRANI"));
+  assert.ok(wordsStartWith("Unlock with PIN", "pin unl"));
+  assert.ok(!wordsStartWith("Unlock with PIN", "pin lock"));
+  assert.ok(wordsStartWith("anything", "  "));
+});
+
+test("plural picks the _one message for a count of one only", () => {
+  assert.equal(plural("days", 1), "days_one");
+  assert.equal(plural("days", 0), "days");
+  assert.equal(plural("days", 2), "days");
 });

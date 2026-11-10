@@ -8,12 +8,12 @@ import { cachedFavicon, type Favicon, loadFavicon } from "./favicon.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
-import { type Clause, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
+import { byRelevance, type Clause, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
 import { loadCommonWords, passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
-import { type Child, enter, h, inPanel, leave, rowOf, send, t, when, withChevron } from "./dom.ts";
+import { type Child, enter, h, inPanel, leave, plural, rowOf, send, t, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -146,6 +146,8 @@ const st = {
   /** Which two-tap action is armed: "item" or an attachment id. */
   armed: "",
   draft: undefined as EditDraft | undefined,
+  /** The draft as the editor opened with it, to tell whether leaving would lose edits. */
+  draftAtOpen: "",
   toast: "",
   /** The toast reports a failure (error icon, alert role) instead of a done action. */
   toastError: false,
@@ -286,7 +288,9 @@ export function toast(ctx: Ctx, text: string, opts: { error?: boolean; action?: 
 export async function copy(ctx: Ctx, value: string, key?: string) {
   await navigator.clipboard.writeText(value);
   void send({ type: "clipboardCopied", hash: await clipboardDigest(value) }); // schedules clearing
-  toast(ctx, t("copied"));
+  // Says when the clipboard is cleared, as set in Settings (default one minute; never says nothing).
+  const delay = settingsOf()?.clearClipboardDelay;
+  toast(ctx, delay && delay !== "never" ? t("copiedClears", t(delay)) : t("copiedOnly"));
   if (!key) return;
   // The copy icon turns into a check for a moment, so the action is visible without reading the toast.
   st.copied = key;
@@ -322,6 +326,18 @@ export function errorBox(): Child {
   return st.error ? h("div", { class: "error", role: "alert" }, icon("error"), h("div", {}, st.error)) : null;
 }
 
+// Ctrl/Cmd+Z runs a notice's Undo while it is up, so the keyboard does not have to reach it past the tab bar.
+// In a text field the browser's own undo wins.
+document.addEventListener("keydown", (e) => {
+  const action = st.toastAction;
+  if (!action || e.key.toLowerCase() !== "z" || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+  if ((e.target as HTMLElement | null)?.closest("input, textarea, [contenteditable]")) return;
+  e.preventDefault();
+  Object.assign(st, { toast: "", toastAction: undefined });
+  toastId++;
+  action.run();
+});
+
 export function toastEl(): Child {
   if (!st.toast) return null;
   // Only a new toast slides in; a re-render while it is up keeps it still.
@@ -334,7 +350,7 @@ export function toastEl(): Child {
     icon(st.toastError ? "error" : "check"),
     h("span", {}, st.toast),
     action
-      ? h("button", { type: "button", class: "btn text small toast-action", onclick: () => (Object.assign(st, { toast: "", toastAction: undefined }), toastId++, action.run()) }, action.label)
+      ? h("button", { type: "button", class: "btn text small toast-action", "aria-keyshortcuts": "Control+Z Meta+Z", onclick: () => (Object.assign(st, { toast: "", toastAction: undefined }), toastId++, action.run()) }, action.label)
       : null,
   );
 }
@@ -497,6 +513,7 @@ function open(ctx: Ctx, route: Route) {
   const from = st.route;
   Object.assign(st, { route, error: undefined, confirmDelete: 0, totp: undefined, totpFailed: undefined, large: undefined, qr: undefined, notesPreview: false, pwned: undefined, memory: undefined, reveal: new Set(), copied: "", uriOpen: new Set(), picking: undefined, repromptFor: undefined, itemFailedFor: undefined });
   if (route.kind !== "edit") st.draft = undefined;
+  else if (from.kind !== "edit") st.draftAtOpen = JSON.stringify(st.draft);
   if (route.kind === "org") orgDraft.id = ""; // read from the item on the first render
   if (route.kind === "item") noteOpened(route.id);
   ctx.rerender();
@@ -661,20 +678,34 @@ function rowActions(ctx: Ctx, i: VaultItem): Child[] {
   return [copyBtn, moreBtn];
 }
 
+/** The status marks after a row's name (code, weak or reused, favorite), the same in every list section. */
+function rowMarks(i: VaultItem): Child[] {
+  return [
+    i.hasTotp && !(iconMode() && i.type === 1) ? h("span", { class: "meta" }, icon("timer", t("oneTimeCode"))) : null,
+    i.reused || i.weak ? h("span", { class: "meta warn" }, icon("error", t(i.reused ? "filterReused" : "filterWeak"))) : null,
+    i.favorite ? h("span", { class: "meta fav" }, icon("star", t("favorite"))) : null,
+  ];
+}
+
+/** What a screen reader says for a row: the action, then what the eye sees in it (username and the marks). */
+function rowLabel(i: VaultItem, name: string): string {
+  const marks = [i.sub, i.hasTotp ? t("oneTimeCode") : "", i.reused ? t("filterReused") : i.weak ? t("filterWeak") : "", i.favorite ? t("favorite") : ""];
+  return [t("showItem", name), ...marks.filter(Boolean)].join(", ");
+}
+
 function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
   const name = i.failed ? t("decryptFailed") : i.name || t("untitled");
-  const onPage = !!st.page?.host && st.folder !== "trash" && (i.type === 3 || i.type === 4 || i.type === 1);
   return h(
     "div",
-    { class: "row" },
+    // The row is the list item; the button inside keeps its button role (a role on it would replace that).
+    { class: "row", role: "listitem" },
     h(
       "button",
       {
         type: "button",
         class: "row-main",
-        role: "listitem",
         "data-item": i.id,
-        "aria-label": t("showItem", name),
+        "aria-label": rowLabel(i, name),
         onclick: () => open(ctx, { kind: "item", id: i.id }),
       },
       tile(i.name, i.type, i.uris, i.brand),
@@ -684,12 +715,11 @@ function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
         h("span", { class: "title" }, name),
         h("span", { class: "sub" }, i.sub || t(TYPE_LABEL[i.type] ?? "untitled")),
       ),
-      i.hasTotp && !(iconMode() && i.type === 1) ? h("span", { class: "meta" }, icon("timer", t("oneTimeCode"))) : null,
-      i.reused || i.weak ? h("span", { class: "meta warn" }, icon("error", t(i.reused ? "filterReused" : "filterWeak"))) : null,
-      i.favorite ? h("span", { class: "meta fav" }, icon("star", t("favorite"))) : null,
+      ...rowMarks(i),
     ),
     ...rowActions(ctx, i),
-    onPage ? fillButton(ctx, i) : null,
+    // Fill sits only on the rows listed for this page (suggestionRow): repeated down the whole vault it hid which
+    // rows match. Any other item still fills from its own view ("Fill this site", with the mismatch check).
   );
 }
 
@@ -697,11 +727,10 @@ function emptyState(ctx: Ctx, q: string): HTMLElement {
   const filtered = !!(q || st.folder);
   const key = st.folder === "trash" ? "trashEmpty" : st.folder === "fav" ? "favoritesEmpty" : filtered ? "noMatches" : "vaultEmpty";
   // What fills this view, said where it is empty.
-  const hint = st.folder === "trash" ? "trashEmptyHint" : filtered ? undefined : "vaultEmptyHint";
+  const hint = st.folder === "trash" ? "trashEmptyHint" : st.folder === "fav" ? undefined : filtered ? "noMatchesHint" : "vaultEmptyHint";
   return h(
     "div",
     { class: "empty" },
-    icon(filtered ? "search" : "vault"),
     h("strong", {}, t(key)),
     hint ? h("p", {}, t(hint)) : null,
     !filtered
@@ -724,7 +753,8 @@ function emptyState(ctx: Ctx, q: string): HTMLElement {
               ctx.rerender();
             },
           },
-          t("clearFilters"),
+          // Names what is on: a typed search alone is cleared, not "filters".
+          t(st.folder ? "clearFilters" : "clearSearch"),
         )
       : null,
   );
@@ -732,17 +762,22 @@ function emptyState(ctx: Ctx, q: string): HTMLElement {
 
 function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
   const nodes: Child[] = [];
-  const grouped = st.sort === "name" || st.sort === "nameDesc";
-  const pushGroup = (list: VaultItem[]) => nodes.push(h("div", { class: "group" }, ...list.map((i) => itemRow(ctx, i))));
+  // While searching, the best matches lead (relevance), so there are no letter headings to split them.
+  const grouped = !q && (st.sort === "name" || st.sort === "nameDesc");
+  if (q) items = byRelevance(items, q);
+  // Each card is its own list; the headings between them stay outside any list.
+  const pushGroup = (list: VaultItem[]) => nodes.push(h("div", { class: "group", role: "list" }, ...list.map((i) => itemRow(ctx, i))));
   const browsing = !q && !st.folder;
   const page = st.page?.host && st.folder !== "trash" && !q ? st.page : undefined;
+  const shownAbove = new Set<string>();
   // The site's own logins lead, also inside a filter (the ones the filter keeps).
   if (page) {
     const ids = new Set(page.items.filter((i) => i.type === 1).map((i) => i.id));
     const site = items.filter((i) => ids.has(i.id));
+    for (const i of site) shownAbove.add(i.id);
     if (site.length || browsing) {
       nodes.push(sectionTitle(t("onThisSite", page.host!)));
-      if (site.length) nodes.push(h("div", { class: "group" }, ...site.map((i) => suggestionRow(ctx, i))));
+      if (site.length) nodes.push(h("div", { class: "group", role: "list" }, ...site.map((i) => suggestionRow(ctx, i))));
       if (browsing) nodes.push(h("button", { type: "button", class: "btn text small add-page", onclick: () => void saveFromPage(ctx) }, icon("plus"), t("saveFromPage")));
     }
   }
@@ -750,16 +785,18 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
     nodes.push(emptyState(ctx, q));
   } else {
     // Favorites next; a letter index is kept for the rest.
-    const favs = q ? [] : items.filter((i) => i.favorite);
+    // A favorite already listed for this site above is not listed again.
+    const favs = q ? [] : items.filter((i) => i.favorite && !shownAbove.has(i.id));
     const rest = favs.length ? items.filter((i) => !i.favorite) : items;
     if (favs.length) {
       nodes.push(sectionTitle(t("favorites")));
       pushGroup(favs);
+      for (const i of favs) shownAbove.add(i.id);
     }
-    // Then recently opened items, while browsing a vault big enough to need them.
+    // Then recently opened items, while browsing a vault big enough to need them; one already shown above is left out.
     if (browsing && items.length > 8 && recentShown()) {
       const opened = loadOpened();
-      const recent = items.filter((i) => opened[i.id]).sort((a, b) => opened[b.id]!.at - opened[a.id]!.at).slice(0, 3);
+      const recent = items.filter((i) => opened[i.id] && !shownAbove.has(i.id)).sort((a, b) => opened[b.id]!.at - opened[a.id]!.at).slice(0, 3);
       if (recent.length) {
         nodes.push(
           h(
@@ -776,7 +813,7 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
     if (page && browsing)
       for (const [type, title] of [[3, "typeCards"], [4, "typeIdentities"]] as const) {
         const list = page.items.filter((i) => i.type === type);
-        if (list.length) nodes.push(sectionTitle(t(title)), h("div", { class: "group" }, ...list.map((i) => suggestionRow(ctx, i))));
+        if (list.length) nodes.push(sectionTitle(t(title)), h("div", { class: "group", role: "list" }, ...list.map((i) => suggestionRow(ctx, i))));
       }
     if (!grouped) {
       if (rest.length) pushGroup(rest);
@@ -806,10 +843,12 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
 function arrowNav(box: HTMLElement) {
   box.addEventListener("keydown", (e) => {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
-    const rows = [...box.querySelectorAll<HTMLElement>("[role=listitem]")];
+    const rows = [...box.querySelectorAll<HTMLElement>("[role=listitem] > .row-main")];
     const at = rows.indexOf(document.activeElement as HTMLElement);
     if (at < 0) return;
     e.preventDefault();
+    // Up from the first row goes back to the search box it came from.
+    if (at === 0 && e.key === "ArrowUp") return void document.getElementById("vault-search")?.focus();
     const next = e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1 : at + (e.key === "ArrowDown" ? 1 : -1);
     rows[Math.max(0, Math.min(rows.length - 1, next))]?.focus();
   });
@@ -841,7 +880,7 @@ function skeletonList(): HTMLElement {
 
 function listView(ctx: Ctx): HTMLElement {
   if (st.folder === "trash" && st.list && !st.list.trash.length) st.folder = ""; // the trash was emptied
-  const listBox = h("div", { class: "list-body", role: "list", "aria-label": t("vault") });
+  const listBox = h("div", { class: "list-body" });
   arrowNav(listBox);
   const redraw = () => {
     const q = st.query.trim().toLowerCase();
@@ -849,7 +888,10 @@ function listView(ctx: Ctx): HTMLElement {
     const clauses = parseQuery(st.query);
     const items = sortItems((source ?? []).filter((i) => matches(i, clauses)));
     fillList(ctx, listBox, items, q);
+    // Said to screen readers while a search or filter is on: how many items it leaves (polite, so typing is not cut).
+    status.textContent = q || st.folder ? (items.length ? plural("itemsFound", items.length) : t("noMatches")) : "";
   };
+  const status = h("p", { class: "sr-only", role: "status" });
   redraw();
 
   const input = h("input", {
@@ -867,6 +909,14 @@ function listView(ctx: Ctx): HTMLElement {
       redraw(); // list only, so the search box keeps focus and caret
     },
     onkeydown: (e: KeyboardEvent) => {
+      // ArrowDown steps into the results; Enter opens the first one.
+      const first = document.querySelector<HTMLElement>(".list-body [role=listitem] > .row-main");
+      if ((e.key === "ArrowDown" || e.key === "Enter") && first && !e.isComposing) {
+        e.preventDefault();
+        if (e.key === "Enter") first.click();
+        else first.focus();
+        return;
+      }
       if (e.key === "Escape" && st.query) {
         e.stopPropagation();
         st.query = "";
@@ -943,10 +993,12 @@ function listView(ctx: Ctx): HTMLElement {
       sortButton,
       iconButton("refresh", t("syncNow"), () => void syncNow(ctx, true), { class: `icon-btn sm${st.syncing ? " spin" : ""}`, disabled: st.syncing }),
       iconButton("lock", t("lockNow"), () => ctx.lock(), { class: "icon-btn sm" }),
+      iconButton("plus", t("newItem"), () => void newItem(ctx), { class: "icon-btn sm add" }),
     ),
     h(
       "div",
-      { class: "chips scroll", role: "group", "aria-label": t("filters") },
+      // Filters over an empty vault could only ever say "no matches".
+      { class: "chips scroll", role: "group", "aria-label": t("filters"), hidden: st.list?.items.length === 0 && !st.list.trash.length },
       chip("fav", t("favorites"), "star"),
       chip("t:1", t("typeLogin"), "key"),
       chip("t:3", t("typeCard"), "card"),
@@ -960,8 +1012,8 @@ function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
+    status,
     listOrSkeleton(listBox),
-    h("button", { type: "button", class: "fab icon", "aria-label": t("newItem"), title: t("newItem"), onclick: () => void newItem(ctx) }, icon("plus")),
   );
 }
 
@@ -1003,7 +1055,7 @@ function confirmFill(host: string): Promise<boolean> {
 }
 
 const fillButton = (ctx: Ctx, i: VaultItem) =>
-  h("button", { type: "button", class: "btn small tonal", "aria-label": `${t("fill")} ${i.name}`, onclick: () => void fill(ctx, i.id) }, t("fill"));
+  h("button", { type: "button", class: "btn small tonal", "aria-label": t("fillNamed", i.name), onclick: () => void fill(ctx, i.id) }, t("fill"));
 
 /** Save what the user typed on the page: update the login with the same username, or create one. */
 async function saveFromPage(ctx: Ctx) {
@@ -1027,12 +1079,14 @@ function suggestionRow(ctx: Ctx, i: VaultItem): HTMLElement {
   const name = i.name || t("untitled");
   return h(
     "div",
-    { class: "row" },
+    // A list item like the vault rows, so the arrow keys and Enter from the search reach the site's matches first.
+    { class: "row", role: "listitem" },
     h(
       "button",
-      { type: "button", class: "row-main", "aria-label": t("showItem", name), onclick: () => open(ctx, { kind: "item", id: i.id }) },
+      { type: "button", class: "row-main", "data-item": i.id, "aria-label": rowLabel(i, name), onclick: () => open(ctx, { kind: "item", id: i.id }) },
       tile(i.name, i.type, i.uris, i.brand),
       h("div", { class: "body" }, h("span", { class: "title" }, name), i.sub ? h("span", { class: "sub" }, i.sub) : null),
+      ...rowMarks(i),
     ),
     ...rowActions(ctx, i),
     fillButton(ctx, i),
@@ -1278,7 +1332,7 @@ function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTMLElemen
       { class: "field-actions" },
       h(
         "span",
-        { class: "totp-ring", "data-remaining": String(remaining), role: "img", "aria-label": t("secondsLeft", String(remaining)) },
+        { class: "totp-ring", "data-remaining": String(remaining), role: "img", "aria-label": plural("secondsLeft", remaining) },
         ring(remaining / Math.max(period, 1)),
         h("span", { class: "totp-seconds", "aria-hidden": "true" }, String(remaining)),
       ),
@@ -1323,7 +1377,7 @@ async function refreshTotp(ctx: Ctx, id: string) {
     // Tick the ring and the counter without re-rendering the whole screen.
     const pill = document.querySelector<HTMLElement>("[data-remaining]");
     if (!pill) return;
-    pill.setAttribute("aria-label", t("secondsLeft", String(st.totp.remaining)));
+    pill.setAttribute("aria-label", plural("secondsLeft", st.totp.remaining));
     pill.setAttribute("data-remaining", String(st.totp.remaining));
     pill.closest(".totp-row")?.classList.toggle("soon", st.totp.remaining <= TOTP_SOON);
     const seconds = pill.querySelector<HTMLElement>(".totp-seconds");
@@ -1368,7 +1422,7 @@ function twoTap(ctx: Ctx, run: () => void, key = "item") {
     setTimeout(() => {
       if (st.confirmDelete !== at) return; // disarmed, or armed again since
       st.confirmDelete = 0;
-      if (st.route.kind === "item") ctx.rerender();
+      if (st.route.kind === "item" || st.route.kind === "folders") ctx.rerender();
     }, 4000);
     return;
   }
@@ -1511,7 +1565,7 @@ function uriRow(ctx: Ctx, index: number, uri: string, match: number | null, onHt
   if (https) items.push({ label: t("switchToHttps"), icon: "shield", onClick: () => onHttps!(https) });
   // The site's own "change your password" page (W3C well-known URL); sites without one usually redirect home.
   if (href) items.push({ label: t("changePasswordPage"), icon: "key", onClick: () => void chrome.tabs.create({ url: new URL("/.well-known/change-password", href).href }) });
-  const sub = [insecure ? t("insecureUri") : "", match !== null ? uriMatchLabel(match) : ""].filter(Boolean).join(" · ");
+  const sub = [insecure ? t("insecureUri") : "", match !== null ? uriMatchLabel(match) : ""].filter(Boolean).join(", ");
   return h(
     "div",
     { class: "row" },
@@ -1647,7 +1701,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
           "div",
           { class: "notice warn" },
           icon("error"),
-          h("div", {}, t("reusedNotice", String(reused))),
+          h("div", {}, plural("reusedNotice", reused)),
           h("button", { type: "button", class: "btn text small", onclick: () => ((st.folder = "reused"), open(ctx, { kind: "list" })) }, t("showReused")),
         )
       : null,
@@ -1704,7 +1758,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       ...(st.reveal.has("history")
         ? history.map((p, i) => fieldRow(ctx, `history.${i}`, "key", date(p.lastUsedDate), str(p.password), { secret: true, mono: true }))
         : history.length
-          ? [actionRow("history", t("showPasswordHistory", String(history.length)), () => (st.reveal.add("history"), ctx.rerender()))]
+          ? [actionRow("history", plural("showPasswordHistory", history.length), () => (st.reveal.add("history"), ctx.rerender()))]
           : []),
     ),
     ...section(
@@ -1715,11 +1769,11 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
           { class: "row" },
           icon("attach"),
           h("div", { class: "body" }, h("span", { class: "title ellipsis" }, str(a.fileName) || t("untitled")), h("span", { class: "sub" }, str(a.sizeName))),
-          iconButton("download", `${t("download")} ${str(a.fileName)}`, () => void download(ctx, id, str(a.id))),
+          iconButton("download", t("downloadNamed", str(a.fileName)), () => void download(ctx, id, str(a.id))),
           editable && !inTrash
             ? iconButton(
                 "trash",
-                st.confirmDelete && st.armed === str(a.id) ? t("tapAgainToDelete") : `${t("delete")} ${str(a.fileName)}`,
+                st.confirmDelete && st.armed === str(a.id) ? t("tapAgainToDelete") : t("deleteNamed", str(a.fileName)),
                 () => twoTap(ctx, () => void vaultAction(ctx, { type: "deleteAttachment", cipherId: id, attachmentId: str(a.id) }, "deleted", false), str(a.id)),
                 st.confirmDelete && st.armed === str(a.id) ? { class: "icon-btn danger" } : {},
               )
@@ -1756,7 +1810,8 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       inTrash
         ? actionRow("trash", t(confirm ? "confirmPurge" : "deleteForever"), () => twoTap(ctx, () => void vaultAction(ctx, { type: "purgeItem", id }, "deleted")), true)
         : editable
-          ? actionRow("trash", t(confirm ? "confirmTrash" : "moveToTrash"), () => twoTap(ctx, () => void vaultAction(ctx, { type: "deleteItem", id }, "movedToTrash", true, () => void vaultAction(ctx, { type: "restoreItem", id }, "restored", false))), true)
+          ? // One click: the notice's Undo is the safety net (a second click on top of it was only friction).
+            actionRow("trash", t("moveToTrash"), () => void vaultAction(ctx, { type: "deleteItem", id }, "movedToTrash", true, () => void vaultAction(ctx, { type: "restoreItem", id }, "restored", false)), true)
           : null,
     ),
   );
@@ -1931,9 +1986,12 @@ function uriEditor(ctx: Ctx): Child[] {
         h("option", { value: String(URI_MATCH.Host), selected: u.match === URI_MATCH.Host }, t("uriMatchHost")),
         h("option", { value: String(URI_MATCH.Exact), selected: u.match === URI_MATCH.Exact }, t("uriMatchExact")),
         h("option", { value: String(URI_MATCH.Never), selected: u.match === URI_MATCH.Never }, t("uriMatchNever")),
-        h("option", { value: "advanced", disabled: true }, t("uriMatchAdvanced")),
-        h("option", { value: String(URI_MATCH.StartsWith), selected: u.match === URI_MATCH.StartsWith }, t("uriMatchStartsWith")),
-        h("option", { value: String(URI_MATCH.RegularExpression), selected: u.match === URI_MATCH.RegularExpression }, t("uriMatchRegex")),
+        h(
+          "optgroup",
+          { label: t("uriMatchAdvanced") },
+          h("option", { value: String(URI_MATCH.StartsWith), selected: u.match === URI_MATCH.StartsWith }, t("uriMatchStartsWith")),
+          h("option", { value: String(URI_MATCH.RegularExpression), selected: u.match === URI_MATCH.RegularExpression }, t("uriMatchRegex")),
+        ),
       ),
     );
     return h(
@@ -1968,7 +2026,7 @@ function uriEditor(ctx: Ctx): Child[] {
     );
   });
   return [
-    sectionTitle(t("autofillOptions")),
+    sectionTitle(t("websites")),
     ...rows,
     h("button", { type: "button", class: "btn text small add-field", onclick: () => (d.uris.push({ uri: "", match: null }), ctx.rerender(), enter([...document.querySelectorAll("[data-row=uri]")].at(-1))) }, icon("plus"), t("addWebsite")),
   ];
@@ -2005,7 +2063,13 @@ const moveButtons = (ctx: Ctx, list: unknown[], i: number, reset?: () => void): 
 
 function editView(ctx: Ctx, isNew: boolean): HTMLElement {
   const d = st.draft!;
-  const back = () => open(ctx, isNew ? { kind: "list" } : { kind: "item", id: str(d.base.id) });
+  const exit = () => open(ctx, isNew ? { kind: "list" } : { kind: "item", id: str(d.base.id) });
+  // Edits are not dropped on one click: the first says so and offers Discard; a second click within 4 s leaves.
+  const back = () => {
+    if (JSON.stringify(st.draft) === st.draftAtOpen) return exit();
+    if (!(st.confirmDelete && st.armed === "discard")) toast(ctx, t("unsavedChanges"), { action: { label: t("discard"), run: exit } });
+    twoTap(ctx, exit, "discard");
+  };
   const field = (id: string, title: string, control: HTMLElement, trailing?: Child) => {
     // A select is wrapped for its chevron: the label must point at the select itself.
     (control.querySelector("select") ?? control).id = id;
@@ -2224,7 +2288,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     { class: "page editor", onsubmit },
     topBar(iconButton("back", t("cancel"), back), h("h1", {}, t(isNew ? "newItem" : "editItem")), spacer()),
     errorBox(),
-    isNew ? h("div", { class: "chips", role: "group", "aria-label": t("itemType") }, typeChip(1, "key"), typeChip(3, "card"), typeChip(4, "user"), typeChip(2, "note"), typeChip(5, "key")) : null,
+    isNew ? h("div", { class: "chips", role: "group", "aria-label": t("itemType") }, typeChip(1, "key"), typeChip(3, "card"), typeChip(4, "user"), typeChip(2, "note"), typeChip(5, "server")) : null,
     field("edit-name", t("name"), text(() => d.name, (v) => (d.name = v), { required: true, "data-autofocus": "1" })),
     ...(SCHEMA[d.type]?.fields ?? []).map(specField),
     ...(d.type === 1 ? uriEditor(ctx) : []),
@@ -2383,7 +2447,10 @@ function foldersView(ctx: Ctx): HTMLElement {
         "span",
         { class: "field-actions" },
         iconButton("edit", t("rename"), () => void vaultAction(ctx, { type: "saveFolder", id, name: names.get(id) ?? "" }, "saved", false), { class: "icon-btn sm" }),
-        iconButton("trash", t("deleteFolder"), (e) => leave(rowOf(e), () => void vaultAction(ctx, { type: "deleteFolder", id }, "deleted", false)), { class: "icon-btn sm delete" }),
+        // Two clicks, like the other deletes that cannot be undone: the folder and every item's place in it go.
+        st.confirmDelete && st.armed === `folder:${id}`
+          ? iconButton("trash", t("tapAgainToDelete"), (e) => twoTap(ctx, () => leave(rowOf(e), () => void vaultAction(ctx, { type: "deleteFolder", id }, "deleted", false)), `folder:${id}`), { class: "icon-btn sm danger" })
+          : iconButton("trash", t("deleteFolder"), () => twoTap(ctx, () => {}, `folder:${id}`), { class: "icon-btn sm delete" }),
       ),
     );
   return h(

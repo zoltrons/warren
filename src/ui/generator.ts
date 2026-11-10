@@ -10,7 +10,7 @@ import {
   missingAliasFields,
 } from "../shared/alias.ts";
 import type { HistoryEntry } from "../shared/messages.ts";
-import { type Child, h, send, t, when, withChevron } from "./dom.ts";
+import { type Child, h, plural, send, t, when, withChevron } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
 import { actionRow, colorize, copy, copyButton, type Ctx, iconButton, sectionTitle, startEdit, strength, strengthBar, topBar } from "./vault.ts";
@@ -371,7 +371,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   const SETS = [["uppercase", "A–Z"], ["lowercase", "a–z"], ["numbers", "0–9"], ["special", "!@#$%"]] as const;
   const onSets = SETS.filter(([k]) => g[k] === true).length;
   const setChip = ([k, label]: (typeof SETS)[number]) =>
-    h("button", { type: "button", class: "chip mono", "aria-pressed": String(g[k] === true), disabled: g[k] === true && onSets === 1, onclick: () => set(k, g[k] !== true) }, label);
+    h("button", { type: "button", class: "chip", "aria-pressed": String(g[k] === true), disabled: g[k] === true && onSets === 1, onclick: () => set(k, g[k] !== true) }, label);
   g.email ||= ctx.email() ?? "";
   const chip = (type: string, label: string, key = "type") => h("button", { type: "button", class: "chip", "aria-pressed": String(g[key] === type), onclick: () => set(key, type) }, label);
   const text = (k: string, label: string, props: Record<string, unknown> = {}) =>
@@ -485,7 +485,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
             { class: "group" },
             line("first", t("field_firstName"), p.firstName),
             line("last", t("field_lastName"), p.lastName),
-            line("birth", t("birthDate"), p.birthDate, t("ageYears", String(p.age))),
+            line("birth", t("birthDate"), p.birthDate, plural("ageYears", p.age)),
             line("user", t("field_username"), p.username),
             line("city", t("field_city"), p.city),
             line("country", t("field_country"), p.country),
@@ -562,7 +562,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
           : null,
       ),
       info.help
-        ? h("button", { type: "button", class: "btn text small", onclick: () => void chrome.tabs.create({ url: info.help! }) }, t("aliasGetToken", info.name))
+        ? h("button", { type: "button", class: "btn text small", onclick: () => void chrome.tabs.create({ url: info.help! }) }, t("aliasGetToken", info.name), icon("external"))
         : null,
     );
   } else
@@ -604,7 +604,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         { class: "generated-row" },
         h(
           "output",
-          { class: g.type === "identity" ? "plain" : "mono", "aria-live": "polite", "aria-label": t("generatedValue") },
+          { class: g.type === "identity" ? "plain" : "mono", "aria-live": "off", "aria-label": t("generatedValue") },
           ...(gst.generated ? colorize(gst.generated) : ["…"]),
         ),
         h(
@@ -637,7 +637,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
           "div",
           {},
           sectionTitle(t("suggestions")),
-          h("div", { class: "group", role: "list" }, ...gst.suggestions.map((v, i) => h("div", { class: "row", role: "listitem" }, h("div", { class: "body" }, h("span", { class: "title mono ellipsis" }, ...colorize(v)), h("span", { class: "sub" }, t("characters", String(v.length)))), copyButton(ctx, `sug.${i}`, v, t("copyField", t("generatedValue")))))),
+          h("div", { class: "group", role: "list" }, ...gst.suggestions.map((v, i) => h("div", { class: "row", role: "listitem" }, h("div", { class: "body" }, h("span", { class: "title mono break" }, ...colorize(v))), copyButton(ctx, `sug.${i}`, v, t("copyField", t("generatedValue")))))),
         )
       : null,
     pick && gst.generated

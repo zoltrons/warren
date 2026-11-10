@@ -23,14 +23,20 @@ export interface Searchable {
 
 const TOKEN = /(-?)(?:([a-z]+):)?(?:"([^"]*)"|(\S+))/gi;
 
+/**
+ * Case-, accent- and dotted/dotless-i-blind form of a text for matching: "Zürich" and "zurich", "İstanbul" and
+ * "istanbul", "KILIT" and "kılıt" all meet. NFD first, so "İ" splits into "I" plus a mark that is then dropped.
+ */
+export const fold = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/ı/g, "i");
+
 export function parseQuery(query: string): Clause[] {
   const out: Clause[] = [];
   for (const m of query.matchAll(TOKEN)) {
     const field = m[2]?.toLowerCase() as Field | undefined;
     const known = field !== undefined && FIELDS.includes(field);
-    const value = (m[3] ?? m[4] ?? "").toLowerCase();
+    const value = fold(m[3] ?? m[4] ?? "");
     // An unknown "word:" prefix belongs to the text (a URL scheme, a time like 10:30, ...).
-    const text = known ? value : `${m[2] ? `${m[2].toLowerCase()}:` : ""}${m[3] ?? m[4] ?? ""}`.toLowerCase();
+    const text = known ? value : fold(`${m[2] ? `${m[2]}:` : ""}${m[3] ?? m[4] ?? ""}`);
     if (!text) continue;
     out.push({ not: m[1] === "-", ...(known ? { field } : {}), value: text });
   }
@@ -46,7 +52,7 @@ const hostOf = (u: string): string => {
 };
 
 function clauseMatches(c: Clause, i: Searchable): boolean {
-  const has = (s: string) => s.toLowerCase().includes(c.value);
+  const has = (s: string) => fold(s).includes(c.value);
   switch (c.field) {
     case "title":
     case "name":
@@ -63,7 +69,7 @@ function clauseMatches(c: Clause, i: Searchable): boolean {
     case "folder":
       return has(i.folder);
     case "type":
-      return i.type.some((n) => n.toLowerCase().startsWith(c.value));
+      return i.type.some((n) => fold(n).startsWith(c.value));
     case "is":
       return i.flags.includes(c.value);
     default:
@@ -73,3 +79,16 @@ function clauseMatches(c: Clause, i: Searchable): boolean {
 
 /** Every positive clause must match and no excluded clause may. */
 export const matchesQuery = (clauses: Clause[], item: Searchable): boolean => clauses.every((c) => clauseMatches(c, item) !== c.not);
+
+/**
+ * Search results, best first: the name starting with the query, then a word of the name starting with it, then the
+ * name containing it, then the rest (a username or website match). Ties keep the chosen sort order.
+ */
+export function byRelevance<T extends { name: string }>(items: T[], query: string): T[] {
+  const q = fold(query.trim());
+  const rank = (name: string) => {
+    const n = fold(name);
+    return n.startsWith(q) ? 0 : n.split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith(q)) ? 1 : n.includes(q) ? 2 : 3;
+  };
+  return items.map((i, at) => ({ i, at, r: rank(i.name) })).sort((a, b) => a.r - b.r || a.at - b.at).map((x) => x.i);
+}

@@ -44,7 +44,9 @@
   --on-primary: #ffffff;
   --primary-weak: rgba(194 17 63 / 0.08);
   --link: #c2113f;
-  --focus-ring: rgba(255 79 123 / 0.6);
+  /* Digits in passwords: told apart from the letters by hue, in every theme. */
+  --digit: #c2113f;
+  --focus-ring: #c2113f; /* solid: a translucent pink ring was about 2:1 on the light page */
 
   /* status */
   --success: hsl(120 90% 24%);
@@ -69,23 +71,24 @@
 
   /* type: the platform's own face (no webfont: size budget), body 14/12 on a 1.3 line */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: "iA Writer Mono V", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --line: 1.3;
   /* type scale: caption 11, small 12, body-sm 13, body 14, title-sm 16, title 18, heading 20, display 30 */
-  --fs-caption: 11px;
-  --fs-small: 12px;
-  --fs-body-sm: 13px;
-  --fs-body: 14px;
-  --fs-title-sm: 16px;
-  --fs-title: 18px;
-  --fs-heading: 20px;
-  --fs-display: 30px;
+  /* In rem, so the browser's font size setting applies (16 px default: 12, 12, 13, 14, 16, 18, 20, 30 px). */
+  --fs-caption: 0.75rem;
+  --fs-small: 0.75rem;
+  --fs-body-sm: 0.8125rem;
+  --fs-body: 0.875rem;
+  --fs-title-sm: 1rem;
+  --fs-title: 1.125rem;
+  --fs-heading: 1.25rem;
+  --fs-display: 1.875rem;
 
   /* monogram tiles: the name's hue mixed into the surface, so every tile shares the page's warmth;
      the letter is the hue mixed into the text color */
   --tile-mix: 16%;
   --tile-ink-mix: 55%;
-  --switch-off: rgba(42 10 26 / 0.3);
+  --switch-off: rgba(42 10 26 / 0.55);
   --switch-on: var(--primary);
   --switch-thumb: hsl(0 0% 100%);
   /* favicon plates: a near-black logo or a near-white one gets a backdrop it can be seen on */
@@ -130,7 +133,8 @@
   --primary-pressed: #ff8ba8;
   --primary-weak: rgba(255 79 123 / 0.2);
   --link: #ffd3dc;
-  --focus-ring: rgba(255 79 123 / 0.7);
+  --digit: #ff4f7b;
+  --focus-ring: #ff4f7b;
   --success: hsl(120 50% 64%);
   --success-weak: hsla(110 100% 40% / 0.16);
   --warning: hsl(48 100% 70%);
@@ -174,7 +178,8 @@
     --primary-pressed: #ff8ba8;
     --primary-weak: rgba(255 79 123 / 0.2);
     --link: #ffd3dc;
-    --focus-ring: rgba(255 79 123 / 0.7);
+  --digit: #ff4f7b;
+    --focus-ring: #ff4f7b;
     --success: hsl(120 50% 64%);
     --success-weak: hsla(110 100% 40% / 0.16);
     --warning: hsl(48 100% 70%);
@@ -205,6 +210,7 @@
   --surface-sunken: #000000;
   --on-primary: #000000;
   --switch-thumb: #000000;
+  --switch-off: rgba(255 247 248 / 0.45); /* on black the dark theme's 35 % track falls under 3:1 */
   /* Mixed into pure black the dark theme's tints vanish: tiles and the primary tint need more of their color. */
   --tile-mix: 44%;
   --primary-weak: rgba(255 79 123 / 0.28);
@@ -277,13 +283,15 @@ select { -webkit-appearance: none; appearance: none; }
 /* Lucide outlines: one stroke width in screen pixels at every icon size (16-28 px), so small and large
    glyphs carry the same weight as the 14 px text next to them. */
 svg.i {
-  width: 18px; height: 18px; flex: none;
+  width: 1.125rem; height: 1.125rem; flex: none;
   fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: round; stroke-linejoin: round;
 }
 svg.i > path { vector-effect: non-scaling-stroke; }
 svg.i.solid { fill: currentColor; }
 /* Focus: a 2 px ring for keyboard users; fields only turn their own border to the brand color. */
 :focus-visible { outline: none; border-radius: var(--r-xs); box-shadow: 0 0 0 2px var(--focus-ring); }
+/* Forced colors (Windows High Contrast) drop box-shadows: an outline in the system highlight keeps focus visible. */
+@media (forced-colors: active) { *:focus-visible { outline: 2px solid Highlight !important; outline-offset: 1px; } }
 /* The wrapper already paints the ring; a second one on the control looks like a box in a box. */
 .search input:focus-visible,
 .field input:focus-visible,
@@ -299,8 +307,12 @@ svg.i.solid { fill: currentColor; }
 .btn:focus-visible,
 .icon-btn:focus-visible,
 .row:focus-visible,
-.switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus-ring); border-radius: inherit; }
+.switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus-ring); }
+/* An "on" switch is the ring's own color: a gap of the card color keeps the ring readable around it. */
+.switch input:checked:focus-visible + span { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring); }
 .search input:focus-visible, .field input:focus-visible, .field textarea:focus-visible, .field select:focus-visible, .row input:focus-visible, .row select:focus-visible, .field-card input:focus-visible, .field-card select:focus-visible { box-shadow: none; }
+/* Rows sit in a card that clips its overflow: their ring is drawn inside, so no edge of it is cut off. */
+.row:focus-visible, .row-main:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring); }
 [hidden] { display: none !important; }
 .grow { flex: 1; min-width: 0; }
 .spacer { flex: 1; }
@@ -337,24 +349,24 @@ svg.i.solid { fill: currentColor; }
 .top > svg.i { color: var(--primary); }
 
 .icon-btn {
-  width: 32px; height: 32px; padding: 0; /* icon button: 32 px, radius 8 */
+  width: 2rem; height: 2rem; padding: 0; /* icon button: 32 px at the 16 px base, radius 8; rem so it grows with the text */
   border: 0; border-radius: var(--r-md);
   background: transparent; color: var(--muted);
   display: grid; place-items: center; cursor: pointer; flex: none;
   transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
-.icon-btn svg.i { width: 18px; height: 18px; }
+.icon-btn svg.i { width: 1.125rem; height: 1.125rem; }
 .icon-btn:hover { background-image: linear-gradient(var(--tint), var(--tint)); color: var(--text); }
 .icon-btn:active { background-image: linear-gradient(var(--tint-strong), var(--tint-strong)); }
 .icon-btn:disabled { opacity: 0.4; cursor: default; background-image: none; }
 .icon-btn.on { color: var(--primary); }
 .icon-btn.fav { color: var(--favorite); }
 .icon-btn.done { color: var(--success); }
-.icon-btn.danger { color: var(--critical); }
+.icon-btn.danger, .btn.text.danger { color: var(--critical); }
 .icon-btn.delete { color: var(--muted); }
 .icon-btn.delete:hover { color: var(--critical); }
-.icon-btn.sm { width: 28px; height: 28px; border-radius: var(--r-sm); }
-.icon-btn.sm svg.i { width: 16px; height: 16px; }
+.icon-btn.sm { width: 1.75rem; height: 1.75rem; border-radius: var(--r-sm); }
+.icon-btn.sm svg.i { width: 1rem; height: 1rem; }
 
 /* ---------- brand ---------- */
 
@@ -362,7 +374,7 @@ svg.i.solid { fill: currentColor; }
 .logo { width: 48px; height: 48px; }
 /* A glyph instead of the app icon (locked, passkey, re-prompt screens): a tinted badge. */
 div.logo { display: grid; place-items: center; border-radius: var(--r-lg); background: var(--tint-strong); color: var(--primary); }
-div.logo > svg.i { width: 28px; height: 28px; }
+div.logo > svg.i { width: 1.75rem; height: 1.75rem; }
 .brand h1 { font-size: var(--fs-heading); font-weight: 600; line-height: 1.2; margin: 0; }
 .brand p { margin: 0; color: var(--muted); font-size: var(--fs-small); }
 /* Account lines (email, then server) read as one block under the title. */
@@ -395,19 +407,19 @@ div.logo > svg.i { width: 28px; height: 28px; }
 .select { position: relative; display: inline-flex; align-items: center; gap: 4px; min-width: 0; padding: 2px; border-radius: var(--r-xs); }
 .select-value { font-size: var(--fs-body-sm); font-weight: 500; color: var(--text); white-space: nowrap; }
 .select > select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.select > svg.i { width: 16px; height: 16px; color: var(--muted); pointer-events: none; }
+.select > svg.i { width: 1rem; height: 1rem; color: var(--muted); pointer-events: none; }
 /* The open list looks like the app's popover menu (.menu), not the browser's default one. */
 .select > select, .select > select::picker(select) { appearance: base-select; }
 .select > select::picker(select) {
   margin: 4px 0; padding: 4px; min-width: 160px;
   background: var(--surface); color: var(--text);
   border: 0; border-radius: var(--r-md); box-shadow: var(--shadow-med);
-  font: 14px var(--font);
+  font: var(--fs-body) var(--font);
 }
 .select > select option { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; border-radius: var(--r-xs); cursor: pointer; }
 .select > select option:hover, .select > select option:focus-visible { background: var(--tint); box-shadow: none; }
 .select > select option:checked { color: var(--link); font-weight: 500; }
-.select > select option::checkmark { order: 1; margin-left: auto; color: var(--primary); }
+.select > select option::checkmark { order: 1; margin-inline-start: auto; color: var(--primary); }
 .select:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .select:focus-within { box-shadow: 0 0 0 2px var(--focus-ring); }
 /* Inside a field the select shrinks to its value so the chevron sits right next to it. */
@@ -433,7 +445,7 @@ div.logo > svg.i { width: 28px; height: 28px; }
   cursor: pointer; white-space: nowrap; text-decoration: none;
   transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
-.btn svg.i { width: 16px; height: 16px; }
+.btn svg.i { width: 1rem; height: 1rem; }
 .btn.filled { background: var(--primary); color: var(--on-primary); }
 .btn.filled:hover { background: var(--primary-hover); }
 .btn.filled:active { background: var(--primary-pressed); }
@@ -464,7 +476,7 @@ div.logo > svg.i { width: 28px; height: 28px; }
   cursor: pointer;
   transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
-.chip svg.i { width: 16px; height: 16px; color: var(--muted); }
+.chip svg.i { width: 1rem; height: 1rem; color: var(--muted); }
 .chip:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .chip[aria-pressed="true"] { background: var(--primary-weak); border-color: transparent; color: var(--link); }
 .chip[aria-pressed="true"] svg.i { color: var(--link); }
@@ -484,6 +496,8 @@ div.logo > svg.i { width: 28px; height: 28px; }
   8%, 92% { --fade-start: 20px; --fade-end: 20px; }
   100% { --fade-start: 20px; --fade-end: 0px; }
 }
+/* Without scroll-driven animations the end edge always fades, so a cut chip still reads as "more this way". */
+@supports not (animation-timeline: scroll()) { .chips.scroll { animation: none; --fade-end: 20px; } }
 .chips.scroll .chip { flex: none; }
 
 /* ---------- grouped lists (card grouping, surface + hairlines) ---------- */
@@ -504,9 +518,8 @@ div.logo > svg.i { width: 28px; height: 28px; }
   display: flex; align-items: center; gap: 12px;
   padding: 8px 12px; min-height: 48px; width: 100%; /* row: 48 px */
   background: transparent; border: 0; border-radius: 0;
-  text-align: left; color: inherit;
+  text-align: start; color: inherit;
   font-size: var(--fs-body); line-height: var(--line);
-  transition: background-color var(--fast) var(--ease);
 }
 /* After .row, whose border: 0 would otherwise erase the divider. */
 .group > * + * { border-top: 1px solid var(--outline-weak); }
@@ -522,7 +535,7 @@ a.row { text-decoration: none; color: var(--text); }
   flex: 1; min-width: 0; margin: -8px 0 -8px -12px; padding: 8px 0 8px 12px;
   display: flex; align-items: center; gap: 12px;
   background: transparent; border: 0;
-  text-align: left; color: inherit;
+  text-align: start; color: inherit;
   font-size: var(--fs-body); line-height: var(--line);
   cursor: pointer;
 }
@@ -531,12 +544,14 @@ a.row { text-decoration: none; color: var(--text); }
    With a pointer they show only on the hovered or focused row, so the list reads as names first;
    touch and keyboard still reach them. */
 .row > .quick-action { margin-inline: -6px; transition: opacity var(--fast) var(--ease); }
-.row > .quick-action + .btn { margin-left: 4px; }
+.row > .quick-action + .btn { margin-inline-start: 4px; }
 .row > .quick-action:disabled { display: none; }
 /* Collapsed rather than transparent, so a favorite star sits at the edge; the -6px margins cancel the
    row gap. Still focusable: tabbing to one opens the row up. */
 @media (hover: hover) {
   .row:not(:hover, :focus-within) > .quick-action { width: 0; opacity: 0; overflow: hidden; }
+  /* The open actions take the place of the code and favorite marks; a weak or reused warning stays. */
+  .row:is(:hover, :focus-within):has(> .quick-action:not(:disabled)) .meta:not(.warn) { display: none; }
 }
 /* Item view: the label and value copy on a click. */
 .body.copyable { cursor: pointer; }
@@ -544,10 +559,10 @@ a.row { text-decoration: none; color: var(--text); }
 .row:has(> .body.copyable:active) { background-image: linear-gradient(var(--tint-strong), var(--tint-strong)); }
 .row:has(> .row-main:active) { background-image: linear-gradient(var(--tint-strong), var(--tint-strong)); }
 .row > svg.i { color: var(--muted); }
-.row > svg.i:last-child { color: var(--faint); width: 16px; height: 16px; }
+.row > svg.i:last-child { color: var(--faint); width: 1rem; height: 1rem; }
 /* Secondary state markers (one-time code, favorite) stay small and quiet. */
 .row .meta { display: inline-flex; align-items: center; flex: none; color: var(--faint); }
-.row .meta svg.i { width: 16px; height: 16px; }
+.row .meta svg.i { width: 1rem; height: 1rem; }
 .row .meta.fav { color: var(--favorite); }
 .row .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .row .title { font-size: var(--fs-body); line-height: 1.3; }
@@ -555,10 +570,17 @@ a.row { text-decoration: none; color: var(--text); }
 .row-main .title, button.row > .body > .title, [role="listitem"] > .body > .title { font-weight: 500; }
 .row .sub { color: var(--muted); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Explanations must be read whole; only names and usernames may be cut. */
-.row .sub.wrap { white-space: normal; }
+.row .sub.wrap { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
+/* A value the user copies (generator suggestions) wraps whole rather than hiding its end behind "…". */
+.break { overflow-wrap: anywhere; }
 .row .label { font-size: var(--fs-small); color: var(--muted); font-weight: 400; }
 .row .value { font-size: var(--fs-body); line-height: 1.35; word-break: break-word; }
 .row.danger, .row.danger > svg.i { color: var(--critical); }
+.row .sub.warn-text { color: var(--critical); }
+/* A switch or file row in a form (Send) sits in a card like the fields around it. */
+.form-row { border: 1px solid var(--outline); border-radius: var(--r-md); background: var(--surface); cursor: pointer; }
+.form-row:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
+.form-row:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--focus-ring); }
 .row select { border: 0; background: transparent; color: var(--text); font-weight: 500; font-size: var(--fs-body-sm); cursor: pointer; padding: 4px; border-radius: var(--r-xs); }
 .row select:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .row input[type="text"], .row input[type="password"], .row input[type="number"], .row input[type="email"] {
@@ -573,6 +595,15 @@ a.row { text-decoration: none; color: var(--text); }
 .row.field-row:not(.totp-row) > .field-actions { margin-top: 2px; }
 /* Trailing value actions stay a tight pair instead of inheriting the row gap. */
 .field-actions { display: flex; align-items: center; gap: 2px; flex: none; }
+/* Too narrow for text and controls side by side (large text, a narrow panel): the controls drop under the text
+   rather than squeezing it to a word per line or over it. */
+.row:has(> .field-actions, > .select, > .row-main) { flex-wrap: wrap; }
+.row:has(> .field-actions, > .select) > .body { flex: 1 1 5em; }
+/* A list row keeps room for its tile and name; Fill and the actions wrap under it before that. */
+.row > .row-main { flex: 1 1 12em; }
+/* Very narrow (a side panel at high zoom): the status marks give their room to the name; the row's label keeps them. */
+@media (max-width: 240px) { .row-main .meta { display: none; } }
+.row > .field-actions, .row > .select { margin-inline-start: auto; }
 .row > .trailing { display: flex; align-items: center; gap: 8px; flex: none; }
 /* Inline-editable text inside a row (folder names, the new-folder field). */
 .row-input {
@@ -586,7 +617,7 @@ a.row { text-decoration: none; color: var(--text); }
 .row-input:focus { outline: 0; box-shadow: 0 0 0 2px var(--focus-ring); }
 .row .value.mono { font-size: var(--fs-body-sm); }
 /* The signature: digits in the link color, symbols amber. Used on secrets and nowhere else. */
-.row .value .d, .generated .d { color: var(--link); }
+.row .value .d, .generated .d { color: var(--digit); }
 .row .value .s, .generated .s { color: var(--warning); }
 .countdown {
   min-width: 34px; height: 24px; padding: 0 8px; border-radius: var(--r-sm);
@@ -596,14 +627,13 @@ a.row { text-decoration: none; color: var(--text); }
 }
 
 /* A–Z headers (section label: 12 px / 600, muted) */
+/* A letter index reads as a heading like Favorites and Cards above it: same size and weight. */
 .letter {
   margin: 8px 0 0;
-  font-size: var(--fs-small); font-weight: 500; line-height: 1.3;
+  font-size: var(--fs-body-sm); font-weight: 600; line-height: 1.3;
   color: var(--muted);
 }
 .list-body { display: flex; flex-direction: column; gap: 8px; }
-/* Room for the floating action button over the last row. */
-.list-page { padding-bottom: 56px; }
 .list-body > .group + .letter { margin-top: 8px; }
 .list-body > .empty { margin-top: 2px; }
 
@@ -638,11 +668,10 @@ a.row { text-decoration: none; color: var(--text); }
 .switch span::after {
   content: ""; position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 50%;
-  background: hsl(0 0% 100%);
+  background: var(--switch-thumb); /* one knob color on and off: only the track and the side change */
   transition: transform var(--normal) var(--ease);
 }
 .switch input:checked + span { background: var(--switch-on); }
-.switch input:checked + span::after { background: var(--switch-thumb); }
 .switch input:checked + span::after { transform: translateX(12px); }
 .switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus-ring); }
 .check { display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 12px; }
@@ -660,7 +689,7 @@ a.row { text-decoration: none; color: var(--text); }
 }
 .search:focus-within { border-color: var(--primary); }
 .page > .search { flex: none; }
-.search svg.i { width: 16px; height: 16px; color: var(--faint); }
+.search svg.i { width: 1rem; height: 1rem; color: var(--faint); }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: var(--fs-body); }
 .search input::placeholder { color: var(--muted); }
 
@@ -673,7 +702,7 @@ a.row { text-decoration: none; color: var(--text); }
   border: 1px solid color-mix(in srgb, var(--critical) 25%, transparent);
   font-size: var(--fs-body-sm);
 }
-.error svg.i { width: 16px; height: 16px; margin-top: 1px; }
+.error svg.i { width: 1rem; height: 1rem; margin-top: 1px; }
 .note { color: var(--muted); font-size: var(--fs-small); text-align: center; margin: 0; }
 .progress { height: 2px; border-radius: 2px; overflow: hidden; background: var(--outline-weak); }
 .progress::after {
@@ -697,9 +726,8 @@ a.row { text-decoration: none; color: var(--text); }
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   text-align: center; padding: 24px 16px; color: var(--muted);
 }
-.empty > svg.i { width: 24px; height: 24px; color: var(--faint); }
-/* The empty vault leads with its own "New item": the floating one would say it twice. */
-.page:has(.empty .btn.filled) .fab { display: none; }
+/* The empty vault leads with its own "New item": the header one would say it twice. */
+.page:has(.empty .btn.filled) .icon-btn.add { display: none; }
 .empty strong { color: var(--text); font-weight: 500; font-size: var(--fs-body); }
 .empty p { margin: 0; max-width: 280px; font-size: var(--fs-body-sm); }
 .empty .row-actions { margin-top: 4px; }
@@ -733,11 +761,18 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
   border-radius: var(--r-sm); display: grid; place-items: center;
   transition: background-color var(--fast) var(--ease);
 }
-.nav .pill svg.i { width: 18px; height: 18px; }
+.nav .pill svg.i { width: 1.125rem; height: 1.125rem; }
+/* At 200 % zoom in a narrow side panel the four tabs share ~190 px: they shrink and clip rather than overflow. */
+.nav button { min-width: 0; }
+.nav .pill { max-width: 100%; }
+.nav .label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Below ~220 px the labels would only show "Gene…": icons alone, the label kept for screen readers. */
+@media (max-width: 220px) { .nav .label { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); } }
 .nav button:hover { color: var(--text); }
 .nav button:hover .pill { background-image: linear-gradient(var(--tint), var(--tint)); }
 .nav button[aria-current="page"] { color: var(--link); }
-.nav button[aria-current="page"] .pill { background: transparent; }
+/* The current tab is marked by a filled pill as well as its color, which alone is faint in the dark themes. */
+.nav button[aria-current="page"] .pill { background: var(--primary-weak); }
 .nav button:focus-visible { box-shadow: none; }
 .nav button:focus-visible .pill { box-shadow: 0 0 0 2px var(--focus-ring); }
 .nav button:disabled { opacity: 0.45; cursor: default; }
@@ -772,11 +807,11 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
   height: 32px; padding: 0 8px;
   border: 0; border-radius: var(--r-xs);
   background: transparent; color: var(--text);
-  font-size: var(--fs-body); text-align: left; cursor: pointer;
+  font-size: var(--fs-body); text-align: start; cursor: pointer;
 }
 .menu-item:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .menu-item[aria-checked="true"] { color: var(--link); }
-.menu-item svg.i { width: 16px; height: 16px; color: var(--faint); }
+.menu-item svg.i { width: 1rem; height: 1rem; color: var(--faint); }
 .menu-item[aria-checked="true"] svg.i { color: var(--primary); }
 .menu-gap { width: 16px; flex: none; }
 
@@ -799,22 +834,12 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 .suggestions { display: flex; flex-direction: column; gap: 8px; }
 .add-page { align-self: flex-start; }
-.fab {
-  position: fixed; right: 12px; bottom: 64px; z-index: 5;
-  height: 36px; padding: 0 16px 0 12px;
-  border: 0; border-radius: var(--r-md);
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--primary); color: var(--on-primary);
-  box-shadow: var(--shadow-med);
-  font-size: var(--fs-body-sm); font-weight: 500; cursor: pointer;
-  transition: background-color var(--fast) var(--ease), transform var(--normal) var(--ease), opacity var(--normal) var(--ease);
-}
-.fab:hover { background: var(--primary-hover); }
-.fab:active { background: var(--primary-pressed); }
-.fab svg.i { width: 16px; height: 16px; }
-/* Icon only: the name is in its label and tooltip. */
-.fab.icon { width: 44px; height: 44px; padding: 0; justify-content: center; }
-.fab.icon svg.i { width: 24px; height: 24px; }
+/* Long labels wrap instead of pushing past the edge (large text, narrow panel). */
+.btn.add-page { white-space: normal; height: auto; min-height: 32px; text-align: start; }
+/* New item / New Send: the one filled control in the header, so creating stays the obvious action. */
+.icon-btn.add { background: var(--primary); color: var(--on-primary); }
+.icon-btn.add:hover { background: var(--primary-hover); color: var(--on-primary); }
+.icon-btn.add:active { background: var(--primary-pressed); }
 
 /* skeletons */
 .skeleton { pointer-events: none; }
@@ -876,11 +901,10 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 /* strength meter: thin bar, red → orange → green */
 .meter-wrap { display: flex; flex-direction: column; gap: 4px; }
-.field-block { position: relative; }
-.field-block .field { padding-bottom: 12px; }
+/* In the editor the meter runs under the password card, full width, clear of the card's eye and wand buttons. */
 .field-block .meter-wrap {
-  position: absolute; left: 12px; right: 12px; bottom: 6px;
-  flex-direction: row; align-items: center; gap: 6px; pointer-events: none;
+  margin-inline: 12px;
+  flex-direction: row; align-items: center; gap: 8px; pointer-events: none;
 }
 .field-block .meter { flex: 1; height: 2px; }
 .field-block .meter-label { font-size: var(--fs-caption); line-height: 1; }
@@ -967,7 +991,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .generated-foot:empty { display: none; }
 .generated-foot .meter { flex: 1; }
 .value-badge {
-  min-width: 20px; text-align: right;
+  min-width: 20px; text-align: end;
   font-size: var(--fs-body-sm); font-variant-numeric: tabular-nums; color: var(--muted);
 }
 /* One line: label, slider, value box. */
@@ -975,12 +999,14 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .slider-row .body .title { white-space: nowrap; }
 .slider-row input[type="range"] { flex: 1 1 auto; min-width: 0; width: auto; }
 .slider-row .value-badge { flex: none; }
+/* Generator rows: the stepper or the charset chips drop under their label when the row runs out of width. */
+.row:has(> .chips), .row:has(> .stepper) { flex-wrap: wrap; }
 .stepper { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .stepper .value-badge { min-width: 28px; text-align: center; color: var(--text); }
 .stepper input.value-badge { width: 40px; height: 28px; padding: 0; border: 1px solid var(--outline); border-radius: var(--r-xs); background: transparent; }
 .stepper input.value-badge:focus-visible { border-color: var(--primary); box-shadow: none; }
 .stepper .icon-btn { width: 28px; height: 28px; }
-.row .chips { flex: none; justify-content: flex-end; }
+.row .chips { flex: 0 1 auto; min-width: 0; justify-content: flex-end; }
 /* A collapsible block of rows inside a group: the summary is a row with a turning chevron. */
 .row-details > summary { list-style: none; cursor: pointer; }
 .row-details > summary::-webkit-details-marker { display: none; }
@@ -1003,9 +1029,10 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
   font-size: var(--fs-small); font-weight: 500;
   animation: toast-in var(--normal) var(--enter);
 }
-.toast svg.i { width: 16px; height: 16px; color: var(--success); }
+.toast svg.i { width: 1rem; height: 1rem; color: var(--success); }
 .toast.error-toast svg.i { color: var(--critical); }
-.toast-action { margin: -4px -6px -4px 4px; color: var(--link); }
+/* The brand color, not --link: in the dark themes --link is near the toast text and the action got lost. */
+.btn.text.toast-action { margin: -4px -6px -4px 4px; color: var(--digit); }
 /* A re-render while the toast is up keeps it where it is; only a new one slides in. */
 .toast.still { animation: none; }
 .toast.out { animation: toast-out var(--fast) var(--exit) forwards; }
@@ -1021,6 +1048,8 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 /* Inline menu: 4 px padding, 32 px icon, 14/12 labels, 4 px row radius, brand tint hover. Height: content.ts. */
 html.frame, body.frame { height: 100%; }
+/* The page sizes the inline menu and save bar frames in px (content.ts), so their text stays at the 16 px base. */
+html:has(body.frame) { font-size: 16px; }
 body.frame { width: auto; min-height: 0; background: var(--surface); }
 /* The frame height is computed from the row count; more than five matches scroll. */
 body.frame #app { min-height: 0; height: 100%; padding: 4px; overflow-y: auto; overscroll-behavior: contain; }
@@ -1036,21 +1065,27 @@ body.frame .row { min-height: 44px; padding: 4px 8px; border-radius: var(--r-xs)
 /* ---------- motion ---------- */
 
 /* A press dips the control 3 %, so a click is felt before the result shows. */
-.btn:active:not(:disabled), .icon-btn:active:not(:disabled), .chip:active:not(:disabled), .fab:active { transform: var(--press); }
+.btn:active:not(:disabled), .icon-btn:active:not(:disabled), .chip:active:not(:disabled) { transform: var(--press); }
 
 /* Screen changes (popup.ts render → document.startViewTransition): deeper slides in from the right, back slides
    the other way, another tab cross-fades. The tab bar is its own layer, so it holds still while the page moves. */
 .nav { view-transition-name: nav; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--normal); animation-timing-function: var(--ease); }
 ::view-transition-group(root), ::view-transition-group(nav) { animation-duration: var(--normal); }
+/* The tab bar only on one side (into an item, or back): it simply leaves or arrives, instead of fading over the
+   other screen's content. */
+::view-transition-old(nav):only-child { animation: none; opacity: 0; }
+::view-transition-new(nav):only-child { animation: none; }
 html[data-nav="forward"]::view-transition-old(root) { animation-name: vt-out-start; }
 html[data-nav="forward"]::view-transition-new(root) { animation-name: vt-in-end; }
 html[data-nav="back"]::view-transition-old(root) { animation-name: vt-out-end; }
 html[data-nav="back"]::view-transition-new(root) { animation-name: vt-in-start; }
-@keyframes vt-in-end { from { opacity: 0; transform: translateX(24px); } }
-@keyframes vt-in-start { from { opacity: 0; transform: translateX(-24px); } }
-@keyframes vt-out-start { to { opacity: 0; transform: translateX(-24px); } }
-@keyframes vt-out-end { to { opacity: 0; transform: translateX(24px); } }
+/* The old screen is gone by 50 % and the new one starts at 35 %: a short overlap, so two screens of text never
+   read as one. */
+@keyframes vt-in-end { from, 35% { opacity: 0; } from { transform: translateX(24px); } }
+@keyframes vt-in-start { from, 35% { opacity: 0; } from { transform: translateX(-24px); } }
+@keyframes vt-out-start { 50%, to { opacity: 0; } to { transform: translateX(-24px); } }
+@keyframes vt-out-end { 50%, to { opacity: 0; } to { transform: translateX(24px); } }
 
 /* A disclosure opens to its height instead of jumping (interpolate-size on :root). */
 .row-details::details-content {
@@ -1066,11 +1101,7 @@ html[data-nav="back"]::view-transition-new(root) { animation-name: vt-in-start; 
 @keyframes row-in { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes row-out { to { opacity: 0; transform: translateX(8px); block-size: 0; min-block-size: 0; padding-block: 0; } }
 
-/* The floating "New item" steps aside while the list scrolls down (popup.ts sets data-scroll) and comes back on
-   the way up, so it never sits on a row's Fill button for long. Keyboard focus keeps it in place. */
-html[data-scroll="down"] .fab:not(:focus-visible) { transform: translateY(16px); opacity: 0; pointer-events: none; }
-
-/* The list fades in once over its skeleton; later re-renders (typing a search) stay still. */
+/* The list fades in only when it replaces a loading skeleton (popup.ts listOrSkeleton); a cached list just shows. */
 .list-body.enter { animation: fade-in var(--normal) var(--enter); }
 @keyframes fade-in { from { opacity: 0; } }
 
@@ -1079,6 +1110,16 @@ html[data-scroll="down"] .fab:not(:focus-visible) { transform: translateY(16px);
   *, *::before, *::after, *::details-content { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 [data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after, [data-motion="off"] *::details-content { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+/* Still motion-free, but busy still shows: the sweep becomes a steady half-tone bar, the sync icon keeps turning
+   (small, in place), and the chip edge fade (scroll-driven, not timed) keeps its scroll range. */
+@media (prefers-reduced-motion: reduce) {
+  .progress::after { animation: none !important; width: 100%; opacity: 0.5; }
+  .spin svg.i { animation-duration: var(--tick) !important; animation-iteration-count: infinite !important; }
+  .chips.scroll { animation-duration: auto !important; }
+}
+[data-motion="off"] .progress::after { animation: none !important; width: 100%; opacity: 0.5; }
+[data-motion="off"] .spin svg.i { animation-duration: var(--tick) !important; animation-iteration-count: infinite !important; }
+[data-motion="off"] .chips.scroll { animation-duration: auto !important; }
 
 /* ---------- width and density (Settings → Appearance) ---------- */
 [data-width="wide"] body:not(.panel):not(.frame) { width: 480px; }
@@ -1089,7 +1130,7 @@ html[data-compact="on"]:not(.frame) .page { gap: 8px; }
 /* ---------- Large Type, notes toggle, rendered notes, warning sub-line ---------- */
 .large { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 12px 4px; }
 .large .ch { display: flex; flex-direction: column; align-items: center; min-width: 22px; font-size: var(--fs-display); font-weight: 600; line-height: 1.15; }
-.large .ch.d { color: var(--link); }
+.large .ch.d { color: var(--digit); }
 .large .ch.s { color: var(--warning); }
 .large .ch small { font-size: var(--fs-caption); font-weight: 400; color: var(--muted); font-family: inherit; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1099,7 +1140,7 @@ html[data-compact="on"]:not(.frame) .page { gap: 8px; }
 .notes.md p { margin: 0 0 8px; white-space: pre-wrap; }
 .notes.md p:last-child { margin-bottom: 0; }
 .notes.md h3 { margin: 0 0 8px; font-size: var(--fs-body); font-weight: 600; }
-.notes.md ul { margin: 0 0 8px; padding-left: 18px; }
+.notes.md ul { margin: 0 0 8px; padding-inline-start: 18px; }
 .notes.md code { font-family: var(--mono); font-size: var(--fs-body-sm); background: var(--tint); padding: 0 4px; border-radius: var(--r-xs); }
 .notes.md a { color: var(--link); }
 .qr-box { display: grid; place-items: center; padding: 8px 0; }

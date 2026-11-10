@@ -1,13 +1,36 @@
 import type { FrameRequest, Request, Response } from "../shared/messages.ts";
+import { fold } from "../shared/search.ts";
 import { icon } from "./icons.ts";
 
 export const t = (key: string, ...subs: string[]): string => chrome.i18n.getMessage(key, subs) || key;
 
+// The UI strings are English (other locales carry only the store name and description): dates and plurals follow
+// the strings, so a sentence never mixes "Deletes" with "5 Kas 2026".
+const UI_LOCALE = "en";
+const pluralRules = new Intl.PluralRules(UI_LOCALE);
+/** `key` with the count `n` in it, or `key_one` when English says "1 site", not "1 sites". */
+export const plural = (key: string, n: number): string =>
+  pluralRules.select(n) === "one" ? t(`${key}_one`, String(n)) : t(key, String(n));
+
 /** A date as people read it: no seconds. */
-export const when = (v: string | number): string => new Date(v).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+export const when = (v: string | number): string => new Date(v).toLocaleString(UI_LOCALE, { dateStyle: "medium", timeStyle: "short" });
+/** The date alone, in the same style as `when`. */
+export const day = (v: string | number): string => new Date(v).toLocaleDateString(UI_LOCALE, { dateStyle: "medium" });
 
 // Theme is a per-device UI preference (localStorage of the extension origin, shared by popup, panel and
 // the in-page frames); applied before the first render to avoid a flash.
+/**
+ * Whether every word of `query` begins a word of `text`, case- and accent-blind: "kilit" finds "Kilit", "lock"
+ * finds "Auto-lock" but not "Blocked".
+ */
+export function wordsStartWith(text: string, query: string): boolean {
+  const words = fold(text).split(/[^\p{L}\p{N}]+/u);
+  return fold(query)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .every((q) => words.some((w) => w.startsWith(q)));
+}
+
 export const THEMES = ["system", "light", "dark", "black"] as const;
 export function savedTheme(): string {
   try {

@@ -6,26 +6,65 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
-- Settings: a search box (press `/`) that keeps only the matching settings, and an Appearance section for theme,
-  width, density, animations and website icons (they used to sit under Security).
-- Moving an item to the trash shows Undo in its notice; a notice stays up while the pointer or keyboard is on it.
-- An empty vault offers New item and Import items.
+- Settings: a search box (press `/`, clear with × or Escape) that keeps only the matching settings; it matches the
+  start of words in titles, descriptions and choices ("lock" finds Auto-lock, not Blocked websites; "dark" finds
+  Theme), ignoring case, accents and the Turkish dotted/dotless i. An Appearance section for theme, width, density,
+  animations and website icons.
+- Undo: moving an item to the trash takes one click and offers Undo (also Ctrl/Cmd+Z); a notice stays up while the
+  pointer or keyboard is on it.
+- Leaving the editor with unsaved edits asks first: Cancel or Escape shows "Unsaved changes" with Discard; a second
+  click leaves.
+- Keyboard: `/` jumps to the vault search; ArrowDown steps into the results, Enter opens the first one, ArrowUp on
+  the first row goes back; Escape goes back from an item, the editor or a Send form; focus stays on a control after
+  an in-place action (copy, show password, a length step, a switch).
 - The inline menu works from the keyboard: ArrowDown enters the list, the arrows move, Enter fills, Escape returns
   to the field.
-- `/` jumps to the vault search.
+- Empty vault and empty Send list offer their next step (New item and Import items; New Send).
+- Screen readers: vault search says how many items it found; vault rows are list items holding a real button, named
+  with the username and the marks (code, weak, reused, favorite).
 
 ### Changed
 
-- Screens slide when you go into an item or back, and fade between tabs; rows added or removed in the editor, and rows
-  removed from the settings lists, animate; a disclosure opens to its height. All of it follows the system's reduced
-  motion setting and Settings → Appearance → animations.
-- A failure notice (a fill that did not work) shows an error icon instead of the check mark.
-- The floating New item button steps aside while the list scrolls down.
-- Clearer setting names: the inline menu's card and identity options sit under it as "Include cards" and "Include
-  identities"; the popup's options read "Suggest cards/identities for this page in the popup".
-- Icons and hints drawn in the faint color reach a 3:1 contrast in the light theme; placeholders use the muted
-  text color.
-- The lock screen always shows the lock.
+- Screens slide when you go into an item or back, and fade between tabs; rows added or removed in the editor and in
+  settings lists animate. All of it follows the system's reduced motion setting and Settings → Appearance; under
+  reduced motion busy bars stay visible and the sync icon still turns.
+- New item and New Send sit in the header as its one filled button, instead of floating over the rows.
+- Fill sits only on the rows listed for the current site; other items fill from their own view.
+- While searching, the best name matches come first, without letter headings.
+- Settings order: Autofill, Autofill on page load, Clipboard and website matching, Blocked websites, Account (now
+  with Log out, side panel and tab), Security (now with Lock now), Appearance, Vault, About. Sync now is one row;
+  Clear beside Show recently opened shows only when there is something to clear; action rows show an icon.
+- Log out in Settings, deleting a folder, deleting forever and deleting a Send take a second click ("Click again to
+  …"), which disarms after 4 s; an armed Send delete says so under its name.
+- Send rows: the name opens the Send, its state is written out ("Password-protected", "Disabled"), dates read like
+  the rest ("Nov 5, 2026"); a new file Send picks its file from a row in the app's style, and its switches sit in
+  cards like the fields.
+- Text follows the browser's font size (type, icons and icon buttons in rem); the inline menu and save bar keep
+  theirs. Rows too narrow for text and controls (large text, a narrow side panel) move the controls under the text;
+  a side panel under 220 px shows its tabs as icons.
+- Focus ring: solid brand color (5.3:1 or more, in the contrast check), drawn inside rows and keeping each control's
+  rounded shape; visible in Windows High Contrast.
+- Contrast: digits in passwords have their own color in every theme; switches keep one knob color with a 3:1 off
+  track; faint icons reach 3:1; the current tab is marked by a filled pill as well as its color.
+- Copy: no "·" or spaced "—" joins; "Click again" instead of "Tap again"; "Logging in…"; "Large type"; plainer hints
+  for autofill on page load, submit after filling, blocked websites and biometrics; the editor's Websites section is
+  named as in the item view; "No matching items" says what to try and names the search keywords.
+- Generator: suggestions wrap instead of ending in "…" and drop the repeated "20 characters"; character-set chips use
+  the body font; the generated value is not read aloud on every change.
+- Lists: the site's rows show the same marks as elsewhere; Recently opened and Favorites leave out items already
+  shown above; a hovered row keeps a weak or reused warning beside its quick actions; letter headings match the other
+  headings; an empty vault hides the filter chips; SSH key has its own icon.
+- The lock screen always shows the lock. A failure notice shows an error icon.
+
+### Fixed
+
+- The copy notice said "clears in 30 s" whatever the setting; it now says when the clipboard clears ("Copied. Clears
+  in 1 minute"), or just "Copied".
+- Counts read right: "1 site", "1 day", "1 second left", "1 previous password".
+- Vault search ignores accents and the Turkish dotted/dotless i ("zurich" finds Zürich, "istanbul" finds İstanbul).
+- The whole popup was one live region, so screen readers could re-read screens and the list on every keystroke.
+- The toast's Undo was dimmed by a more specific rule; it is drawn in the brand color in every theme.
+- A narrow side panel at 200 % zoom no longer scrolls sideways or squeezes names to a word per line.
 - "Cannot reach the server" says what to check.
 
 ## 0.0.14 — 2026-11-10

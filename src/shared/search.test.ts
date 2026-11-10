@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { matchesQuery, parseQuery, type Searchable } from "./search.ts";
+import { byRelevance, matchesQuery, parseQuery, type Searchable } from "./search.ts";
 
 const item = (over: Partial<Searchable> = {}): Searchable => ({ name: "GitHub", sub: "ada@example.com", uris: ["https://github.com/login"], folder: "Work", type: ["login"], flags: ["favorite"], ...over });
 const find = (q: string, i = item()) => matchesQuery(parseQuery(q), i);
@@ -34,4 +34,17 @@ test("a leading dash excludes", () => {
 test("unknown prefixes stay plain text", () => {
   assert.deepEqual(parseQuery("https://github"), [{ not: false, value: "https://github" }]);
   assert.equal(find("https://github"), true);
+});
+
+test("search folds case, accents and the Turkish dotted and dotless i", () => {
+  const bank = item({ name: "İstanbul Bank", sub: "zürich@example.com" });
+  assert.equal(find("istanbul", bank), true);
+  assert.equal(find("ISTANBUL", bank), true);
+  assert.equal(find("zurich", bank), true);
+  assert.equal(find("ankara", bank), false);
+});
+
+test("search results lead with the best name matches, ties in the given order", () => {
+  const names = ["My GitHub", "Gitea", "Digital", "Bank", "GitHub"].map((name) => ({ name }));
+  assert.deepEqual(byRelevance(names, "git").map((x) => x.name), ["Gitea", "GitHub", "My GitHub", "Digital", "Bank"]);
 });

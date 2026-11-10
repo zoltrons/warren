@@ -267,6 +267,7 @@ try {
   const logout = async () => {
     await page.getByRole("button", { name: "Settings" }).click();
     await page.getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("button", { name: "Click again to log out" }).click();
     await page.getByRole("heading", { name: "Log in" }).waitFor();
   };
 
@@ -619,7 +620,7 @@ try {
 
   await step("Send: delete removes it on the server", async () => {
     await page.getByRole("button", { name: "Delete Wifi for guests" }).click();
-    await page.getByRole("button", { name: "Tap again to delete" }).click();
+    await page.getByRole("button", { name: "Click again to delete" }).click();
     await page.getByRole("status").filter({ hasText: "Send deleted" }).waitFor();
     // Full sync from the server, then a fresh popup that reads the list from the worker again.
     await sw.evaluate(() => chrome.storage.local.remove("vault"));
@@ -640,7 +641,8 @@ try {
   await api.create({ type: 2, name: "Wifi note", notes: "SSID: home\npassword: hunter2", secureNote: { type: 0 } }, true);
   await api.create({ type: 3, name: "Visa", card: { cardholderName: "Ada L", number: "4111111111111111", code: "123", brand: "Visa", expMonth: "1", expYear: "2030" } });
   api.done();
-  const rows = () => page.getByRole("list").getByRole("listitem");
+  // The opening button of each vault row (the row itself is the list item).
+  const rows = () => page.getByRole("list").getByRole("listitem").locator(".row-main");
   const back = () => page.getByRole("button", { name: "Back" }).click();
 
   await step("vault: sync, list, search, folder filter", async () => {
@@ -768,6 +770,9 @@ try {
     await fill("Password", "gh-secret-3");
     await page.getByRole("button", { name: "Save" }).click();
     await page.getByRole("alert").filter({ hasText: "out of date" }).waitFor();
+    // Unsaved edits: the first Cancel warns and offers Discard, the second leaves.
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("status").filter({ hasText: "Unsaved changes" }).waitFor();
     await page.getByRole("button", { name: "Cancel" }).click();
     await back();
   });
@@ -878,7 +883,6 @@ try {
   await step("move to trash", async () => {
     await rows().filter({ hasText: "Wifi note" }).click();
     await page.getByRole("button", { name: "Move to trash" }).click();
-    await page.getByRole("button", { name: "Tap again to move to trash" }).click();
     await page.getByRole("status").filter({ hasText: "Moved to trash" }).waitFor();
     assert.equal(await rows().filter({ hasText: "Wifi note" }).count(), 0);
     const s = await apiSession(vaultUser);
@@ -895,11 +899,10 @@ try {
     await page.getByRole("status").filter({ hasText: "Restored" }).waitFor();
     await rows().filter({ hasText: "Wifi note" }).click();
     await page.getByRole("button", { name: "Move to trash" }).click();
-    await page.getByRole("button", { name: "Tap again to move to trash" }).click();
     await page.getByRole("button", { name: "Trash (1)" }).click();
     await rows().filter({ hasText: "Wifi note" }).click();
     await page.getByRole("button", { name: "Delete forever" }).click();
-    await page.getByRole("button", { name: "Tap again to delete forever" }).click();
+    await page.getByRole("button", { name: "Click again to delete forever" }).click();
     await page.getByRole("status").filter({ hasText: "Deleted" }).waitFor();
     const s = await apiSession(vaultUser);
     assert.equal((await s.ciphers()).filter((x) => x.name === "Wifi note").length, 0);
@@ -958,6 +961,7 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll<HTMLInputElement>("input[aria-label=\"Folder name\"]")].some((i) => i.value === "Bank"));
     assert.ok((await serverFolders()).includes("Bank"));
     await page.getByRole("button", { name: "Delete folder" }).nth(await index("Bank")).click();
+    await page.getByRole("button", { name: "Click again to delete" }).click(); // a folder delete takes two clicks
     await page.waitForFunction(() => ![...document.querySelectorAll<HTMLInputElement>("input[aria-label=\"Folder name\"]")].some((i) => i.value === "Bank"));
     assert.ok(!(await serverFolders()).includes("Bank"));
     await page.getByRole("button", { name: "Back" }).click();
@@ -1089,7 +1093,7 @@ try {
   await step("attachments: deleted after a second tap", async () => {
     await rows().filter({ hasText: "Team wiki v2" }).first().click(); // also under "Recently opened"
     await page.getByRole("button", { name: "Delete org.txt" }).click();
-    await page.getByRole("button", { name: "Tap again to delete" }).click();
+    await page.getByRole("button", { name: "Click again to delete" }).click();
     await page.getByRole("status").filter({ hasText: "Deleted" }).waitFor();
     assert.equal(await page.getByRole("button", { name: "Download org.txt" }).count(), 0);
     const s = await apiSession(vaultUser);
@@ -1450,6 +1454,7 @@ try {
     assert.equal(await page.getByLabel("Website 1").inputValue(), SITE);
     await page.getByRole("button", { name: "Card", exact: true }).click();
     assert.equal(await page.getByLabel("Name", { exact: true }).inputValue(), "");
+    await page.getByRole("button", { name: "Cancel" }).click(); // the type changed: warns first
     await page.getByRole("button", { name: "Cancel" }).click();
   });
 
@@ -2019,7 +2024,7 @@ try {
     }, [...challenge]);
     await approve(async (w) => {
       // The item made by the first create holds a passkey: offered, but replaced only after a confirmation.
-      await w.getByRole("listitem").filter({ hasText: "pk-user · has a passkey" }).click();
+      await w.getByRole("listitem").filter({ hasText: "pk-user, already has a passkey" }).click();
       await w.getByText("already has a passkey. Replace it with the new one?").waitFor();
       await w.getByRole("button", { name: "Cancel" }).click();
       await w.getByRole("listitem").filter({ hasText: "local-user" }).click();

@@ -63,7 +63,7 @@
     "message": "Log in"
   },
   "busyLoggingIn": {
-    "message": "Deriving key and logging in…"
+    "message": "Logging in…"
   },
   "twoFactorTitle": {
     "message": "Two-step login"
@@ -200,6 +200,25 @@
   "noMatches": {
     "message": "No matching items"
   },
+  "itemsFound": {
+    "message": "$P1$ items",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "itemsFound_one": {
+    "message": "$P1$ item",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noMatchesHint": {
+    "message": "Try fewer or different words. Search also reads username:, url:, folder: and \"exact words\"."
+  },
   "vaultEmpty": {
     "message": "Your vault is empty"
   },
@@ -221,8 +240,16 @@
   "editItem": {
     "message": "Edit item"
   },
-  "copied": {
-    "message": "Copied — clears in 30 s"
+  "copiedOnly": {
+    "message": "Copied"
+  },
+  "copiedClears": {
+    "message": "Copied. Clears in $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   },
   "copyOptions": {
     "message": "Copy from $P1$",
@@ -265,11 +292,16 @@
       }
     }
   },
+  "secondsLeft_one": {
+    "message": "$P1$ second left",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "movedToTrash": {
     "message": "Moved to trash"
-  },
-  "confirmTrash": {
-    "message": "Tap again to move to trash"
   },
   "moveToTrash": {
     "message": "Move to trash"
@@ -478,6 +510,12 @@
   "noSends": {
     "message": "No Sends yet"
   },
+  "noSendsHint": {
+    "message": "Share a note or a file through a link that expires."
+  },
+  "sendPasswordProtected": {
+    "message": "Password-protected"
+  },
   "sendDeleted": {
     "message": "Send deleted"
   },
@@ -502,7 +540,7 @@
     "message": "Hide my email address from recipients"
   },
   "tapAgainToDelete": {
-    "message": "Tap again to delete"
+    "message": "Click again to delete"
   },
   "chooseFile": {
     "message": "Choose a file"
@@ -527,6 +565,14 @@
   },
   "days": {
     "message": "$P1$ days",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "days_one": {
+    "message": "$P1$ day",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -568,8 +614,19 @@
   "passkeySaveTo": {
     "message": "Or add it to a login you already have:"
   },
+  "userOnHost": {
+    "message": "$P1$ on $P2$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
   "passkeyHasOne": {
-    "message": "$P1$ · has a passkey",
+    "message": "$P1$, already has a passkey",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -665,6 +722,14 @@
       }
     }
   },
+  "neverSaveSites_one": {
+    "message": "Never save on $P1$ site",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "clear": {
     "message": "Clear"
   },
@@ -685,6 +750,14 @@
   },
   "ageYears": {
     "message": "$P1$ years old",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "ageYears_one": {
+    "message": "$P1$ year old",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -856,6 +929,14 @@
       }
     }
   },
+  "showPasswordHistory_one": {
+    "message": "Show $P1$ previous password",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "lastEdited": {
     "message": "Last edited"
   },
@@ -875,7 +956,10 @@
     "message": "(copy)"
   },
   "confirmPurge": {
-    "message": "Tap again to delete forever"
+    "message": "Click again to delete forever"
+  },
+  "confirmLogOut": {
+    "message": "Click again to log out"
   },
   "deleteForever": {
     "message": "Delete forever"
@@ -1250,7 +1334,10 @@
     "message": "Item actions"
   },
   "unsavedChanges": {
-    "message": "Unsaved changes — save to keep them"
+    "message": "Unsaved changes. Save to keep them."
+  },
+  "discard": {
+    "message": "Discard"
   },
   "discardChanges": {
     "message": "Discard changes"
@@ -1306,21 +1393,13 @@
     "message": "Appearance"
   },
   "favoritesEmpty": {
-    "message": "No favorites yet — tap the star on an item"
+    "message": "No favorites yet. Star an item to keep it here."
   },
   "clearFilters": {
     "message": "Clear filters"
   },
   "copiedShort": {
     "message": "Copied"
-  },
-  "totpNow": {
-    "message": "One-time code, $P1$ seconds left",
-    "placeholders": {
-      "p1": {
-        "content": "$1"
-      }
-    }
   },
   "sidebarTheme": {
     "message": "Appearance"
@@ -1345,9 +1424,6 @@
   "strengthShort": {
     "message": "Strength"
   },
-  "autofillOptions": {
-    "message": "Autofill options"
-  },
   "uriMatchBaseDomain": {
     "message": "Base domain (recommended)"
   },
@@ -1361,7 +1437,7 @@
     "message": "Never"
   },
   "uriMatchAdvanced": {
-    "message": "— Advanced —"
+    "message": "Advanced"
   },
   "uriMatchStartsWith": {
     "message": "Starts with"
@@ -1405,13 +1481,13 @@
     "message": "Submit after filling"
   },
   "autosubmitHint": {
-    "message": "Log in right after you fill a login. Not used for autofill on page load. A form you have not looked at gets submitted, so use with care."
+    "message": "Log in right after you fill a login. Not used for autofill on page load. The form is sent without you seeing it first, so keep it for sites you know."
   },
   "autofillOnPageLoad": {
     "message": "Autofill on page load"
   },
   "autofillOnPageLoadHint": {
-    "message": "Fill the login for a page when it opens. Experimental: use with care."
+    "message": "Fills the login as soon as a page opens. Experimental: a page that rebuilds its form after loading may be filled in the wrong place."
   },
   "autofillOnPageLoadDefault": {
     "message": "Default autofill on page load"
@@ -1502,7 +1578,7 @@
     "message": "The link stays the same and anyone with it can open the send"
   },
   "additionalOptions": {
-    "message": "Additional options"
+    "message": "Clipboard and website matching"
   },
   "uriMatchBaseDomainShort": {
     "message": "Base domain"
@@ -1517,7 +1593,7 @@
     "message": "Blocked websites"
   },
   "blockedSitesHint": {
-    "message": "No inline menu, autofill on page load or passkey prompts on these sites and their subdomains. Read while the vault is unlocked."
+    "message": "No inline menu, autofill on page load or passkey prompts on these sites and their subdomains. The list is stored in the encrypted vault, so it applies while the vault is unlocked."
   },
   "blockSite": {
     "message": "Block"
@@ -1542,7 +1618,7 @@
     "message": "Unlock with biometrics"
   },
   "biometricUnlockHint": {
-    "message": "Use this device's Touch ID, Windows Hello or screen lock. Requires a platform authenticator that supports WebAuthn PRF."
+    "message": "Use this device's Touch ID, Windows Hello or screen lock. Works where the browser can turn that sign-in into a key; Warren tells you if this device cannot."
   },
   "unlockWithBiometrics": {
     "message": "Unlock with biometrics"
@@ -1640,14 +1716,6 @@
   "suggestions": {
     "message": "Suggestions"
   },
-  "characters": {
-    "message": "$P1$ characters",
-    "placeholders": {
-      "p1": {
-        "content": "$1"
-      }
-    }
-  },
   "createLoginWithPassword": {
     "message": "Create a login with this value"
   },
@@ -1655,7 +1723,7 @@
     "message": "Create a login with this username"
   },
   "largeType": {
-    "message": "Large Type"
+    "message": "Large type"
   },
   "shareAsSend": {
     "message": "Share as a Send"
@@ -1736,6 +1804,14 @@
   },
   "reusedNotice": {
     "message": "This password is used by $P1$ items.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "reusedNotice_one": {
+    "message": "This password is used by $P1$ item.",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -2001,5 +2077,45 @@
   },
   "denyLogin": {
     "message": "Deny login"
+  },
+  "fillNamed": {
+    "message": "Fill $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "copyLinkNamed": {
+    "message": "Copy link $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "editNamed": {
+    "message": "Edit $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "deleteNamed": {
+    "message": "Delete $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadNamed": {
+    "message": "Download $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   }
 }

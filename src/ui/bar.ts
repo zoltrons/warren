@@ -26,7 +26,7 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
         "div",
         { class: "top" },
         h("img", { class: "logo-sm", src: "icons/warren-128.png", alt: "" }),
-        h("div", { class: "body" }, h("strong", {}, t(d.kind === "add" ? "barSaveTitle" : "barUpdateTitle")), h("span", { class: "sub" }, d.username ? `${d.username} · ${d.host}` : d.host)),
+        h("div", { class: "body" }, h("strong", {}, t(d.kind === "add" ? "barSaveTitle" : "barUpdateTitle")), h("span", { class: "sub" }, d.username ? t("userOnHost", d.username, d.host) : d.host)),
         h("button", { type: "button", class: "icon-btn", "aria-label": t("close"), onclick: () => void act("close") }, icon("close")),
       ),
       h(

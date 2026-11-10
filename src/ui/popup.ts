@@ -2,7 +2,7 @@
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, TWO_FACTOR, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
 import type { ExportFormat, LoginRequest, Request, Response, State } from "../shared/messages.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
-import { applyTheme, type Child, h, inPanel, leave, motionOff, newSession, rowOf, savedTheme, send, sessionNow, setUiPref, t, THEMES, uiPref, when, withChevron, WIDTHS } from "./dom.ts";
+import { applyTheme, type Child, h, inPanel, leave, motionOff, newSession, rowOf, savedTheme, send, sessionNow, setUiPref, t, THEMES, plural, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvailable } from "./biometric.ts";
 import { passkeyRequestId, passkeyScreen, resetPasskey } from "./passkey.ts";
@@ -15,6 +15,8 @@ import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageM
 
 interface Ui {
   busy: boolean;
+  /** Settings → Log out was clicked once: the next click within 4 s logs out. */
+  armLogout?: boolean;
   busyLabel?: string;
   error?: string;
   info?: string;
@@ -317,7 +319,7 @@ function loginRequestView(s: State): HTMLElement {
       ? [
           h("p", { class: "caption" }, t("loginRequestQuestion", s.email ?? "")),
           h("div", { class: "field" }, h("label", {}, h("span", {}, t("fingerprintPhrase")), h("output", { class: "phrase" }, r.fingerprint))),
-          h("div", { class: "group" }, row(r.device, t("loginRequestDevice")), row(r.ip, t("loginRequestIp")), row(new Date(r.createdAt).toLocaleString(), t("loginRequestTime"))),
+          h("div", { class: "group" }, row(r.device, t("loginRequestDevice")), row(r.ip, t("loginRequestIp")), row(when(r.createdAt), t("loginRequestTime"))),
         ]
       : []),
     errorBox(),
@@ -614,7 +616,7 @@ function navButton(tab: Ui["tab"], label: string, ic: IconName) {
       },
     },
     h("span", { class: "pill" }, icon(ic)),
-    label,
+    h("span", { class: "label" }, label),
   );
 }
 
@@ -723,7 +725,7 @@ function settingsTab(s: State): HTMLElement {
       row(t("badgeCounter"), t("badgeCounterHint"), toggle(t("badgeCounter"), s.settings.badgeCounter, (b) => void act({ type: "setSettings", badgeCounter: b.checked }))),
       row(t("savePrompt"), t("savePromptHint"), toggle(t("savePrompt"), s.settings.savePrompt, (b) => void act({ type: "setSettings", savePrompt: b.checked }))),
       s.settings.neverSave.length
-        ? row(t("neverSaveSites", String(s.settings.neverSave.length)), s.settings.neverSave.join(", "), h("button", { type: "button", class: "btn text small", onclick: () => void act({ type: "setSettings", clearNeverSave: true }) }, t("clear")))
+        ? row(plural("neverSaveSites", s.settings.neverSave.length), s.settings.neverSave.join(", "), h("button", { type: "button", class: "btn text small", onclick: () => void act({ type: "setSettings", clearNeverSave: true }) }, t("clear")))
         : null,
       ...s.settings.neverSave.map((h0) =>
         row(h0, undefined, iconButton("close", t("removeNeverSave", h0), (e) => leave(rowOf(e), () => void act({ type: "setSettings", removeNeverSave: h0 })))),
@@ -731,16 +733,6 @@ function settingsTab(s: State): HTMLElement {
       s.settings.savePrompt ? hostForm(t("addNeverSave"), (host) => ({ type: "setSettings", addNeverSave: host })) : null,
       row(t("defaultManager"), t("defaultManagerHint"), toggle(t("defaultManager"), s.settings.defaultManager, defaultManager)),
       row(t("autosubmit"), t("autosubmitHint"), toggle(t("autosubmit"), s.settings.autosubmit, (b) => void act({ type: "setSettings", autosubmit: b.checked }))),
-      ),
-    ),
-    section(
-      t("blockedSites"),
-      h("p", { class: "caption" }, t("blockedSitesHint")),
-      h(
-        "div",
-        { class: "group" },
-        ...s.settings.blocked.map((h0) => row(h0, undefined, iconButton("close", t("unblockSite", h0), (e) => leave(rowOf(e), () => void act({ type: "setSettings", removeBlocked: h0 }))))),
-        hostForm(t("blockSite"), (host) => ({ type: "setSettings", addBlocked: host })),
       ),
     ),
     section(
@@ -810,6 +802,16 @@ function settingsTab(s: State): HTMLElement {
       ),
     ),
     section(
+      t("blockedSites"),
+      h("p", { class: "caption" }, t("blockedSitesHint")),
+      h(
+        "div",
+        { class: "group" },
+        ...s.settings.blocked.map((h0) => row(h0, undefined, iconButton("close", t("unblockSite", h0), (e) => leave(rowOf(e), () => void act({ type: "setSettings", removeBlocked: h0 }))))),
+        hostForm(t("blockSite"), (host) => ({ type: "setSettings", addBlocked: host })),
+      ),
+    ),
+    section(
       t("account"),
       h(
         "div",
@@ -818,12 +820,40 @@ function settingsTab(s: State): HTMLElement {
         row(host(s.serverUrl), s.serverVersion ? t("serverVersion", s.serverVersion) : undefined),
         s.weakKdf ? h("div", { class: "notice warn" }, icon("shield"), h("div", {}, t("weakKdf"))) : null,
       ),
+    h(
+      "div",
+      { class: "group" },
+      inPanel || windowId === undefined
+        ? null
+        : row(t("openSidePanel"), undefined, icon("panel"), {
+            type: "button",
+            // sidePanel.open needs the user gesture, so no await before it.
+            onclick: () => void chrome.sidePanel.open({ windowId: windowId! }).then(() => window.close(), (e: unknown) => ((ui.error = String(e)), render())),
+          }, "button"),
+      // The OS biometric prompt can close the action popup; setup and unlock also work in a tab.
+      !inPanel && !inTab
+        ? row(t("openInTab"), t("openInTabHint"), icon("external"), { type: "button", onclick: () => void chrome.tabs.create({ url: location.href }) }, "button")
+        : null,
+      // Logging out drops the local vault and asks for the password again: one stray click must not do it.
+      row(ui.armLogout ? t("confirmLogOut") : t("logOut"), undefined, icon("logout"), {
+        type: "button",
+        class: "row danger",
+        onclick: () => {
+          // Disarmed on use, so the next session starts unarmed (ui outlives a logout).
+          if (ui.armLogout) return void ((ui.armLogout = false), act({ type: "logout" }));
+          ui.armLogout = true;
+          render();
+          setTimeout(() => ui.armLogout && ((ui.armLogout = false), render()), 4000);
+        },
+      }, "button"),
+      ),
     ),
     section(
       t("security"),
       h(
       "div",
       { class: "group" },
+      row(t("lockNow"), undefined, icon("lock"), { type: "button", onclick: () => void act({ type: "lock" }) }, "button"),
       row(t("autoLock"), undefined, withChevron(select)),
       row(
         t("timeoutAction"),
@@ -914,22 +944,20 @@ function settingsTab(s: State): HTMLElement {
       h(
       "div",
       { class: "group" },
-      row(
-        t("syncNow"),
-        s.syncedAt ? t("lastSync", when(s.syncedAt)) : t("never"),
-        h("button", { type: "button", class: "btn text small", disabled: ui.busy, onclick: () => void syncNow() }, icon("refresh"), t("syncNow")),
-      ),
+      // The row is the button: its name was said twice, once as the title and once on a button beside it.
+      row(t("syncNow"), s.syncedAt ? t("lastSync", when(s.syncedAt)) : t("lastSync", t("never")), icon("refresh"), { type: "button", disabled: ui.busy, onclick: () => void syncNow() }, "button"),
       row(
         t("showRecent"),
         t("showRecentHint"),
         h(
           "span",
           { class: "trailing" },
-          h("button", { type: "button", class: "btn text small", disabled: !hasOpened(), onclick: () => void clearOpened().then((r) => ((r.ok ? (ui.info = t("recentCleared")) : (ui.error = r.error)), render())) }, t("clear")),
+          // Only when there is something to clear: a greyed-out Clear beside the switch explained nothing.
+          !hasOpened() ? null : h("button", { type: "button", class: "btn text small", onclick: () => void clearOpened().then((r) => ((r.ok ? (ui.info = t("recentCleared")) : (ui.error = r.error)), render())) }, t("clear")),
           toggle(t("showRecent"), recentShown(), (b) => (setRecentShown(b.checked), render())),
         ),
       ),
-      row(t("exportVault"), t("exportHint"), null, { type: "button", disabled: ui.busy, onclick: () => ((ui.exporting = !ui.exporting), render()) }, "button"),
+      row(t("exportVault"), t("exportHint"), icon("download"), { type: "button", disabled: ui.busy, onclick: () => ((ui.exporting = !ui.exporting), render()) }, "button"),
       ui.exporting
         ? row(
             t("exportFormat"),
@@ -995,27 +1023,10 @@ function settingsTab(s: State): HTMLElement {
       "div",
       { class: "group" },
       row(t("about"), chrome.runtime.getManifest().version),
-      row(t("helpCenter"), undefined, null, { type: "button", onclick: () => openExternal("https://github.com/zoltrons/warren#readme") }, "button"),
-      s.serverUrl ? row(t("webVault"), host(s.serverUrl), null, { type: "button", onclick: () => openExternal(`${s.serverUrl}/#/`) }, "button") : null,
+      row(t("helpCenter"), undefined, icon("external"), { type: "button", onclick: () => openExternal("https://github.com/zoltrons/warren#readme") }, "button"),
+      s.serverUrl ? row(t("webVault"), host(s.serverUrl), icon("external"), { type: "button", onclick: () => openExternal(`${s.serverUrl}/#/`) }, "button") : null,
     ),
     h("p", { class: "note" }, t("disclaimer")),
-    h(
-      "div",
-      { class: "group" },
-      inPanel || windowId === undefined
-        ? null
-        : row(t("openSidePanel"), undefined, null, {
-            type: "button",
-            // sidePanel.open needs the user gesture, so no await before it.
-            onclick: () => void chrome.sidePanel.open({ windowId: windowId! }).then(() => window.close(), (e: unknown) => ((ui.error = String(e)), render())),
-          }, "button"),
-      // The OS biometric prompt can close the action popup; setup and unlock also work in a tab.
-      !inPanel && !inTab
-        ? row(t("openInTab"), t("openInTabHint"), null, { type: "button", onclick: () => void chrome.tabs.create({ url: location.href }) }, "button")
-        : null,
-      row(t("lockNow"), undefined, null, { type: "button", onclick: () => void act({ type: "lock" }) }, "button"),
-      row(t("logOut"), undefined, null, { type: "button", class: "row danger", onclick: () => void act({ type: "logout" }) }, "button"),
-      ),
     ),
     errorBox(),
   );
@@ -1039,32 +1050,55 @@ function settingsSearch(): HTMLElement {
     title: t("searchShortcutHint"),
     placeholder: t("searchSettings"),
     value: ui.settingsQuery ?? "",
-    oninput: (e: Event) => {
-      ui.settingsQuery = (e.target as HTMLInputElement).value;
-      // Filtered in place: a re-render would move the caret.
-      filterSettings((e.target as HTMLElement).closest(".page")!, ui.settingsQuery);
+    oninput: () => apply(input.value),
+    // Escape clears a query first, like the vault search; with none it is left to the page.
+    onkeydown: (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !input.value) return;
+      e.stopPropagation();
+      apply("");
     },
   });
-  return h("div", { class: "search" }, icon("search"), input);
+  // Filtered in place: a re-render would move the caret.
+  const apply = (q: string) => {
+    ui.settingsQuery = q;
+    input.value = q;
+    clear.hidden = !q;
+    filterSettings(input.closest(".page")!, q);
+  };
+  const clear = h(
+    "button",
+    { type: "button", class: "icon-btn sm", "aria-label": t("clearSearch"), title: t("clearSearch"), hidden: !ui.settingsQuery, onclick: () => (apply(""), input.focus()) },
+    icon("close"),
+  );
+  return h("div", { class: "search" }, icon("search"), input, clear);
 }
 
 /**
- * Shows the settings rows whose text mentions `query` (a block whose title matches stays whole) and hides the
- * blocks left empty. Case- and accent-blind, so "kilit" finds "Kilit" and "theme" finds "Theme".
+ * Shows the settings rows whose words start with the words of `query` (wordsStartWith; a block whose title
+ * matches stays whole) and hides the blocks left empty.
  */
 function filterSettings(page: ParentNode, query: string): void {
-  const fold = (v: string) => v.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  const q = fold(query.trim());
+  const q = query.trim();
+  // Each text piece on its own, so a title and the description under it stay two words ("fields Show", not
+  // "fieldsShow"); a select's options all count, so "dark" finds Theme.
+  const textOf = (el: Element) => {
+    const parts: string[] = [];
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) parts.push(walk.currentNode.nodeValue ?? "");
+    return parts.join(" ");
+  };
   let shown = 0;
   for (const sec of page.querySelectorAll<HTMLElement>(".settings-section")) {
-    const whole = !q || fold(sec.querySelector(".section-title")?.textContent ?? "").includes(q);
+    const whole = !q || wordsStartWith(textOf(sec.querySelector(".section-title") ?? sec), q);
     let any = whole;
-    for (const el of sec.querySelectorAll<HTMLElement>(".group > *, .caption")) {
+    for (const el of sec.querySelectorAll<HTMLElement>(".group > *, .caption, .note")) {
       const labels = [...el.querySelectorAll("[aria-label]")].map((x) => x.getAttribute("aria-label")).join(" ");
-      const hit = whole || fold(`${el.textContent} ${labels}`).includes(q);
+      const hit = whole || wordsStartWith(`${textOf(el)} ${labels}`, q);
       el.hidden = !hit;
       any ||= hit;
     }
+    // A card whose rows all went would still draw its empty border.
+    for (const group of sec.querySelectorAll<HTMLElement>(".group")) group.hidden = ![...group.children].some((c) => !(c as HTMLElement).hidden);
     sec.hidden = !any;
     if (any) shown++;
   }
@@ -1146,6 +1180,19 @@ function unlockedView(s: State): DocumentFragment {
 
 // ---------- render ----------
 
+/** The child-index chain from #app down to `el`, with its tag, for finding "the same" control after a re-render. */
+function pathOf(el: Element | null): { steps: number[]; tag: string } | undefined {
+  if (!el || el === document.body || !app.contains(el)) return;
+  const steps: number[] = [];
+  for (let at: Element = el; at !== app; at = at.parentElement!) steps.unshift([...at.parentElement!.children].indexOf(at));
+  return { steps, tag: el.tagName };
+}
+function atPath(p: { steps: number[]; tag: string }): HTMLElement | null {
+  let at: Element | undefined = app;
+  for (const i of p.steps) at = at?.children[i];
+  return at?.tagName === p.tag && (at as HTMLElement).tabIndex >= 0 ? (at as HTMLElement) : null;
+}
+
 const app = document.getElementById("app")!;
 const vaultCtx: Ctx = {
   rerender: () => render(),
@@ -1213,19 +1260,20 @@ function render(): void {
     if (seq !== renderSeq) return;
     if (lastScreen) scrollMemory.set(lastScreen, window.scrollY);
     const focused = document.activeElement?.id;
+    // A control without an id (copy, reveal, ±, a switch) is found again by where it sat, on the same screen only,
+    // so a keyboard user is not thrown back to the top after every in-place action.
+    const path = !focused && lastScreen === key ? pathOf(document.activeElement) : undefined;
     // A sideways chip row keeps its position on the same screen (picking a chip re-renders it).
     const chipsLeft = lastScreen === key ? app.querySelector(".chips.scroll")?.scrollLeft : undefined;
     app.replaceChildren(view);
     const chips = app.querySelector(".chips.scroll");
     if (chips && chipsLeft) chips.scrollLeft = chipsLeft;
-    const again = focused ? document.getElementById(focused) : null;
+    const again = focused ? document.getElementById(focused) : path ? atPath(path) : null;
     // A new screen without a field to type in: its heading takes focus, so a screen reader announces where it is.
     const heading = lastScreen !== key ? app.querySelector<HTMLElement>("h1") : null;
     heading?.setAttribute("tabindex", "-1");
     ((again ?? app.querySelector("[data-autofocus]") ?? heading) as HTMLElement | null)?.focus({ preventScroll: true });
     window.scrollTo(0, scrollMemory.get(key) ?? 0);
-    lastY = window.scrollY; // a restored position is not a scroll down
-    document.documentElement.dataset.scroll = "up";
     lastScreen = key;
     swapPending = false;
     for (const fn of afterSwap.splice(0)) fn();
@@ -1244,18 +1292,15 @@ function render(): void {
   }
 }
 
-// Which way the page scrolls, for the floating "New item" (popup.css html[data-scroll]); at the bottom it shows.
-let lastY = 0;
-addEventListener(
-  "scroll",
-  () => {
-    const y = window.scrollY;
-    const atEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 4;
-    document.documentElement.dataset.scroll = y > lastY && !atEnd ? "down" : "up";
-    lastY = y;
-  },
-  { passive: true },
-);
+// Escape on a sub-screen (item, editor, a Send form) goes back, as its top-left button does; the editor's own
+// unsaved-changes check still applies. An open menu takes the Escape itself, and a search box clears first.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || e.defaultPrevented || document.querySelector(":popover-open")) return;
+  const back = app.querySelector<HTMLElement>(".top > button.icon-btn:first-child");
+  if (!back) return;
+  e.preventDefault();
+  back.click();
+});
 
 // "/" jumps to the screen's search box (vault, settings), as on most sites with one; typing in a field is left alone.
 document.addEventListener("keydown", (e) => {
