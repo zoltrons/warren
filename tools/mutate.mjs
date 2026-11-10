@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const unit = "npm test";
 const fill = "npm run test:fill";
+const preview = "node dev/preview/build.mjs && node dev/preview/shot.mjs";
 const M = [
   // 7a guardKdf
   ["kdf-floorMin", "src/background/account.ts", "if (tooWeak(kdf))", "if (false && tooWeak(kdf))", unit],
@@ -35,6 +36,8 @@ const M = [
   ["epoch-afterUnlock", "src/background/account.ts", "await checkEpoch(epoch, () => updateSession({ unlocked: true }));", "await updateSession({ unlocked: true });", unit],
   ["epoch-saveBar", "src/background/inline.ts", "  if (epoch !== lockEpoch()) return;\n  await setTabState(\"save\", tabId, { ...p, token });", "  await setTabState(\"save\", tabId, { ...p, token });", unit],
   ["epoch-loginSubmitted", "src/background/inline.ts", "  if (epoch !== lockEpoch()) return;\n  await setTabState(\"save\", tabId, pending);", "  await setTabState(\"save\", tabId, pending);", unit],
+  // 8b popup: a screen change still waiting for its view-transition frame never lands after a lock
+  ["render-staleSwap", "src/ui/popup.ts", "    if (seq !== renderSeq) return;\n", "", preview],
   ["epoch-lockFirst", "src/background/lock.ts", "  const mine = ++epoch;\n  revokeReprompts();", "  revokeReprompts();\n  await Promise.resolve();\n  const mine = ++epoch;", unit],
   // 1 sender
   ["sender-frameUrlFromTab", "src/background/inline.ts", "const url = httpUrl(sender)?.href;", "const url = httpUrl(sender.tab)?.href;", unit],

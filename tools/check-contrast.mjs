@@ -2,7 +2,7 @@
 // WCAG contrast check for the brand palette and the popup theme tokens (src/ui/popup.css).
 //   node tools/check-contrast.mjs
 // Text pairs must reach 4.5:1 and UI (icons, borders) 3:1; translucent tokens are composited over the
-// surface they sit on. Placeholders and disabled hints (`--faint`) are listed, not enforced.
+// surface they sit on. `--faint` marks icons and meta glyphs, so it is held to the UI 3:1 (placeholders use `--muted`).
 // Exits 1 when an enforced pair fails or the two dark-theme blocks drift apart.
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -72,7 +72,7 @@ const PAIRS = [
   ...["primary", "primary-hover", "primary-pressed"].map((bg) => ["on-primary", bg, "text"]),
   ["text", "selected", "text"], ["text", "pressed", "text"], ["link", "primary-weak", "text"], ["critical", "critical-weak", "text"],
   ...["primary", "favorite"].flatMap((fg) => ["bg", "surface"].map((bg) => [fg, bg, "ui"])),
-  ...["bg", "surface"].map((bg) => ["faint", bg, "quiet"]),
+  ...["bg", "surface", "surface-sunken"].map((bg) => ["faint", bg, "ui"]),
 ];
 const MIN = { text: 4.5, ui: 3 };
 

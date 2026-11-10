@@ -862,6 +862,9 @@
   "restore": {
     "message": "Restore"
   },
+  "undo": {
+    "message": "Undo"
+  },
   "restored": {
     "message": "Restored"
   },
@@ -1265,7 +1268,10 @@
     "message": "Pick a type"
   },
   "searchHint": {
-    "message": "Search names, usernames and websites. Use \"quotes\", -exclude, or title: username: domain: url: folder: type: is:"
+    "message": "Search names, usernames and websites. Use \"quotes\", -exclude, or title: username: domain: url: folder: type: is:. Press / to jump here."
+  },
+  "searchShortcutHint": {
+    "message": "Press / to jump here"
   },
   "showItem": {
     "message": "Open $P1$",
@@ -1283,6 +1289,21 @@
   },
   "trashEmpty": {
     "message": "Trash is empty"
+  },
+  "trashEmptyHint": {
+    "message": "Items you move to the trash wait here until you restore them or delete them for good."
+  },
+  "vaultEmptyHint": {
+    "message": "Add your first login, or bring your items over from another password manager."
+  },
+  "searchSettings": {
+    "message": "Search settings"
+  },
+  "noMatchingSettings": {
+    "message": "No setting matches your search"
+  },
+  "appearance": {
+    "message": "Appearance"
   },
   "favoritesEmpty": {
     "message": "No favorites yet — tap the star on an item"
@@ -1413,16 +1434,16 @@
     }
   },
   "inlineMenuCards": {
-    "message": "Show cards in the inline menu"
+    "message": "Include cards"
   },
   "inlineMenuIdentities": {
-    "message": "Show identities in the inline menu"
+    "message": "Include identities"
   },
   "showCardsOnTab": {
-    "message": "Offer cards to fill on the current page"
+    "message": "Suggest cards for this page in the popup"
   },
   "showIdentitiesOnTab": {
-    "message": "Offer identities to fill on the current page"
+    "message": "Suggest identities for this page in the popup"
   },
   "quickActionMenus": {
     "message": "Compact row actions"

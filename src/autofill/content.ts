@@ -136,10 +136,26 @@ addEventListener(
     }
     // The form Enter submits, like a click or a submit event: not a filled form next to it (a password change).
     const field = e.composedPath()[0] as HTMLInputElement;
+    // ArrowDown moves into the open menu, like a native autocomplete list; its first row takes focus (menu.ts).
+    if (e.key === "ArrowDown" && e.isTrusted && frame && field === anchor && !e.altKey) {
+      e.preventDefault();
+      frame.focus();
+      return;
+    }
     if (e.key === "Enter" && field.type === "password") report(field.form);
   },
   true,
 );
+
+// Escape (or ArrowUp past the first row) in the menu hands focus back to its field. Only our frame's own window
+// counts as the sender: a page posting the same text gets nothing.
+addEventListener("message", (e) => {
+  if (!frame || e.source !== frame.contentWindow || e.data !== "warren:back") return;
+  const el = anchor;
+  dismissed = el;
+  close();
+  el?.focus();
+});
 
 // A click reopens a menu that was dismissed with Escape.
 addEventListener(

@@ -347,7 +347,7 @@ function toError(e: unknown): Response<unknown> {
   else if (e instanceof ValidationError) code = "invalid";
   else if (e instanceof NetworkError) {
     code = "network";
-    error = "Cannot reach the server";
+    error = "Cannot reach the server. Check your connection and the server address.";
   } else console.error(e);
   return { ok: false, error, ...(code ? { code } : {}) };
 }

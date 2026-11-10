@@ -1,7 +1,7 @@
 // guardClicks (SECURITY.md invariant 4): a click in menu.html / bar.html counts only once the browser has reported the
 // frame really visible (IntersectionObserver v2) for 300 ms, and the wait starts again when the menu moves.
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 
 let report: ((es: { isVisible?: boolean }[]) => void) | undefined;
 let observerOptions: { trackVisibility?: boolean } | undefined;
@@ -25,7 +25,7 @@ set("addEventListener", (type: string, fn: (e: unknown) => void) => (listeners[t
 
 let now = 1000;
 Date.now = () => now;
-const { guardClicks } = await import("./dom.ts");
+const { guardClicks, leave } = await import("./dom.ts");
 guardClicks();
 
 /** True when the guard let the click through to the buttons. */
@@ -65,4 +65,21 @@ test("clickjacking: a menu that moved waits 300 ms again", () => {
   assert.equal(click(), false);
   now += 1;
   assert.equal(click(), true);
+});
+
+test("leave: a second removal while a row is still leaving is ignored, so it cannot remove the wrong row", () => {
+  set("matchMedia", () => ({ matches: false }));
+  let leaving: string | null = null;
+  (document as unknown as { querySelector: (s: string) => unknown }).querySelector = (s) => (s === ".leaving" ? leaving : null);
+  const row = (name: string) => ({ classList: { add: (c: string) => c === "leaving" && (leaving = name) } }) as unknown as Element;
+  const removed: string[] = [];
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    leave(row("a"), () => removed.push("a"));
+    leave(row("b"), () => removed.push("b"));
+    mock.timers.tick(120);
+  } finally {
+    mock.timers.reset();
+  }
+  assert.deepEqual(removed, ["a"]);
 });

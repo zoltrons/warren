@@ -13,7 +13,7 @@ import { loadCommonWords, passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
-import { type Child, h, inPanel, send, t, when, withChevron } from "./dom.ts";
+import { type Child, enter, h, inPanel, leave, rowOf, send, t, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -31,10 +31,12 @@ export interface Ctx {
   email(): string | undefined;
   /** Current settings (per-item options depend on the account-level ones). */
   settings(): Settings | undefined;
-  /** Switch the popup's tab (e.g. from the generator to a new vault item). */
-  goto(tab: "vault" | "send"): void;
+  /** Switch the popup's tab (e.g. from the generator to a new vault item); settings can open on a search. */
+  goto(tab: "vault" | "send" | "settings", settingsQuery?: string): void;
   /** Open the Send tab with a new text send holding `text`. */
   shareAsSend(text: string): void;
+  /** Runs `fn` once the screen asked for last is in the DOM: a screen change lands a frame later (view transition). */
+  afterRender(fn: () => void): void;
 }
 
 type Sort = "name" | "nameDesc" | "updated" | "created" | "opened";
@@ -145,6 +147,12 @@ const st = {
   armed: "",
   draft: undefined as EditDraft | undefined,
   toast: "",
+  /** The toast reports a failure (error icon, alert role) instead of a done action. */
+  toastError: false,
+  /** A button in the toast that takes the action back (moving to the trash). */
+  toastAction: undefined as { label: string; run: () => void } | undefined,
+  /** The toast is fading out. */
+  toastLeaving: false,
   /** Large Type screen: the text being shown. */
   large: undefined as string | undefined,
   /** Editor: show the rendered notes under the text box. */
@@ -185,7 +193,7 @@ export function resetVault(): void {
     list: undefined, page: undefined, loading: false, syncing: false, busy: false, error: undefined, route: { kind: "list" }, query: "",
     folder: "", item: undefined, reveal: new Set(), totp: undefined, confirmDelete: 0, draft: undefined,
     large: undefined, qr: undefined, pwned: undefined, memory: undefined, notesPreview: false,
-    toast: "", copied: "", sawList: false, uriOpen: new Set(), picking: undefined,
+    toast: "", toastError: false, toastAction: undefined, toastLeaving: false, copied: "", sawList: false, uriOpen: new Set(), picking: undefined,
   });
 }
 
@@ -253,15 +261,26 @@ export function colorize(value: string): (Node | string)[] {
   return [...value].map((c) => (/\d/.test(c) ? h("span", { class: "d" }, c) : /[^\p{L}\s]/u.test(c) ? h("span", { class: "s" }, c) : c));
 }
 
-export function toast(ctx: Ctx, text: string) {
-  st.toast = text;
+let toastId = 0;
+let toastShown = 0;
+/** A short note above the tab bar. An error says so in its icon; an action (undo) keeps it up longer. */
+export function toast(ctx: Ctx, text: string, opts: { error?: boolean; action?: { label: string; run: () => void } } = {}) {
+  const id = ++toastId;
+  Object.assign(st, { toast: text, toastError: !!opts.error, toastAction: opts.action, toastLeaving: false });
   ctx.rerender();
-  setTimeout(() => {
-    if (st.toast === text) {
-      st.toast = "";
+  const hide = () => {
+    if (toastId !== id) return; // a newer toast owns the slot
+    // Held while the pointer or the keyboard is on it, so its Undo can still be reached (WCAG 2.2.1).
+    if (document.querySelector(".toast:hover, .toast:focus-within")) return void setTimeout(hide, 1000);
+    st.toastLeaving = true;
+    document.querySelector(".toast")?.classList.add("out");
+    setTimeout(() => {
+      if (toastId !== id) return;
+      Object.assign(st, { toast: "", toastAction: undefined, toastLeaving: false });
       ctx.rerender();
-    }
-  }, 1800);
+    }, 160);
+  };
+  setTimeout(hide, opts.action ? 5000 : 1800);
 }
 
 export async function copy(ctx: Ctx, value: string, key?: string) {
@@ -280,7 +299,7 @@ export async function copy(ctx: Ctx, value: string, key?: string) {
   }, 1400);
 }
 
-export function iconButton(ic: IconName, label: string, onclick: () => void, extra: Record<string, unknown> = {}) {
+export function iconButton(ic: IconName, label: string, onclick: (e: MouseEvent) => void, extra: Record<string, unknown> = {}) {
   return h("button", { type: "button", class: "icon-btn", "aria-label": label, title: label, onclick, ...extra }, icon(ic));
 }
 
@@ -304,7 +323,20 @@ export function errorBox(): Child {
 }
 
 export function toastEl(): Child {
-  return st.toast ? h("div", { class: "toast", role: "status" }, icon("check"), st.toast) : null;
+  if (!st.toast) return null;
+  // Only a new toast slides in; a re-render while it is up keeps it still.
+  const fresh = toastShown !== toastId;
+  toastShown = toastId;
+  const action = st.toastAction;
+  return h(
+    "div",
+    { class: `toast${st.toastError ? " error-toast" : ""}${fresh ? "" : " still"}${st.toastLeaving ? " out" : ""}`, role: st.toastError ? "alert" : "status" },
+    icon(st.toastError ? "error" : "check"),
+    h("span", {}, st.toast),
+    action
+      ? h("button", { type: "button", class: "btn text small toast-action", onclick: () => (Object.assign(st, { toast: "", toastAction: undefined }), toastId++, action.run()) }, action.label)
+      : null,
+  );
 }
 
 export function topBar(...children: Child[]): HTMLElement {
@@ -462,11 +494,21 @@ async function syncNow(ctx: Ctx, force: boolean) {
 function open(ctx: Ctx, route: Route) {
   clearInterval(totpTimer);
   stopRepromptWatch();
+  const from = st.route;
   Object.assign(st, { route, error: undefined, confirmDelete: 0, totp: undefined, totpFailed: undefined, large: undefined, qr: undefined, notesPreview: false, pwned: undefined, memory: undefined, reveal: new Set(), copied: "", uriOpen: new Set(), picking: undefined, repromptFor: undefined, itemFailedFor: undefined });
   if (route.kind !== "edit") st.draft = undefined;
   if (route.kind === "org") orgDraft.id = ""; // read from the item on the first render
   if (route.kind === "item") noteOpened(route.id);
   ctx.rerender();
+  // Back on the list, focus returns to the row the item was opened from (the copy in view, when it is listed twice).
+  if (route.kind === "list" && from.kind === "item") {
+    const id = from.id;
+    ctx.afterRender(() => {
+      const rows = [...document.querySelectorAll<HTMLElement>(`[data-item="${CSS.escape(id)}"]`)];
+      const seen = rows.find((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; });
+      (seen ?? rows[0])?.focus({ preventScroll: true });
+    });
+  }
 }
 
 // ---------- list ----------
@@ -524,7 +566,7 @@ async function fullItem(ctx: Ctx, id: string): Promise<Json | undefined> {
   const r = await send<Json>({ type: "getItem", id });
   if (r.ok) return r.data;
   if (r.code === "reprompt") open(ctx, { kind: "item", id });
-  else toast(ctx, r.error);
+  else toast(ctx, r.error, { error: true });
   return undefined;
 }
 
@@ -538,7 +580,7 @@ async function copyTotp(ctx: Ctx, id: string) {
   const r = await send<{ code: string }>({ type: "totp", id });
   if (r.ok) await copy(ctx, r.data.code);
   else if (r.code === "reprompt") open(ctx, { kind: "item", id });
-  else toast(ctx, r.error);
+  else toast(ctx, r.error, { error: true });
 }
 
 const iconMode = () => !settingsOf()?.quickActionMenus;
@@ -631,6 +673,7 @@ function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
         type: "button",
         class: "row-main",
         role: "listitem",
+        "data-item": i.id,
         "aria-label": t("showItem", name),
         onclick: () => open(ctx, { kind: "item", id: i.id }),
       },
@@ -653,11 +696,22 @@ function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
 function emptyState(ctx: Ctx, q: string): HTMLElement {
   const filtered = !!(q || st.folder);
   const key = st.folder === "trash" ? "trashEmpty" : st.folder === "fav" ? "favoritesEmpty" : filtered ? "noMatches" : "vaultEmpty";
+  // What fills this view, said where it is empty.
+  const hint = st.folder === "trash" ? "trashEmptyHint" : filtered ? undefined : "vaultEmptyHint";
   return h(
     "div",
     { class: "empty" },
     icon(filtered ? "search" : "vault"),
     h("strong", {}, t(key)),
+    hint ? h("p", {}, t(hint)) : null,
+    !filtered
+      ? h(
+          "div",
+          { class: "row-actions" },
+          h("button", { type: "button", class: "btn text small", onclick: () => ctx.goto("settings", t("importVault")) }, icon("download"), t("importVault")),
+          h("button", { type: "button", class: "btn filled small", onclick: () => void newItem(ctx) }, icon("plus"), t("newItem")),
+        )
+      : null,
     filtered
       ? h(
           "button",
@@ -761,6 +815,15 @@ function arrowNav(box: HTMLElement) {
   });
 }
 
+let skeletonShown = false;
+/** The skeleton while the first list loads; the list that replaces it fades in (popup.css .list-body.enter). */
+function listOrSkeleton(list: HTMLElement): HTMLElement {
+  const loading = st.loading && !st.list;
+  if (!loading && skeletonShown) list.classList.add("enter");
+  skeletonShown = loading;
+  return loading ? skeletonList() : list;
+}
+
 function skeletonList(): HTMLElement {
   return h(
     "div",
@@ -794,6 +857,7 @@ function listView(ctx: Ctx): HTMLElement {
     type: "search",
     placeholder: t("searchVault"),
     "aria-label": t("searchVault"),
+    "aria-keyshortcuts": "/",
     title: t("searchHint"),
     value: st.query,
     ...(st.sawList ? {} : { "data-autofocus": "1" }),
@@ -896,7 +960,7 @@ function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
-    st.loading && !st.list ? skeletonList() : listBox,
+    listOrSkeleton(listBox),
     h("button", { type: "button", class: "fab icon", "aria-label": t("newItem"), title: t("newItem"), onclick: () => void newItem(ctx) }, icon("plus")),
   );
 }
@@ -906,7 +970,7 @@ function listView(ctx: Ctx): HTMLElement {
 async function fill(ctx: Ctx, id: string, anyway = false, page = st.page) {
   // Bound to the page shown here: the worker refuses once the tab or its site changed, also after the dialog.
   const { tabId, origin, host } = page ?? {};
-  if (tabId === undefined || !origin) return toast(ctx, t("fillFailed"));
+  if (tabId === undefined || !origin) return toast(ctx, t("fillFailed"), { error: true });
   const r = await send<FillResult>({ type: "fill", id, tabId, origin, anyway });
   if (r.ok && r.data.filled) window.close();
   // A flagged item: its view shows the master-password screen (itemView gets "reprompt" from getItem).
@@ -914,7 +978,7 @@ async function fill(ctx: Ctx, id: string, anyway = false, page = st.page) {
   // A login saved for another site: fill only after the user says so, like the official client.
   else if (r.ok && r.data.reason === "noMatch" && !anyway && host && (await confirmFill(host))) await fill(ctx, id, true, page);
   else {
-    toast(ctx, r.ok ? t("fillFailed") : r.error);
+    toast(ctx, r.ok ? t("fillFailed") : r.error, { error: true });
     // Show the site the browser is on now, so the next click is for the page the user sees.
     if (!r.ok) await refreshPageMatches(true).then(() => ctx.rerender());
   }
@@ -944,10 +1008,10 @@ const fillButton = (ctx: Ctx, i: VaultItem) =>
 /** Save what the user typed on the page: update the login with the same username, or create one. */
 async function saveFromPage(ctx: Ctx) {
   const page = st.page;
-  if (page?.tabId === undefined || !page.origin) return toast(ctx, t("noLoginOnPage"));
+  if (page?.tabId === undefined || !page.origin) return toast(ctx, t("noLoginOnPage"), { error: true });
   // The page the site section shows, so the logins compared below are that site's.
   const r = await send<PageLogin | null>({ type: "readPageLogin", tabId: page.tabId, origin: page.origin });
-  if (!r.ok || !r.data) return toast(ctx, r.ok ? t("noLoginOnPage") : r.error);
+  if (!r.ok || !r.data) return toast(ctx, r.ok ? t("noLoginOnPage") : r.error, { error: true });
   const login = r.data;
   const same = page.items.find((i) => i.type === 1 && !i.readOnly && i.sub === login.username);
   if (same) {
@@ -1272,7 +1336,7 @@ async function refreshTotp(ctx: Ctx, id: string) {
 export const actionRow = (ic: IconName, title: string, onclick: () => void, danger = false) =>
   h("button", { type: "button", class: `row${danger ? " danger" : ""}`, disabled: st.busy, onclick }, icon(ic), h("div", { class: "body" }, h("span", { class: "title" }, title)));
 
-async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: string, back = true) {
+async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: string, back = true, undo?: () => void) {
   st.busy = true;
   ctx.rerender();
   const r = await send<VaultList>(req);
@@ -1291,7 +1355,7 @@ async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: stri
     }
     ctx.rerender();
   }
-  toast(ctx, t(done));
+  toast(ctx, t(done), undo ? { action: { label: t("undo"), run: undo } } : {});
 }
 
 /** Arm a destructive action on the first tap, run it on the second; disarms itself after a while. */
@@ -1692,7 +1756,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       inTrash
         ? actionRow("trash", t(confirm ? "confirmPurge" : "deleteForever"), () => twoTap(ctx, () => void vaultAction(ctx, { type: "purgeItem", id }, "deleted")), true)
         : editable
-          ? actionRow("trash", t(confirm ? "confirmTrash" : "moveToTrash"), () => twoTap(ctx, () => void vaultAction(ctx, { type: "deleteItem", id }, "movedToTrash")), true)
+          ? actionRow("trash", t(confirm ? "confirmTrash" : "moveToTrash"), () => twoTap(ctx, () => void vaultAction(ctx, { type: "deleteItem", id }, "movedToTrash", true, () => void vaultAction(ctx, { type: "restoreItem", id }, "restored", false))), true)
           : null,
     ),
   );
@@ -1730,9 +1794,11 @@ async function returnFromPicker(ctx: Ctx) {
   open(ctx, { kind: "edit", isNew });
   if (!f) return;
   // The editor opens on its Name box, at the top: take the user to the row they just added, ready for its value.
-  const row = [...document.querySelectorAll(".field-card")].at(-1);
-  row?.querySelector<HTMLElement>(".field-card-bottom input, .field-card-bottom select")?.focus({ preventScroll: true });
-  row?.scrollIntoView({ block: "center" });
+  ctx.afterRender(() => {
+    const row = [...document.querySelectorAll(".field-card")].at(-1);
+    row?.querySelector<HTMLElement>(".field-card-bottom input, .field-card-bottom select")?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: "center" });
+  });
 }
 
 async function pickFromPage(ctx: Ctx, isNew: boolean) {
@@ -1872,7 +1938,7 @@ function uriEditor(ctx: Ctx): Child[] {
     );
     return h(
       "div",
-      { class: "field-card" },
+      { class: "field-card", "data-row": "uri" },
       h(
         "div",
         { class: "field-card-top" },
@@ -1891,7 +1957,7 @@ function uriEditor(ctx: Ctx): Child[] {
         }),
         ...moveButtons(ctx, d.uris, i, () => st.uriOpen.clear()),
         d.uris.length > 1
-          ? iconButton("trash", t("removeWebsite"), () => (d.uris.splice(i, 1), st.uriOpen.clear(), ctx.rerender()), { class: "icon-btn sm" })
+          ? iconButton("trash", t("removeWebsite"), (e) => leave(rowOf(e, ".field-card"), () => (d.uris.splice(i, 1), st.uriOpen.clear(), ctx.rerender())), { class: "icon-btn sm" })
           : null,
       ),
       open ? h("div", { class: "field-card-bottom" }, select) : null,
@@ -1904,7 +1970,7 @@ function uriEditor(ctx: Ctx): Child[] {
   return [
     sectionTitle(t("autofillOptions")),
     ...rows,
-    h("button", { type: "button", class: "btn text small add-field", onclick: () => (d.uris.push({ uri: "", match: null }), ctx.rerender()) }, icon("plus"), t("addWebsite")),
+    h("button", { type: "button", class: "btn text small add-field", onclick: () => (d.uris.push({ uri: "", match: null }), ctx.rerender(), enter([...document.querySelectorAll("[data-row=uri]")].at(-1))) }, icon("plus"), t("addWebsite")),
   ];
 }
 
@@ -2071,7 +2137,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     const typeId = `field-type-${i}`;
     return h(
       "div",
-      { class: "field-card" },
+      { class: "field-card", "data-row": "field" },
       h(
         "div",
         { class: "field-card-top" },
@@ -2090,7 +2156,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
           }),
         ),
         ...moveButtons(ctx, d.fields, i),
-        iconButton("trash", t("removeField"), () => (d.fields.splice(i, 1), ctx.rerender()), { class: "icon-btn sm" }),
+        iconButton("trash", t("removeField"), (e) => leave(rowOf(e, ".field-card"), () => (d.fields.splice(i, 1), ctx.rerender())), { class: "icon-btn sm" }),
       ),
       h(
         "div",
@@ -2178,7 +2244,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     h(
       "div",
       { class: "add-field-row" },
-      h("button", { type: "button", class: "btn text small add-field", onclick: () => (d.fields.push({ name: "", value: "", type: 0 }), ctx.rerender()) }, icon("plus"), t("addField")),
+      h("button", { type: "button", class: "btn text small add-field", onclick: () => (d.fields.push({ name: "", value: "", type: 0 }), ctx.rerender(), enter([...document.querySelectorAll("[data-row=field]")].at(-1))) }, icon("plus"), t("addField")),
       h("button", { type: "button", class: "btn text small add-field", onclick: () => void pickFromPage(ctx, isNew) }, icon("globe"), t("pickField")),
     ),
     field("edit-notes", t("notes"), text(() => d.notes, (v) => (d.notes = v), { area: true, rows: 3 })),
@@ -2317,7 +2383,7 @@ function foldersView(ctx: Ctx): HTMLElement {
         "span",
         { class: "field-actions" },
         iconButton("edit", t("rename"), () => void vaultAction(ctx, { type: "saveFolder", id, name: names.get(id) ?? "" }, "saved", false), { class: "icon-btn sm" }),
-        iconButton("trash", t("deleteFolder"), () => void vaultAction(ctx, { type: "deleteFolder", id }, "deleted", false), { class: "icon-btn sm delete" }),
+        iconButton("trash", t("deleteFolder"), (e) => leave(rowOf(e), () => void vaultAction(ctx, { type: "deleteFolder", id }, "deleted", false)), { class: "icon-btn sm delete" }),
       ),
     );
   return h(

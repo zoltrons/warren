@@ -2,12 +2,13 @@
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, TWO_FACTOR, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
 import type { ExportFormat, LoginRequest, Request, Response, State } from "../shared/messages.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
-import { applyTheme, type Child, h, inPanel, newSession, savedTheme, send, sessionNow, setUiPref, t, THEMES, uiPref, when, withChevron, WIDTHS } from "./dom.ts";
+import { applyTheme, type Child, h, inPanel, leave, motionOff, newSession, rowOf, savedTheme, send, sessionNow, setUiPref, t, THEMES, uiPref, when, withChevron, WIDTHS } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvailable } from "./biometric.ts";
 import { passkeyRequestId, passkeyScreen, resetPasskey } from "./passkey.ts";
 import { resetSend, sendScreen, startTextSend } from "./send.ts";
 import { generatorScreen } from "./generator.ts";
+import { navMotion } from "./motion.ts";
 import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, reloadList, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
 
 // ---------- state ----------
@@ -35,6 +36,8 @@ interface Ui {
   /** Other devices' login requests: fetched when the approval screen opens; `later` hides it for this popup. */
   requests?: LoginRequest[];
   requestsLater?: boolean;
+  /** Settings: the search box's text; rows that do not mention it are hidden. */
+  settingsQuery?: string;
 }
 
 let pinLock = true; // PIN setup: ask for the master password after a browser restart
@@ -561,7 +564,7 @@ function lockedView(s: State): HTMLElement {
     h(
       "div",
       { class: "brand" },
-      h("div", { class: "logo" }, icon(withPin ? "dialpad" : "lock")),
+      h("div", { class: "logo" }, icon("lock")),
       h("h1", {}, t("lockedTitle")),
       h("p", {}, s.email ?? ""),
       h("p", { class: "host" }, host(s.serverUrl)),
@@ -604,6 +607,7 @@ function navButton(tab: Ui["tab"], label: string, ic: IconName) {
       onclick: () => {
         ui.tab = tab;
         ui.pinSetup = false;
+        ui.settingsQuery = undefined;
         // The "On this site" matches depend on settings edited in another tab; refresh on return.
         if (tab === "vault") void refreshPageMatches().then(render, render);
         else render();
@@ -693,20 +697,23 @@ function settingsTab(s: State): HTMLElement {
       (err: unknown) => ((box.checked = false), (ui.error = String(err)), render()),
     );
   };
-  return h(
+  const page = h(
     "div",
     { class: "page" },
     h("div", { class: "top" }, h("h1", {}, t("settings"))),
-    h("h2", { class: "section-title" }, t("autofill")),
-    h(
+    settingsSearch(),
+    h("p", { class: "empty settings-none", role: "status", hidden: true }, t("noMatchingSettings")),
+    section(
+      t("autofill"),
+      h(
       "div",
       { class: "group" },
       row(t("inlineMenu"), t("inlineMenuHint"), toggle(t("inlineMenu"), s.settings.inlineMenu, (b) => void act({ type: "setSettings", inlineMenu: b.checked }))),
       s.settings.inlineMenu
-        ? row(t("inlineMenuCards"), undefined, toggle(t("inlineMenuCards"), s.settings.inlineMenuCards, (b) => void act({ type: "setSettings", inlineMenuCards: b.checked })))
+        ? row(t("inlineMenuCards"), undefined, toggle(t("inlineMenuCards"), s.settings.inlineMenuCards, (b) => void act({ type: "setSettings", inlineMenuCards: b.checked })), { class: "row nested" })
         : null,
       s.settings.inlineMenu
-        ? row(t("inlineMenuIdentities"), undefined, toggle(t("inlineMenuIdentities"), s.settings.inlineMenuIdentities, (b) => void act({ type: "setSettings", inlineMenuIdentities: b.checked })))
+        ? row(t("inlineMenuIdentities"), undefined, toggle(t("inlineMenuIdentities"), s.settings.inlineMenuIdentities, (b) => void act({ type: "setSettings", inlineMenuIdentities: b.checked })), { class: "row nested" })
         : null,
       row(t("showCardsOnTab"), undefined, toggle(t("showCardsOnTab"), s.settings.showCardsOnTab, (b) => void act({ type: "setSettings", showCardsOnTab: b.checked }))),
       row(t("showIdentitiesOnTab"), undefined, toggle(t("showIdentitiesOnTab"), s.settings.showIdentitiesOnTab, (b) => void act({ type: "setSettings", showIdentitiesOnTab: b.checked }))),
@@ -719,22 +726,26 @@ function settingsTab(s: State): HTMLElement {
         ? row(t("neverSaveSites", String(s.settings.neverSave.length)), s.settings.neverSave.join(", "), h("button", { type: "button", class: "btn text small", onclick: () => void act({ type: "setSettings", clearNeverSave: true }) }, t("clear")))
         : null,
       ...s.settings.neverSave.map((h0) =>
-        row(h0, undefined, iconButton("close", t("removeNeverSave", h0), () => void act({ type: "setSettings", removeNeverSave: h0 }))),
+        row(h0, undefined, iconButton("close", t("removeNeverSave", h0), (e) => leave(rowOf(e), () => void act({ type: "setSettings", removeNeverSave: h0 })))),
       ),
       s.settings.savePrompt ? hostForm(t("addNeverSave"), (host) => ({ type: "setSettings", addNeverSave: host })) : null,
       row(t("defaultManager"), t("defaultManagerHint"), toggle(t("defaultManager"), s.settings.defaultManager, defaultManager)),
       row(t("autosubmit"), t("autosubmitHint"), toggle(t("autosubmit"), s.settings.autosubmit, (b) => void act({ type: "setSettings", autosubmit: b.checked }))),
+      ),
     ),
-    h("h2", { class: "section-title" }, t("blockedSites")),
-    h("p", { class: "caption" }, t("blockedSitesHint")),
-    h(
-      "div",
-      { class: "group" },
-      ...s.settings.blocked.map((h0) => row(h0, undefined, iconButton("close", t("unblockSite", h0), () => void act({ type: "setSettings", removeBlocked: h0 })))),
-      hostForm(t("blockSite"), (host) => ({ type: "setSettings", addBlocked: host })),
+    section(
+      t("blockedSites"),
+      h("p", { class: "caption" }, t("blockedSitesHint")),
+      h(
+        "div",
+        { class: "group" },
+        ...s.settings.blocked.map((h0) => row(h0, undefined, iconButton("close", t("unblockSite", h0), (e) => leave(rowOf(e), () => void act({ type: "setSettings", removeBlocked: h0 }))))),
+        hostForm(t("blockSite"), (host) => ({ type: "setSettings", addBlocked: host })),
+      ),
     ),
-    h("h2", { class: "section-title" }, t("autofillOnPageLoad")),
-    h(
+    section(
+      t("autofillOnPageLoad"),
+      h(
       "div",
       { class: "group" },
       row(
@@ -759,9 +770,11 @@ function settingsTab(s: State): HTMLElement {
             ),
           )
         : null,
+      ),
     ),
-    h("h2", { class: "section-title" }, t("additionalOptions")),
-    h(
+    section(
+      t("additionalOptions"),
+      h(
       "div",
       { class: "group" },
       row(
@@ -794,17 +807,21 @@ function settingsTab(s: State): HTMLElement {
           ),
         ),
       ),
+      ),
     ),
-    h("h2", { class: "section-title" }, t("account")),
-    h(
-      "div",
-      { class: "group" },
-      row(s.email ?? "", t("loggedIn")),
-      row(host(s.serverUrl), s.serverVersion ? t("serverVersion", s.serverVersion) : undefined),
-      s.weakKdf ? h("div", { class: "notice warn" }, icon("shield"), h("div", {}, t("weakKdf"))) : null,
+    section(
+      t("account"),
+      h(
+        "div",
+        { class: "group" },
+        row(s.email ?? "", t("loggedIn")),
+        row(host(s.serverUrl), s.serverVersion ? t("serverVersion", s.serverVersion) : undefined),
+        s.weakKdf ? h("div", { class: "notice warn" }, icon("shield"), h("div", {}, t("weakKdf"))) : null,
+      ),
     ),
-    h("h2", { class: "section-title" }, t("security")),
-    h(
+    section(
+      t("security"),
+      h(
       "div",
       { class: "group" },
       row(t("autoLock"), undefined, withChevron(select)),
@@ -820,37 +837,6 @@ function settingsTab(s: State): HTMLElement {
           ),
         ),
       ),
-      row(
-        t("theme"),
-        undefined,
-        withChevron(
-          h(
-            "select",
-            {
-              "aria-label": t("theme"),
-              onchange: (e: Event) => {
-                localStorage.setItem("theme", (e.target as HTMLSelectElement).value);
-                applyTheme();
-              },
-            },
-            ...THEMES.map((v) => h("option", { value: v, selected: v === savedTheme() }, t(`theme_${v}`))),
-          ),
-        ),
-      ),
-      row(
-        t("extensionWidth"),
-        undefined,
-        withChevron(
-          h(
-            "select",
-            { "aria-label": t("extensionWidth"), onchange: (e: Event) => setUiPref("width", (e.target as HTMLSelectElement).value) },
-            ...WIDTHS.map((v) => h("option", { value: v, selected: v === uiPref("width") }, t(`width_${v}`))),
-          ),
-        ),
-      ),
-      row(t("compactMode"), undefined, toggle(t("compactMode"), uiPref("compact") === "on", (b) => setUiPref("compact", b.checked ? "on" : "off"))),
-      row(t("showAnimations"), undefined, toggle(t("showAnimations"), uiPref("motion") === "on", (b) => setUiPref("motion", b.checked ? "on" : "off"))),
-      row(t("favicons"), t("faviconsHint"), toggle(t("favicons"), s.settings.favicons, (b) => void act({ type: "setSettings", favicons: b.checked }))),
       row(t("lockOnSystemLock"), undefined, h("span", { class: "switch" }, sysLock, h("span"))),
       row(
         t("unlockWithPin"),
@@ -883,9 +869,49 @@ function settingsTab(s: State): HTMLElement {
         t("biometricUnlockHint"),
         toggle(t("biometricUnlock"), !!s.biometric, (b) => void (b.checked ? setupBiometric() : disableBiometric())),
       ),
+      ),
     ),
-    h("h2", { class: "section-title" }, t("vault")),
-    h(
+    section(
+      t("appearance"),
+      h(
+        "div",
+        { class: "group" },
+      row(
+        t("theme"),
+        undefined,
+        withChevron(
+          h(
+            "select",
+            {
+              "aria-label": t("theme"),
+              onchange: (e: Event) => {
+                localStorage.setItem("theme", (e.target as HTMLSelectElement).value);
+                applyTheme();
+              },
+            },
+            ...THEMES.map((v) => h("option", { value: v, selected: v === savedTheme() }, t(`theme_${v}`))),
+          ),
+        ),
+      ),
+      row(
+        t("extensionWidth"),
+        undefined,
+        withChevron(
+          h(
+            "select",
+            { "aria-label": t("extensionWidth"), onchange: (e: Event) => setUiPref("width", (e.target as HTMLSelectElement).value) },
+            ...WIDTHS.map((v) => h("option", { value: v, selected: v === uiPref("width") }, t(`width_${v}`))),
+          ),
+        ),
+      ),
+      row(t("compactMode"), undefined, toggle(t("compactMode"), uiPref("compact") === "on", (b) => setUiPref("compact", b.checked ? "on" : "off"))),
+      row(t("showAnimations"), undefined, toggle(t("showAnimations"), uiPref("motion") === "on", (b) => setUiPref("motion", b.checked ? "on" : "off"))),
+      row(t("favicons"), t("faviconsHint"), toggle(t("favicons"), s.settings.favicons, (b) => void act({ type: "setSettings", favicons: b.checked }))),
+      ),
+    ),
+    section(
+      t("vault"),
+      h(
       "div",
       { class: "group" },
       row(
@@ -959,11 +985,13 @@ function settingsTab(s: State): HTMLElement {
             h("button", { type: "submit", class: "btn tonal small", disabled: ui.busy }, t("importConfirm")),
           )
         : null,
+      ),
     ),
     busyBar(),
     ui.info ? h("p", { class: "note", role: "status" }, ui.info) : null,
-    h("h2", { class: "section-title" }, t("about")),
-    h(
+    section(
+      t("about"),
+      h(
       "div",
       { class: "group" },
       row(t("about"), chrome.runtime.getManifest().version),
@@ -987,9 +1015,61 @@ function settingsTab(s: State): HTMLElement {
         : null,
       row(t("lockNow"), undefined, null, { type: "button", onclick: () => void act({ type: "lock" }) }, "button"),
       row(t("logOut"), undefined, null, { type: "button", class: "row danger", onclick: () => void act({ type: "logout" }) }, "button"),
+      ),
     ),
     errorBox(),
   );
+  filterSettings(page, ui.settingsQuery ?? "");
+  return page;
+}
+
+/** One titled block of settings; the search hides a whole block when nothing in it matches. */
+function section(title: string, ...children: Child[]): HTMLElement {
+  return h("section", { class: "settings-section", "aria-label": title }, h("h2", { class: "section-title" }, title), ...children);
+}
+
+function settingsSearch(): HTMLElement {
+  const input = h("input", {
+    type: "search",
+    id: "settings-search",
+    autocomplete: "off",
+    spellcheck: false,
+    "aria-label": t("searchSettings"),
+    "aria-keyshortcuts": "/",
+    title: t("searchShortcutHint"),
+    placeholder: t("searchSettings"),
+    value: ui.settingsQuery ?? "",
+    oninput: (e: Event) => {
+      ui.settingsQuery = (e.target as HTMLInputElement).value;
+      // Filtered in place: a re-render would move the caret.
+      filterSettings((e.target as HTMLElement).closest(".page")!, ui.settingsQuery);
+    },
+  });
+  return h("div", { class: "search" }, icon("search"), input);
+}
+
+/**
+ * Shows the settings rows whose text mentions `query` (a block whose title matches stays whole) and hides the
+ * blocks left empty. Case- and accent-blind, so "kilit" finds "Kilit" and "theme" finds "Theme".
+ */
+function filterSettings(page: ParentNode, query: string): void {
+  const fold = (v: string) => v.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const q = fold(query.trim());
+  let shown = 0;
+  for (const sec of page.querySelectorAll<HTMLElement>(".settings-section")) {
+    const whole = !q || fold(sec.querySelector(".section-title")?.textContent ?? "").includes(q);
+    let any = whole;
+    for (const el of sec.querySelectorAll<HTMLElement>(".group > *, .caption")) {
+      const labels = [...el.querySelectorAll("[aria-label]")].map((x) => x.getAttribute("aria-label")).join(" ");
+      const hit = whole || fold(`${el.textContent} ${labels}`).includes(q);
+      el.hidden = !hit;
+      any ||= hit;
+    }
+    sec.hidden = !any;
+    if (any) shown++;
+  }
+  const none = page.querySelector<HTMLElement>(".settings-none");
+  if (none) none.hidden = shown > 0;
 }
 
 async function exportVault(password: string, format: ExportFormat, filePassword: string) {
@@ -1072,10 +1152,12 @@ const vaultCtx: Ctx = {
   lock: () => void act({ type: "lock" }),
   email: () => state?.email,
   settings: () => state?.settings,
-  goto: (tab) => {
+  goto: (tab, settingsQuery) => {
     ui.tab = tab;
+    ui.settingsQuery = settingsQuery;
     render();
   },
+  afterRender: (fn) => (swapPending ? afterSwap.push(fn) : fn()),
   shareAsSend: (text) => {
     startTextSend(text);
     ui.tab = "send";
@@ -1097,6 +1179,10 @@ function screenKey(): string {
   return ui.tab === "vault" ? `vault:${vaultRouteKey()}` : ui.tab;
 }
 
+let renderSeq = 0;
+/** A screen change is waiting for its transition frame; what must run on its DOM waits with it (Ctx.afterRender). */
+let swapPending = false;
+const afterSwap: (() => void)[] = [];
 function render(): void {
   if (!state) return;
   const s = state;
@@ -1121,22 +1207,67 @@ function render(): void {
   else view = unlockedView(s);
 
   const key = screenKey();
-  if (lastScreen) scrollMemory.set(lastScreen, window.scrollY);
-  const focused = document.activeElement?.id;
-  // A sideways chip row keeps its position on the same screen (picking a chip re-renders it).
-  const chipsLeft = lastScreen === key ? app.querySelector(".chips.scroll")?.scrollLeft : undefined;
-  app.replaceChildren(view);
-  const chips = app.querySelector(".chips.scroll");
-  if (chips && chipsLeft) chips.scrollLeft = chipsLeft;
-  const again = focused ? document.getElementById(focused) : null;
-  ((again ?? app.querySelector("[data-autofocus]")) as HTMLElement | null)?.focus({ preventScroll: true });
-  window.scrollTo(0, scrollMemory.get(key) ?? 0);
-  lastScreen = key;
+  const seq = ++renderSeq;
+  const swap = () => {
+    // A newer render (a lock, say) already replaced the screen: this one must not land on top of it.
+    if (seq !== renderSeq) return;
+    if (lastScreen) scrollMemory.set(lastScreen, window.scrollY);
+    const focused = document.activeElement?.id;
+    // A sideways chip row keeps its position on the same screen (picking a chip re-renders it).
+    const chipsLeft = lastScreen === key ? app.querySelector(".chips.scroll")?.scrollLeft : undefined;
+    app.replaceChildren(view);
+    const chips = app.querySelector(".chips.scroll");
+    if (chips && chipsLeft) chips.scrollLeft = chipsLeft;
+    const again = focused ? document.getElementById(focused) : null;
+    // A new screen without a field to type in: its heading takes focus, so a screen reader announces where it is.
+    const heading = lastScreen !== key ? app.querySelector<HTMLElement>("h1") : null;
+    heading?.setAttribute("tabindex", "-1");
+    ((again ?? app.querySelector("[data-autofocus]") ?? heading) as HTMLElement | null)?.focus({ preventScroll: true });
+    window.scrollTo(0, scrollMemory.get(key) ?? 0);
+    lastY = window.scrollY; // a restored position is not a scroll down
+    document.documentElement.dataset.scroll = "up";
+    lastScreen = key;
+    swapPending = false;
+    for (const fn of afterSwap.splice(0)) fn();
+  };
+  const nav = navMotion(lastScreen, key);
+  if (!nav || !document.startViewTransition || motionOff()) swap();
+  else {
+    document.documentElement.dataset.nav = nav;
+    swapPending = true;
+    // A newer screen change skips this one; its swap still runs (and steps aside if stale), only the animation is dropped.
+    document.startViewTransition(swap).ready.catch(() => {});
+  }
   if (firstRender) {
     firstRender = false;
     performance.mark("warren:first-render");
   }
 }
+
+// Which way the page scrolls, for the floating "New item" (popup.css html[data-scroll]); at the bottom it shows.
+let lastY = 0;
+addEventListener(
+  "scroll",
+  () => {
+    const y = window.scrollY;
+    const atEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 4;
+    document.documentElement.dataset.scroll = y > lastY && !atEnd ? "down" : "up";
+    lastY = y;
+  },
+  { passive: true },
+);
+
+// "/" jumps to the screen's search box (vault, settings), as on most sites with one; typing in a field is left alone.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+  const target = e.target as HTMLElement | null;
+  if (target?.closest("input, textarea, select, [contenteditable]")) return;
+  const search = app.querySelector<HTMLInputElement>("input[type=search]");
+  if (!search) return;
+  e.preventDefault();
+  search.focus();
+  search.select();
+});
 
 // A mouse wheel only scrolls vertically: on a sideways chip row it scrolls the row instead.
 document.addEventListener(

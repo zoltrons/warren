@@ -70,6 +70,26 @@ export function guardClicks(): void {
   );
 }
 
+/** Animations are off: the user's system setting or Settings → Appearance. */
+export const motionOff = (): boolean =>
+  document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/**
+ * Plays a row's exit (popup.css .leaving) before `remove` drops it from the state. A second removal while one is
+ * playing is ignored: its captured index would point at the wrong row once the first is gone.
+ */
+export function leave(row: Element | null | undefined, remove: () => void): void {
+  if (!row || motionOff()) return remove();
+  if (document.querySelector(".leaving")) return;
+  row.classList.add("leaving");
+  setTimeout(remove, 120); // --fast
+}
+
+/** The row an add just rendered slides in (popup.css .entering). */
+export const enter = (row: Element | null | undefined): void => row?.classList.add("entering");
+/** The row a click came from (the click handler's own row, for leave()). */
+export const rowOf = (e: Event, selector = ".row, .field-card"): Element | null => (e.currentTarget as Element | null)?.closest(selector) ?? null;
+
 /** True in the side panel (sidepanel.html), false in the action popup or a tab. */
 export const inPanel = document.body.classList.contains("panel");
 

@@ -92,6 +92,22 @@ const scenes = {
     await page.getByRole("searchbox").waitFor();
     await page.getByRole("button", { name: "Folders", exact: true }).click();
   },
+  empty: async (page) => page.getByRole("searchbox").waitFor(),
+  settingsSearch: async (page) => {
+    await page.getByRole("searchbox").waitFor();
+    await page.getByRole("navigation").getByRole("button", { name: "Settings" }).click();
+    await page.getByRole("searchbox", { name: "Search settings" }).fill("lock");
+    // A matching row shows, the rest of the settings hide.
+    if (!(await page.getByText("Auto-lock", { exact: true }).isVisible()) || (await page.getByText("Theme", { exact: true }).isVisible()))
+      errors.push("settings search: 'lock' should show Auto-lock and hide Theme");
+  },
+  trashUndo: async (page) => {
+    await page.getByRole("searchbox").waitFor();
+    await page.getByRole("listitem").filter({ hasText: "GitHub" }).click();
+    await page.getByRole("button", { name: "Move to trash" }).click();
+    await page.getByRole("button", { name: /Move to trash|Tap again/ }).click();
+    await page.getByRole("button", { name: "Undo" }).waitFor();
+  },
   passkey: async (page) => page.getByRole("heading").first().waitFor(),
   locked: async () => {},
   login: async () => {},
@@ -122,6 +138,21 @@ for (const scheme of ["light", "dark"]) {
   await inline.waitForTimeout(500);
   await inline.screenshot({ path: join(shots, `${scheme}-inline.png`) });
   await inline.close();
+}
+
+// A lock while a screen change is still animating: the item view asked for before it must never land on top of
+// the lock screen (popup.ts render, the renderSeq check).
+{
+  const page = await open("/?scene=list");
+  await page.getByRole("searchbox").waitFor();
+  await page.evaluate(() => {
+    document.querySelector("[role=listitem]").click();
+    document.querySelector("button[aria-label='Lock now']").click();
+  });
+  await page.waitForTimeout(600);
+  const headings = await page.evaluate(() => [...document.querySelectorAll("h1")].map((e) => e.textContent).join("|"));
+  if (headings !== "Vault locked") errors.push(`lock during a screen change shows "${headings}", not the lock screen`);
+  await page.close();
 }
 
 await browser.close();

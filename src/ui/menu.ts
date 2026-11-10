@@ -49,5 +49,21 @@ async function render() {
   );
 }
 
+// Keyboard: the field's ArrowDown focuses this frame (content.ts) and the first row takes it; the arrows move between
+// rows, Enter fills (a click, still behind guardClicks), Escape or ArrowUp on the first row goes back to the field.
+const rows = () => [...app.querySelectorAll<HTMLElement>("button.row")];
+addEventListener("focus", () => {
+  if (!app.contains(document.activeElement)) rows()[0]?.focus();
+});
+addEventListener("keydown", (e) => {
+  const list = rows();
+  const at = list.indexOf(document.activeElement as HTMLElement);
+  const next = e.key === "Escape" ? -1 : ({ ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: list.length - 1 } as Record<string, number>)[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  if (next < 0) return parent.postMessage("warren:back", "*");
+  list[Math.min(next, list.length - 1)]?.focus();
+});
+
 guardClicks();
 void render();

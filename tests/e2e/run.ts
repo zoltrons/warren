@@ -1370,6 +1370,26 @@ try {
     assert.equal(await loginPage.locator("warren-menu").count(), 0, "menu reopened after the fill");
   });
 
+  await step("inline menu: ArrowDown enters the list, ArrowUp returns to the field, Enter fills", async () => {
+    await loginPage.goto(`${SITE}/login`);
+    await loginPage.click("#u");
+    const menu = await frameOf(loginPage, "menu.html");
+    // Only the menu's own frame can send it back: the page posting the same text changes nothing.
+    await loginPage.evaluate(() => postMessage("warren:back", "*"));
+    await loginPage.waitForTimeout(200);
+    assert.equal(await loginPage.locator("warren-menu").count(), 1, "a page message closed the menu");
+    await loginPage.keyboard.press("ArrowDown");
+    await menu.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Fill Local app");
+    await loginPage.keyboard.press("ArrowUp"); // above the first row: back to the field, menu closed
+    await loginPage.waitForFunction(() => document.activeElement?.id === "u" && !document.querySelector("warren-menu"));
+    await loginPage.click("#u"); // a click reopens a dismissed menu
+    await frameOf(loginPage, "menu.html");
+    await loginPage.keyboard.press("ArrowDown");
+    await loginPage.keyboard.press("Enter");
+    await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
+    assert.deepEqual(await fieldValues(), ["local-user", "local-pass-2"]);
+  });
+
   await step("blocked websites: no inline menu there until unblocked", async () => {
     await page.getByRole("button", { name: "Settings" }).click();
     await page.getByRole("textbox", { name: "Block" }).fill("http://localhost:8099/login");

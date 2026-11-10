@@ -88,7 +88,8 @@ file over 8 KiB gets a ceiling from its role.
 | UI shell, auth screens, settings | `src/ui/popup.ts` | |
 | Vault list, item view, editor | `src/ui/vault.ts` | The largest file (~2400 lines): search it, do not read all of it. |
 | Generator, Send, biometric setup | `src/ui/generator.ts`, `send.ts`, `biometric.ts` | |
-| DOM helper, messaging, i18n | `src/ui/dom.ts` (`h`, `send`, `t`) | No `innerHTML` (invariant 12). |
+| DOM helper, messaging, i18n | `src/ui/dom.ts` (`h`, `send`, `t`, `enter`/`leave` row motion) | No `innerHTML` (invariant 12). |
+| Screen motion | `src/ui/motion.ts` (`navMotion`), `render` in `popup.ts` | View transitions; locks never animate (invariant 8b). |
 | Icons | `src/ui/icons.ts` (Lucide glyphs) | |
 | Theme tokens, all CSS | `src/ui/popup.css` | |
 | Strings | `src/_locales/en/messages.json` | `tr` has only name, description and disclaimer. |
@@ -222,6 +223,8 @@ Write `docker run … image:tag@sha256:<digest>`. Renovate's regex only updates 
 - `npm run test:biometric` leaves an `--e2e` build in `dist/ext`: run `npm run build` again before loading it by hand.
 - A Homebrew `cargo` ahead of rustup on PATH breaks the wasm build: put `~/.cargo/bin` first.
 - `src/ui/vault.ts`, `tests/e2e/run.ts` and `docs/SECURITY.md` are long: search them, read only the part you need.
+- A screen change in the popup lands a frame later (view transition): code that reads the new screen's DOM right
+  after `open()`/`goto()` must run in `ctx.afterRender()`.
 
 ## 4. Which proof to run
 

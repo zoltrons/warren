@@ -94,6 +94,9 @@ const vault: VaultList = {
   syncedAt: Date.now(),
 };
 
+/** The "empty" scene: a new account's vault. */
+const listed: VaultList = scene === "empty" ? { ...vault, items: [], folders: [] } : vault;
+
 const matches: PageMatches = {
   tabId: 1,
   host: "github.com",
@@ -143,12 +146,17 @@ function respond(req: Request): Response<unknown> {
   switch (req.type) {
     case "getState":
       return { ok: true, data: state };
+    case "lock":
+      return { ok: true, data: { ...state, phase: "locked" } };
     case "vaultList":
+      return { ok: true, data: listed };
+    case "deleteItem":
+    case "restoreItem":
       return { ok: true, data: vault };
     case "sync":
-      return { ok: true, data: vault };
+      return { ok: true, data: listed };
     case "pageMatches":
-      return { ok: true, data: matches };
+      return { ok: true, data: scene === "empty" ? { ...matches, items: [] } : matches };
     case "getItem":
       return { ok: true, data: github };
     case "totp":

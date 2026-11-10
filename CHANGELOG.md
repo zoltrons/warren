@@ -2,6 +2,32 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Added
+
+- Settings: a search box (press `/`) that keeps only the matching settings, and an Appearance section for theme,
+  width, density, animations and website icons (they used to sit under Security).
+- Moving an item to the trash shows Undo in its notice; a notice stays up while the pointer or keyboard is on it.
+- An empty vault offers New item and Import items.
+- The inline menu works from the keyboard: ArrowDown enters the list, the arrows move, Enter fills, Escape returns
+  to the field.
+- `/` jumps to the vault search.
+
+### Changed
+
+- Screens slide when you go into an item or back, and fade between tabs; rows added or removed in the editor, and rows
+  removed from the settings lists, animate; a disclosure opens to its height. All of it follows the system's reduced
+  motion setting and Settings → Appearance → animations.
+- A failure notice (a fill that did not work) shows an error icon instead of the check mark.
+- The floating New item button steps aside while the list scrolls down.
+- Clearer setting names: the inline menu's card and identity options sit under it as "Include cards" and "Include
+  identities"; the popup's options read "Suggest cards/identities for this page in the popup".
+- Icons and hints drawn in the faint color reach a 3:1 contrast in the light theme; placeholders use the muted
+  text color.
+- The lock screen always shows the lock.
+- "Cannot reach the server" says what to check.
+
 ## 0.0.14 — 2026-11-10
 
 ### Security
