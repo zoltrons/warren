@@ -52,17 +52,17 @@ export async function getAliasSettings(vendor: AliasVendor): Promise<AliasSettin
 }
 
 export async function saveAliasSettings(settings: AliasSettings): Promise<void> {
-  const info = ALIAS_INFO[settings.vendor];
-  if (info.selfHost && settings.baseUrl.trim()) {
-    // Reject a bad URL while the user is on the field, not when the first alias fails.
+  const [enc] = await seal([JSON.stringify({ ...(await readAliasStore()), [settings.vendor]: settings })], BLOCK.record);
+  await setLocal("aliasSettings", enc!);
+  // After the write: every field sends the whole record, so a bad URL must not drop the key typed next to it.
+  // Making an alias re-checks the URL (aliasBaseUrl), so a bad one stored here never leaves the device.
+  if (ALIAS_INFO[settings.vendor].selfHost && settings.baseUrl.trim()) {
     try {
       normalizeAliasBaseUrl(settings.baseUrl);
     } catch (e) {
       throw new UserError("invalid", (e as Error).message);
     }
   }
-  const [enc] = await seal([JSON.stringify({ ...(await readAliasStore()), [settings.vendor]: settings })], BLOCK.record);
-  await setLocal("aliasSettings", enc!);
 }
 
 /** The site the alias is being made for: the active tab, never a URL from the message. Only its origin leaves: paths carry reset tokens and account ids too. */
