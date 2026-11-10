@@ -2,6 +2,27 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## 0.0.14 — 2026-11-10
+
+### Security
+
+- Two-step login with a security key: the server's `webauthn-connector.html` is framed with
+  `sandbox="allow-scripts allow-same-origin"`, so a click in it cannot navigate the popup or its tab to a page of
+  the server's.
+- Passkeys: an IP address is only its own RP ID; the tail of one ("1.1" on 192.168.1.1) is no longer taken as a
+  parent domain.
+- The timed clipboard clear reads the clipboard first and only erases the value Warren copied (a SHA-256 kept in
+  `storage.session`); this adds the `clipboardRead` permission.
+- CSV export: the item name is defused like the username (a passkey item is named by its relying party's name).
+
+### Fixed
+
+- Email aliases: a self-host URL the service rejects no longer drops the API key typed next to it; the key is
+  saved and the URL error is shown.
+- A password built on a common word is weak whatever its length.
+- The field watcher walks the page once instead of twice and scans the shadow root of an added host.
+- The vault cache is no longer bound by the 10 MB storage quota (`unlimitedStorage`).
+
 ## 0.0.13 — 2026-11-08
 
 ### Security
