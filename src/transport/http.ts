@@ -28,8 +28,8 @@ interface CallOptions {
 
 /**
  * Upper bound for a response body. A broken or hostile server must not be able to exhaust the service
- * worker's memory (or the worker's message budget) by answering with an endless stream. Generous: the
- * local vault cache is limited to chrome.storage's 10 MB anyway.
+ * worker's memory (or the worker's message budget) by answering with an endless stream. Generous: far above
+ * any real vault's sync response.
  */
 export const MAX_RESPONSE_BYTES = 48 * 1024 * 1024;
 

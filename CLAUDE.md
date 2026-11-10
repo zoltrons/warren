@@ -2,8 +2,9 @@
 
 MV3 extension (Chromium 156+), a Bitwarden-protocol client for self-hosted **Vaultwarden**. Vanilla TS + esbuild,
 crypto and the autofill engine in Rust→WASM. Priorities: Vaultwarden compatibility > security > size/speed.
-Chat with the owner in Turkish; code, comments, commits in English. Browser is **Helium**, never Chrome.
-`AGENTS.md` is a symlink to this file.
+Code, comments, commits and docs in English. Browser is **Helium**, never Chrome.
+`AGENTS.md` is a symlink to this file. Long form (where each concern lives, recipes, which proof to run, which docs a
+change must update, commit/changelog/version rules): **`docs/AGENT_MAP.md`**, read the section for your area.
 
 ## Commands
 
@@ -46,7 +47,8 @@ page.js/content.js --CollectedPageDetails--> background/engine.ts --> crates/aut
   `biometric.ts`, `dom.ts` (`h`, `send`, `t`), `icons.ts` (Lucide glyphs), `popup.css` (all theme tokens).
 - `src/_locales/{en,tr}` — en has every string; tr only name/description/disclaimer. `src/icons/` — generated PNGs.
 - `brand/` — logo masters, palette, store text. `docs/` — `ARCHITECTURE`, `SECURITY` (numbered invariants),
-  `COMPATIBILITY` (server quirks), `UPDATES` (release/self-update), `UPSTREAM_SYNC`, `LICENSING`, `PARITY_REPORT`.
+  `COMPATIBILITY` (server quirks), `UPDATES` (release/self-update), `UPSTREAM_SYNC`, `LICENSING`, `PARITY_REPORT`,
+  `VERIFICATION` (adversarial invariant pass, `tools/mutate.mjs`), `AGENT_MAP` (agent guide).
 
 ## Recipes
 

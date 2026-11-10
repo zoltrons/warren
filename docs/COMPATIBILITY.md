@@ -18,8 +18,10 @@ on 2026-10-29, unless marked otherwise.
   falls back to UnknownBrowser.
 * `Bitwarden-Client-Version` must parse as semver on routes that use the `ClientVersion` guard.
   We send `2026.10.1` (browser-v2026.10.1 pin). `Bitwarden-Client-Name: browser`.
-  Exact header set of the official extension still to be confirmed from
-  `clients/libs/common/src/platform/services/api.service.ts` in Phase 1 (not yet read).
+  The official client (`libs/common/src/services/api.service.ts` at the `clients` pin) sends the same three, plus
+  `Bitwarden-Package-Type` when it has a package type, and `Cache-Control: no-store` / `Pragma: no-cache` on GET;
+  Warren gets the same effect on its requests to the server from `fetch(..., { cache: "no-store" })`
+  (`src/transport/http.ts`, `src/transport/vault.ts`).
 
 ## Registration (test harness only)
 
@@ -180,16 +182,16 @@ on 2026-10-29, unless marked otherwise.
 ## Not yet verified
 
 * Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions, `viewPassword: false` and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.
-* Cipher key encryption (`key` on new ciphers) and V2 "blob" ciphers (`data` =
-  `{"format_version":1,"wrapped_cek":...}`): present in sdk-internal test vectors; whether Vaultwarden
-  1.37.4 stores/returns blob ciphers is unknown.
-* Round-trip with the official `bw` CLI (contract test b) → Phase 1/2.
+* V2 "blob" ciphers (`data` = `{"format_version":1,"wrapped_cek":...}`): present in sdk-internal test vectors;
+  whether Vaultwarden stores and returns them is unknown. (Cipher key encryption, a `key` on new, cloned and imported
+  items, is covered by the e2e suite.)
+* Round-trip with the official `bw` CLI (contract test b): not done.
 
 ## Chromium 156 (verified in Playwright Chromium 156.0.8078.4)
 
 * MV3 extension with `minimum_chrome_version: "156"`, module service worker, CSP
   `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'` loads and instantiates WASM in an
-  offscreen document.
-* `chrome.offscreen.hasDocument()` exists (docs: Chrome 150+), used by the bench.
-* Offscreen reasons (developer.chrome.com, via Context7): no reason fits "hold secrets in memory";
-  the Phase 0 spike used `WORKERS`. To decide in Phase 1.
+  offscreen document. The shipped CSP is stricter (`object-src 'none'` plus Trusted Types, `src/manifest.json`).
+* `chrome.offscreen.hasDocument()` exists (docs: Chrome 150+), used by `src/background/core.ts`.
+* Offscreen reasons: no reason fits "hold secrets in memory"; Warren opens the document with `WORKERS` (the crypto
+  worker) and `CLIPBOARD` (the timed clear), `src/background/core.ts`.

@@ -1,4 +1,4 @@
-// Phase 1 end-to-end test: real extension in a Chromium 156 browser against a local Vaultwarden.
+// End-to-end test: real extension in a Chromium 156 browser against a local Vaultwarden.
 //   docker compose -f dev/vaultwarden/docker-compose.yml up -d
 //   bash tools/build-wasm.sh --features register --out dist/wasm-register   (test-only account setup)
 //   node tools/fetch-psl.mjs && node tools/build.mjs --e2e
@@ -469,7 +469,7 @@ try {
     assert.deepEqual(await sw.evaluate(() => (globalThis as unknown as { yubiSeen: unknown }).yubiSeen), ["3", otp]);
   });
 
-  // ---------- Phase 4: WebAuthn two-step login ----------
+  // ---------- WebAuthn two-step login ----------
   const keyUser = await register("webauthn", [0, 600000, 0, 0]);
   // Virtual authenticator on a page of the server origin registers the key like the web vault would.
   const regPage = await ctx.newPage();
@@ -538,7 +538,7 @@ try {
     await page.getByRole("button", { name: "Vault", exact: true }).click();
   });
 
-  // ---------- Phase 4: Send ----------
+  // ---------- Send ----------
   const openSendTab = async () => {
     await page.getByRole("navigation").getByRole("button", { name: "Send" }).click();
     await page.getByRole("heading", { name: "Send", exact: true }).waitFor();
@@ -631,7 +631,7 @@ try {
     assert.equal(await page.getByRole("listitem").filter({ hasText: "Report" }).count(), 1);
   });
 
-  // ---------- Phase 2: vault ----------
+  // ---------- vault ----------
   const vaultUser = await register("vault", [1, 3, 64, 4]);
   const api = await apiSession(vaultUser);
   const work = await api.folder("Work");
@@ -1203,7 +1203,7 @@ try {
     assert.ok(!(await page.locator("#app").innerText()).includes("GitHub"));
   });
 
-  // ---------- Phase 3: autofill ----------
+  // ---------- autofill ----------
   const s3 = await apiSession(vaultUser);
   await s3.create({ type: 1, name: "Local app", login: { username: "local-user", password: "local-pass", totp: TOTP_KEY, uris: [{ uri: SITE, match: null }] } });
   s3.done();
@@ -1878,7 +1878,7 @@ try {
     for (const k of ours) assert.equal(off[k].levelOfControl, "controllable_by_this_extension", k);
   });
 
-  // ---------- Phase 4: passkeys ----------
+  // ---------- passkeys ----------
   // The page calls WebAuthn; our approval window opens as a new page; Node verifies the results.
   const approve = async (action: (w: Page) => Promise<void>) => {
     const w = await ctx.waitForEvent("page", { predicate: (p) => p.url().includes("popup.html?passkey=") });
@@ -2068,7 +2068,7 @@ try {
     await cdp.detach();
   });
 
-  // ---------- Phase 4: SSO (mock IdP from docker-compose.yml) ----------
+  // ---------- SSO (mock IdP from docker-compose.yml) ----------
   const ssoUser = await register("sso", [1, 3, 64, 4]);
 
   await step("SSO: IdP login, connector tab closes itself, vault unlocks with the master password", async () => {

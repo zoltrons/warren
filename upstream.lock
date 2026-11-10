@@ -1,5 +1,5 @@
 # Warren upstream pins. Single source of truth for "which upstream are we compatible with".
-# Read by tools/sync-upstream (diff report) and by CI (Cargo rev bump, Vaultwarden matrix).
+# Read by tools/sync-upstream (diff report) and by CI (Cargo rev bump).
 # Bump only via a PR that runs the test vectors + Vaultwarden contract tests.
 # Format: TOML.
 

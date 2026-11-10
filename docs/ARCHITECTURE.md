@@ -219,11 +219,4 @@ Vaultwarden latest, report WASM size delta). Details in `docs/UPSTREAM_SYNC.md`.
 
 ## Repository layout
 
-```
-crates/core-wasm/       Rust -> WASM
-src/{shared,transport,vault,background,offscreen,autofill,ui}/
-tools/                  sync-upstream, size-budget, e2e helpers
-dev/vaultwarden/        docker-compose for the local test server
-docs/                   ARCHITECTURE, COMPATIBILITY, LICENSING, SECURITY, PARITY_REPORT, UPSTREAM_SYNC
-upstream.lock, upstream-map.yaml
-```
+File by file, with the recipes for each kind of change: `docs/AGENT_MAP.md`.

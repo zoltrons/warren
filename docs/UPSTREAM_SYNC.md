@@ -1,20 +1,20 @@
 # Upstream sync
 
-Status: pins and map exist (Phase 0); the report tool and CI job are Phase 1 work.
+Status: pins, map, report tool and weekly report job exist; pin bumps come as Renovate PRs.
 
 ## Pieces
 
 1. **`upstream.lock`** — exact sdk-internal rev, clients commit, Vaultwarden version + image digest,
    wasm-bindgen version. `crates/core-wasm/Cargo.toml` uses the same rev; CI fails if they differ.
 2. **`upstream-map.yaml`** — upstream path → local module, with what to watch.
-3. **`tools/sync-upstream`** (Phase 1) — for every mapped path, `gh api repos/<repo>/compare/<pin>...main`
+3. **`tools/sync-upstream.mjs`** — for every mapped path, `gh api repos/<repo>/compare/<pin>...main`
    filtered to that path; outputs Markdown grouped by local module. Flags: new/removed serde fields,
    changed enums (cipher types, KDF types, EncString types), new key formats (COSE, type 7+), KDF
    default changes, new required request fields (Vaultwarden `CipherData`, `ConnectData`). Read-only.
-4. **CI bump job** (Phase 1) — weekly: bump the Cargo git rev to sdk-internal main, then run
-   `tools/fetch-test-vectors.sh` + `cargo test`, the Vaultwarden contract tests on `:latest` (the only
-   supported release), and `tools/size-report.mjs` with the WASM size delta in the PR body.
-5. **Renovate** (Phase 1) — JS devDependencies, the last-reviewed Vaultwarden version, and the sdk-internal rev
+4. **`.github/workflows/upstream.yml`** — weekly, read-only: runs the report into the job summary. A bump PR runs
+   `ci.yml`: test vectors + `cargo test`, the Vaultwarden contract tests on `:latest` (the only supported release)
+   and the size report.
+5. **Renovate** (`renovate.json`) — JS devDependencies, the last-reviewed Vaultwarden version, and the sdk-internal rev
    (regex manager over `upstream.lock` + `Cargo.toml`).
 
 ## Contract tests

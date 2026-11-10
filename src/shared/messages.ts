@@ -10,7 +10,7 @@ import { arr, bool, literal, num, obj, opt, record, str, u32, unknownValue, type
 
 /** A page-controlled form value: big enough for any real credential, small enough to bound storage. */
 const MAX_FIELD = 8192;
-/** An unencrypted Bitwarden JSON export; the local vault cache is limited to 10 MB anyway. */
+/** An unencrypted Bitwarden JSON export: far above any real vault, small enough to bound the worker's memory. */
 const MAX_IMPORT_CHARS = 16 * 1024 * 1024;
 
 const capped =

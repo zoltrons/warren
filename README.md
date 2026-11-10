@@ -97,7 +97,8 @@ npm run check               # types + unit tests
 
 More commands (Rust tests, e2e against a real Vaultwarden, UI preview) are in [AGENTS.md](AGENTS.md).
 How it is put together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). What has to stay true:
-[docs/SECURITY.md](docs/SECURITY.md).
+[docs/SECURITY.md](docs/SECURITY.md), checked in [docs/VERIFICATION.md](docs/VERIFICATION.md). Server quirks:
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ## Credits and license
 

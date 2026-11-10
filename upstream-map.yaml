@@ -1,4 +1,4 @@
-# Upstream path -> local module that mirrors it. Read by tools/sync-upstream (Phase 1) to build a
+# Upstream path -> local module that mirrors it. Read by tools/sync-upstream.mjs to build a
 # diff report between the pins in upstream.lock and upstream main. Never edits code.
 # repo keys match upstream.lock sections.
 
@@ -36,14 +36,14 @@
   sync: Permissions, CSP, minimum_chrome_version, commands.
 - repo: clients
   path: apps/browser/src/autofill/content
-  local: src/autofill (Phase 3)
+  local: src/autofill
   sync: Field detection heuristics, performance notes.
 - repo: clients
   path: apps/browser/src/platform/offscreen-document
   local: src/offscreen
   sync: Offscreen reasons and lifecycle.
 - repo: clients
-  path: libs/common/src/platform/services/api.service.ts
+  path: libs/common/src/services/api.service.ts
   local: src/transport/http.ts
   sync: Client headers (Bitwarden-Client-Name/Version, Device-Type), token request fields.
 - repo: vaultwarden
