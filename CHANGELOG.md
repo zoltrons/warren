@@ -8,6 +8,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 - The popup no longer stutters on hover, scroll and website icon loads in a large vault: each time the browser sized
   the popup to its content, two narrow-layout rules made it re-check the styles of the whole list, twice.
+- Vault search keeps up with typing in a large vault: each item's text is prepared for matching once per list, not
+  on every keystroke (5000 items: about 20 ms per key down to 2).
+- The inline menu no longer downloads the weak-password word list on every website; only the popup loads it.
 
 ## 0.0.17 — 2026-11-11
 

@@ -10,7 +10,7 @@ export interface Clause {
   value: string;
 }
 
-/** What a clause can look at. Everything is already lower-case-insensitive text from the list summary. */
+/** What a clause can look at, already passed through `folded` (once per list, not once per keystroke). */
 export interface Searchable {
   name: string;
   sub: string;
@@ -28,6 +28,9 @@ const TOKEN = /(-?)(?:([a-z]+):)?(?:"([^"]*)"|(\S+))/gi;
  * "istanbul", "KILIT" and "kılıt" all meet. NFD first, so "İ" splits into "I" plus a mark that is then dropped.
  */
 export const fold = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/ı/g, "i");
+
+/** An item's search text folded, for matchesQuery. */
+export const folded = (i: Searchable): Searchable => ({ ...i, name: fold(i.name), sub: fold(i.sub), uris: i.uris.map(fold), folder: fold(i.folder), type: i.type.map(fold) });
 
 export function parseQuery(query: string): Clause[] {
   const out: Clause[] = [];
@@ -52,7 +55,7 @@ const hostOf = (u: string): string => {
 };
 
 function clauseMatches(c: Clause, i: Searchable): boolean {
-  const has = (s: string) => fold(s).includes(c.value);
+  const has = (s: string) => s.includes(c.value);
   switch (c.field) {
     case "title":
     case "name":
@@ -69,7 +72,7 @@ function clauseMatches(c: Clause, i: Searchable): boolean {
     case "folder":
       return has(i.folder);
     case "type":
-      return i.type.some((n) => fold(n).startsWith(c.value));
+      return i.type.some((n) => n.startsWith(c.value));
     case "is":
       return i.flags.includes(c.value);
     default:

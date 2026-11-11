@@ -9,6 +9,7 @@ import { passkeyRequestId, passkeyScreen, resetPasskey } from "./passkey.ts";
 import { resetSend, sendScreen, startTextSend } from "./send.ts";
 import { generatorScreen } from "./generator.ts";
 import { navMotion } from "./motion.ts";
+import { loadCommonWords } from "../shared/strength.ts";
 import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, reloadList, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
 
 // ---------- state ----------
@@ -1343,6 +1344,9 @@ if (!inPanel)
     inTab = !!tab;
     render();
   });
+
+// The full weak-word list for the strength labels, after the first paint (the inline menu never needs it).
+requestIdleCallback(() => void loadCommonWords(), { timeout: 500 });
 
 void stateRequest({ type: "getState" }).then((res) => {
   if (!res.ok) {

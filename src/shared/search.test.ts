@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { byRelevance, matchesQuery, parseQuery, type Searchable } from "./search.ts";
+import { byRelevance, folded, matchesQuery, parseQuery, type Searchable } from "./search.ts";
 
-const item = (over: Partial<Searchable> = {}): Searchable => ({ name: "GitHub", sub: "ada@example.com", uris: ["https://github.com/login"], folder: "Work", type: ["login"], flags: ["favorite"], ...over });
+const item = (over: Partial<Searchable> = {}): Searchable => folded({ name: "GitHub", sub: "ada@example.com", uris: ["https://github.com/login"], folder: "Work", type: ["login"], flags: ["favorite"], ...over });
 const find = (q: string, i = item()) => matchesQuery(parseQuery(q), i);
 
 test("plain words must all match; quotes keep a phrase together", () => {

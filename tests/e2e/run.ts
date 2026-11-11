@@ -1383,6 +1383,9 @@ try {
     await loginPage.evaluate(() => postMessage("warren:back", "*"));
     await loginPage.waitForTimeout(200);
     assert.equal(await loginPage.locator("warren-menu").count(), 1, "a page message closed the menu");
+    // The menu gives its first row focus whenever its frame gets focus (menu.ts). The page must not be able to give
+    // it that focus and put a row under the user's Enter: the closed shadow root keeps the frame out of window.frames.
+    assert.equal(await loginPage.evaluate(() => frames.length), 0, "the page can reach the menu's frame");
     await loginPage.keyboard.press("ArrowDown");
     await menu.waitForFunction(() => document.activeElement?.getAttribute("aria-label")?.endsWith(", Local app"));
     await loginPage.keyboard.press("ArrowUp"); // above the first row: back to the field, menu closed

@@ -8,8 +8,8 @@ import { cachedFavicon, type Favicon, loadFavicon } from "./favicon.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
-import { byRelevance, type Clause, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
-import { loadCommonWords, passwordLevel } from "../shared/strength.ts";
+import { byRelevance, type Clause, folded, matchesQuery, parseQuery, type Searchable } from "../shared/search.ts";
+import { passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
@@ -19,9 +19,6 @@ import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { pwnedCount } from "./pwned.ts";
 import { qrSvg } from "./qr.ts";
-
-// Loaded when the popup opens, so the first strength label already uses the full list.
-void loadCommonWords();
 
 type Json = Record<string, unknown>;
 export interface Ctx {
@@ -534,7 +531,16 @@ const TYPE_LABEL: Record<number, string> = { 1: "typeLogin", 2: "typeNote", 3: "
 
 const TYPE_ENGLISH: Record<number, string> = { 1: "login", 2: "note", 3: "card", 4: "identity", 5: "ssh" };
 
+// A new list (sync, save, rename) brings new item objects, so an entry never outlives its item's text.
+const searchCache = new WeakMap<VaultItem, Searchable>();
+
 function searchable(i: VaultItem): Searchable {
+  let s = searchCache.get(i);
+  if (!s) searchCache.set(i, (s = folded(searchFields(i))));
+  return s;
+}
+
+function searchFields(i: VaultItem): Searchable {
   const typeKey = TYPE_LABEL[i.type];
   const flags = [i.favorite && "favorite", i.reused && "reused", i.weak && "weak", i.hasTotp && "totp", i.reprompt && "reprompt"].filter((f): f is string => !!f);
   return {
