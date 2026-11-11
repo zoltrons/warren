@@ -3,7 +3,7 @@
   "name": "__MSG_extName__",
   "short_name": "__MSG_appName__",
   "description": "__MSG_appDesc__",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "default_locale": "en",
   "minimum_chrome_version": "156",
   "update_url": "https://github.com/zoltrons/warren/releases/latest/download/updates.xml",

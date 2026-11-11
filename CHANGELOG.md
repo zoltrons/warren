@@ -2,7 +2,7 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.16 — 2026-11-11
 
 ### Added
 
