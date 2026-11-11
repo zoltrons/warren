@@ -605,13 +605,14 @@ try {
   });
 
   await step("Send: edit renames, keeps link and password; disabling stops access", async () => {
-    await page.getByRole("button", { name: "Edit Report" }).click();
+    // The row itself opens the Send for editing (there is no separate Edit button).
+    await page.getByRole("listitem").filter({ hasText: "Report" }).locator(".row-main").click();
     await page.getByRole("heading", { name: "Edit Send" }).waitFor();
     await fill("Name", "Report Q3");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByRole("listitem").filter({ hasText: "Report Q3" }).waitFor();
     assert.equal((await receive(reportLink, "s3nd-pw")).name, "Report Q3");
-    await page.getByRole("button", { name: "Edit Report Q3" }).click();
+    await page.getByRole("listitem").filter({ hasText: "Report Q3" }).locator(".row-main").click();
     await page.getByLabel("Disable this Send").check();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByRole("listitem").filter({ hasText: "Disabled" }).waitFor();
@@ -1108,13 +1109,13 @@ try {
     const out = page.getByRole("status", { name: "Generated value" }).or(page.locator("output"));
     await page.waitForFunction(() => (document.querySelector("output")?.textContent ?? "…") !== "…");
     assert.equal((await out.first().innerText()).length, 20);
-    await page.getByRole("button", { name: "Passphrase" }).click();
+    await page.getByRole("combobox", { name: "Type" }).selectOption("passphrase");
     await page.waitForFunction(() => (document.querySelector("output")?.textContent ?? "").split("-").length === 5);
   });
 
   await step("generator: usernames (random word, plus-addressed email, catch-all)", async () => {
     const until = (re: RegExp) => page.waitForFunction((src) => new RegExp(src).test(document.querySelector("output")?.textContent ?? ""), re.source);
-    await page.getByRole("button", { name: "Username", exact: true }).click();
+    await page.getByRole("combobox", { name: "Type" }).selectOption("username");
     await until(/^[A-Z][a-z-]+\d{4}$/); // capitalized EFF word + 4 digits (defaults)
     await page.getByRole("button", { name: "Plus-addressed email" }).click();
     await until(/^[^@]+\+[a-z0-9]{8}@/);
@@ -1127,7 +1128,7 @@ try {
   });
 
   await step("generator: an alias API key survives closing the popup and a lock, encrypted at rest", async () => {
-    await page.getByRole("button", { name: "Alias", exact: true }).click();
+    await page.getByRole("combobox", { name: "Type" }).selectOption("alias");
     await page.getByLabel("API key").fill("sl-token-secret");
     // No blur and no change event: the popup just goes away, like a click outside it.
     await poll("alias key saved", () => sw.evaluate(async () => !!(await chrome.storage.local.get("aliasSettings")).aliasSettings));
@@ -1137,7 +1138,7 @@ try {
     await unlockIfLocked();
     await page.getByRole("button", { name: "Generator" }).click();
     await poll("alias key restored", async () => (await page.getByLabel("API key").inputValue()) === "sl-token-secret");
-    await page.getByRole("button", { name: "Username", exact: true }).click();
+    await page.getByRole("combobox", { name: "Type" }).selectOption("username");
     await page.waitForFunction(() => /^[a-z0-9]{8}@catch\.example$/.test(document.querySelector("output")?.textContent ?? ""));
   });
 
@@ -1367,7 +1368,7 @@ try {
     await loginPage.goto(`${SITE}/login`);
     await loginPage.click("#u");
     const menu = await frameOf(loginPage, "menu.html");
-    await menu.getByRole("button", { name: "Fill Local app" }).click();
+    await menu.getByRole("option", { name: /, Local app$/ }).click();
     await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
     assert.deepEqual(await fieldValues(), ["local-user", "local-pass-2"]);
     await loginPage.waitForTimeout(300);
@@ -1383,7 +1384,7 @@ try {
     await loginPage.waitForTimeout(200);
     assert.equal(await loginPage.locator("warren-menu").count(), 1, "a page message closed the menu");
     await loginPage.keyboard.press("ArrowDown");
-    await menu.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Fill Local app");
+    await menu.waitForFunction(() => document.activeElement?.getAttribute("aria-label")?.endsWith(", Local app"));
     await loginPage.keyboard.press("ArrowUp"); // above the first row: back to the field, menu closed
     await loginPage.waitForFunction(() => document.activeElement?.id === "u" && !document.querySelector("warren-menu"));
     await loginPage.click("#u"); // a click reopens a dismissed menu
@@ -1414,12 +1415,12 @@ try {
   await step("inline menu: fields in an open shadow root and in an iframe", async () => {
     await loginPage.goto(`${SITE}/shadow`);
     await loginPage.locator("#u").click(); // Playwright pierces open shadow roots
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
     await loginPage.waitForFunction(() => (document.getElementById("host")!.shadowRoot!.getElementById("p") as HTMLInputElement).value !== "");
     await loginPage.goto(`${SITE}/framed`);
     const inner = loginPage.frameLocator("#f");
     await inner.locator("#u").click();
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
     const f = loginPage.frames().find((x) => x.url() === `${SITE}/login`)!;
     await f.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
     assert.deepEqual(await values(f, ["u", "p"]), ["local-user", "local-pass-2"]);
@@ -1442,7 +1443,7 @@ try {
   await step("inline menu: card fields list cards and fill name, number, expiry and code", async () => {
     await loginPage.goto(`${SITE}/card`);
     await loginPage.click("#cc");
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Visa" }).click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /^Visa/ }).click();
     await loginPage.waitForFunction(() => (document.getElementById("cc") as HTMLInputElement).value !== "");
     assert.deepEqual(await values(loginPage, ["cn", "cc", "m", "y", "cvc"]), ["Ada L", "4111111111111111", "01", "2030", "123"]);
   });
@@ -1470,7 +1471,7 @@ try {
       Object.defineProperty(chrome.action, "openPopup", { configurable: true, value: () => real().then((r: unknown) => (((globalThis as any).popupOpened = true), r)) });
     });
     const newLogin = () => sw.evaluate(async () => (await chrome.storage.session.get("session")).session.newLogin);
-    await menu.getByRole("button", { name: "Create account" }).click();
+    await menu.getByRole("option", { name: "Create account" }).click();
     for (let i = 0; i < 50 && !(await sw.evaluate(() => (globalThis as any).popupOpened)); i++) await other.waitForTimeout(100);
     assert.equal(await sw.evaluate(() => (globalThis as any).popupOpened), true);
     for (let i = 0; i < 50 && (await newLogin()); i++) await other.waitForTimeout(100);
@@ -1495,11 +1496,11 @@ try {
     await loginPage.goto(`${SITE}/login`);
     await loginPage.click("#u");
     const menu = await frameOf(loginPage, "menu.html");
-    await menu.getByRole("button", { name: "Fill Local app" }).waitFor();
-    assert.equal(await menu.getByRole("button", { name: "Create account" }).count(), 0);
+    await menu.getByRole("option", { name: /, Local app$/ }).waitFor();
+    assert.equal(await menu.getByRole("option", { name: "Create account" }).count(), 0);
     await loginPage.goto(`${SITE}/register`);
     await loginPage.click("#u");
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Create account" }).waitFor();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: "Create account" }).waitFor();
   });
 
   await step("inline menu: it opens right under its field, also on a page taller than the window", async () => {
@@ -1507,7 +1508,7 @@ try {
     await loginPage.goto(`${SITE}/login`);
     await loginPage.evaluate(() => { document.body.style.minHeight = "3000px"; });
     await loginPage.click("#u");
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).waitFor();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
     const [field, menu] = await loginPage.evaluate(() => ["#u", "warren-menu"].map((s) => { const r = document.querySelector(s)!.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left }; }));
     assert.ok(Math.abs(menu!.top - field!.bottom - 4) < 1, JSON.stringify({ field, menu }));
     assert.ok(Math.abs(menu!.left - field!.left) < 1, JSON.stringify({ field, menu }));
@@ -1518,7 +1519,7 @@ try {
     await loginPage.bringToFront();
     await loginPage.goto(`${SITE}/split-shadow`);
     await loginPage.click("#u");
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
     await loginPage.waitForFunction(() => document.querySelector("x-b")!.shadowRoot!.querySelector("input")!.value !== "");
     assert.equal(await loginPage.evaluate(() => document.querySelector("x-a")!.shadowRoot!.querySelector("input")!.value), "local-user");
   });
@@ -1540,21 +1541,21 @@ try {
   await step("inline menu: autocomplete=off on a lone code box offers the logins and fills the code", async () => {
     await loginPage.goto(`${SITE}/otp`);
     await loginPage.click("#code");
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
     await loginPage.waitForFunction(() => /^\d{6}$/.test((document.getElementById("code") as HTMLInputElement).value));
   });
 
   await step("autosubmit: off by default, and with the setting a fill presses the login button", async () => {
     await loginPage.goto(`${SITE}/autosubmit`);
     await loginPage.click("#u");
-    await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
     await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
     assert.equal(await loginPage.evaluate(() => (window as unknown as { submitted?: boolean }).submitted ?? false), false);
     await setSetting({ autosubmit: true });
     try {
       await loginPage.goto(`${SITE}/autosubmit`);
       await loginPage.click("#u");
-      await (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Fill Local app" }).click();
+      await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
       await loginPage.waitForFunction(() => (window as unknown as { submitted?: boolean }).submitted === true);
     } finally {
       await setSetting({ autosubmit: false });
@@ -1994,7 +1995,7 @@ try {
     }, [...challenge]);
     await loginPage.locator("#u").click(); // a real focus, once the content script is listening
     got.catch(() => undefined); // a failing step must report its own error, not this call dying with the page
-    const entry = (await frameOf(loginPage, "menu.html")).getByRole("button", { name: "Sign in with passkey" });
+    const entry = (await frameOf(loginPage, "menu.html")).getByRole("option", { name: "Sign in with passkey" });
     await entry.waitFor();
     const opened: Page[] = [];
     const watch = (p: Page) => opened.push(p);

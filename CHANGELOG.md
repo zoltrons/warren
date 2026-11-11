@@ -2,6 +2,33 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Added
+
+- Inline menu: a "Manage passwords…" row pinned under the list opens Warren, as in Chrome's own autofill menu.
+- Save bar: shows the username and a masked password it is about to save; Escape closes it.
+
+### Changed
+
+- The popup, side panel, inline menu and save bar take Chrome's shapes and behavior (Chrome Refresh / Material 3)
+  in Warren's own colors: pill buttons, round icon buttons, borderless tonal cards, 13 px text, Chrome's toggle
+  switch, an inverse toast, and a dropdown and save bar that look like Chrome's. Icons are unchanged.
+- The generator's type is a dropdown next to its title; Send's Text/File and the two-step login method are segmented
+  buttons.
+- Inline menu rows lead with the username and show a key (card, person) glyph; suggestions use regular weight, and
+  the keyboard selection is a filled row.
+- Motion follows Material timing (100/200 ms); menus and dialogs fade in and out, the inline menu and save bar fade
+  in and out, and buttons no longer shrink on press.
+- Short screens (locked, sign-in) are only as tall as their content.
+- Dark theme: a deeper, quieter cherry background so the ear-pink accent carries; hover and press layers take the
+  text color instead of raspberry; section labels are muted subheads.
+- Send rows show a file or text glyph; the save bar leads with a key; the Favorites chip uses the outline star.
+
+### Fixed
+
+- Inline menu rows: their accessible name now contains the visible text (WCAG 2.5.3).
+
 ## 0.0.15 — 2026-11-10
 
 ### Added

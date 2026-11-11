@@ -15,7 +15,7 @@ export interface PickedField {
 const NOT_PICKABLE = ["hidden", "button", "submit", "reset", "image", "file"];
 // Inside the host's closed shadow root, so the page's rules cannot reach these and they need no !important.
 const SEA = "position:fixed;inset:0;width:100%;height:100%;z-index:2147483647;pointer-events:none";
-const BANNER = "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;font:14px system-ui,sans-serif;color:#fff;background:#c2113f;padding:8px 14px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3)";
+const BANNER = "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;font:13px system-ui,sans-serif;color:#fff;background:#c2113f;padding:10px 16px;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15)";
 const SVG = "http://www.w3.org/2000/svg";
 
 type Pickable = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;

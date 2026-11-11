@@ -76,7 +76,7 @@ const scenes = {
   alias: async (page) => {
     await page.getByRole("searchbox").waitFor();
     await page.getByRole("navigation").getByRole("button", { name: "Generator" }).click();
-    await page.getByRole("button", { name: "Alias", exact: true }).click();
+    await page.getByRole("combobox", { name: "Type" }).selectOption("alias");
   },
   send: async (page) => {
     await page.getByRole("searchbox").waitFor();
@@ -120,12 +120,16 @@ for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.waitForTimeout(120);
     await run(page);
-    await page.waitForTimeout(200);
+    // The pointer off every control (a click leaves it hovering the tab or button it pressed).
+    await page.mouse.move(2, 2);
+    // Past the screen change (200 ms view transition), so no shot catches two screens mid-fade.
+    await page.waitForTimeout(450);
     await page.screenshot({ path: join(shots, `${scheme}-${name}.png`) });
     await page.close();
   }
-  for (const frame of ["menu", "bar"]) {
-    const page = await open(`/${frame}.html`, { width: 320, height: 176 });
+  // Frame sizes as content.ts sets them: the menu for three rows plus its footer, the bar at its fitted height.
+  for (const [frame, size] of [["menu", { width: 320, height: 185 }], ["bar", { width: 380, height: 212 }]]) {
+    const page = await open(`/${frame}.html`, size);
     await page.emulateMedia({ colorScheme: scheme });
     await page.waitForTimeout(200);
     await page.screenshot({ path: join(shots, `${scheme}-${frame}.png`) });

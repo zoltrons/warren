@@ -518,7 +518,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     const input = (field: AliasField, label: string, hint: string, props: Record<string, unknown>) =>
       h(
         "label",
-        { class: "row" },
+        { class: "row stack" },
         h("div", { class: "body" }, h("span", { class: "title" }, label), h("span", { class: "sub wrap" }, hint)),
         h("input", {
           ...props,
@@ -533,7 +533,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       );
     options = h(
       "div",
-      {},
+      { class: "stack" },
       h(
         "div",
         { class: "group" },
@@ -562,14 +562,14 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
           : null,
       ),
       info.help
-        ? h("button", { type: "button", class: "btn text small", onclick: () => void chrome.tabs.create({ url: info.help! }) }, t("aliasGetToken", info.name), icon("external"))
+        ? h("button", { type: "button", class: "btn text small add-page", onclick: () => void chrome.tabs.create({ url: info.help! }) }, t("aliasGetToken", info.name), icon("external"))
         : null,
     );
   } else
     options = h(
       "div",
       {},
-      h("div", { class: "chips", role: "group", "aria-label": t("usernameType") }, chip("word", t("usernameWord"), "usernameType"), chip("plus", t("usernamePlus"), "usernameType"), chip("catchall", t("usernameCatchAll"), "usernameType"), chip("subdomain", t("usernameSubdomain"), "usernameType")),
+      h("div", { class: "chips segmented", role: "group", "aria-label": t("usernameType") }, chip("word", t("usernameWord"), "usernameType"), chip("plus", t("usernamePlus"), "usernameType"), chip("catchall", t("usernameCatchAll"), "usernameType"), chip("subdomain", t("usernameSubdomain"), "usernameType")),
       h(
         "div",
         { class: "group" },
@@ -583,19 +583,23 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   return h(
     "div",
     { class: "page" },
-    topBar(pick ? iconButton("back", t("back"), pick.back) : null, h("h1", { class: "grow" }, t("generator")), iconButton("history", t("generatorHistory"), () => void openHistory(ctx))),
-    h(
-      "div",
-      { class: "chips scroll", role: "group", "aria-label": t("generator") },
-      ...[
-        chip("password", t("typePassword")),
-        chip("passphrase", t("typePassphrase")),
-        chip("pin", t("typePin")),
-        chip("username", t("username")),
-        chip("alias", t("forwardedEmailShort")),
-        chip("identity", t("typeIdentity")),
-      ].filter((_, i) => !pick || (pick.field === "password" ? i < 3 : i === 3 || i === 4)),
-    ),
+    // The type (one of six) is picked next to the title, as Chrome puts a page's one dropdown in its header.
+    topBar(pick ? iconButton("back", t("back"), pick.back) : null, h("h1", { class: "grow" }, t("generator")), withChevron(
+      h(
+        "select",
+        { "aria-label": t("generatorType"), onchange: (e: Event) => set("type", (e.target as HTMLSelectElement).value) },
+        ...([
+          ["password", t("typePassword")],
+          ["passphrase", t("typePassphrase")],
+          ["pin", t("typePin")],
+          ["username", t("username")],
+          ["alias", t("forwardedEmailShort")],
+          ["identity", t("typeIdentity")],
+        ] as const)
+          .filter((_, i) => !pick || (pick.field === "password" ? i < 3 : i === 3 || i === 4))
+          .map(([v, label]) => h("option", { value: v, selected: g.type === v }, label)),
+      ),
+    ), iconButton("history", t("generatorHistory"), () => void openHistory(ctx))),
     g.type === "alias" && !gst.generated ? null : h(
       "div",
       { class: "generated" },

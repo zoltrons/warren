@@ -51,12 +51,17 @@ function place() {
   if (host.style.top && (host.style.top !== top || host.style.left !== left)) frame?.contentWindow?.postMessage("moved", "*");
   set("top", top);
   set("left", left);
-  set("width", `${Math.max(r.width, 300)}px`);
+  set("width", `${Math.min(Math.max(r.width, 300), 420)}px`);
 }
 
 function close() {
   gen++;
-  host?.remove();
+  // Fades out like Chrome's dropdown; it takes no clicks while it goes.
+  const [h, f] = [host, frame];
+  if (h && f && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    f.style.pointerEvents = "none";
+    f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, easing: "cubic-bezier(.3,0,.8,.15)" }).finished.then(() => h.remove(), () => h.remove());
+  } else h?.remove();
   host = frame = anchor = undefined;
   removeEventListener("scroll", place, true);
   removeEventListener("resize", place);
@@ -70,7 +75,7 @@ async function open(el: HTMLInputElement) {
   const mine = ++gen;
   const details = api.collectActive(el);
   opening = el;
-  const r = ((await chrome.runtime.sendMessage({ type: "inlineFocus", nonce, details }).catch(() => undefined)) as { data?: { rows: number; kind?: string } } | undefined)?.data;
+  const r = ((await chrome.runtime.sendMessage({ type: "inlineFocus", nonce, details }).catch(() => undefined)) as { data?: { rows: number; footer?: boolean; kind?: string } } | undefined)?.data;
   if (opening === el) opening = undefined;
   if (r?.kind === "login") api.setFocused((focusedLogin = el)); // read by the fill
   if (mine !== gen) return;
@@ -87,10 +92,12 @@ async function open(el: HTMLInputElement) {
   frame = document.createElement("iframe");
   frame.src = `${chrome.runtime.getURL("menu.html")}#${nonce}`;
   frame.allow = "clipboard-write";
-  // Row metrics come from the menu's own CSS: 44 px rows, 1 px separators, 6 px frame padding.
-  frame.style.cssText = `all:initial;display:block;width:100%;height:${Math.min(r.rows, 5) * 44 + 8}px;border:0;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.28);color-scheme:normal`;
+  // Row metrics come from the menu's own CSS (popup.css, body.frame): 44 px rows, 4 px frame padding, a 45 px footer.
+  // Radius and shadow are Chrome's menu ones (8 px, Material elevation 2).
+  frame.style.cssText = `all:initial;display:block;width:100%;height:${Math.min(r.rows, 5) * 44 + 8 + (r.footer ? 45 : 0)}px;border:0;border-radius:8px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15);color-scheme:normal`;
   host.attachShadow({ mode: "closed" }).append(frame);
   document.documentElement.append(host);
+  appear(frame);
   place();
   addEventListener("scroll", place, true);
   addEventListener("resize", place);
@@ -150,6 +157,11 @@ addEventListener(
 // Escape (or ArrowUp past the first row) in the menu hands focus back to its field. Only our frame's own window
 // counts as the sender: a page posting the same text gets nothing.
 addEventListener("message", (e) => {
+  // The save bar reports its content height (bar.ts) so the frame fits it, as Chrome's bubble does.
+  if (barFrame && e.source === barFrame.contentWindow && typeof e.data?.barHeight === "number") {
+    barFrame.style.height = `${Math.max(64, Math.min(e.data.barHeight, 240))}px`;
+    return;
+  }
   if (!frame || e.source !== frame.contentWindow || e.data !== "warren:back") return;
   const el = anchor;
   dismissed = el;
@@ -224,6 +236,13 @@ addEventListener(
 // ---------- messages from the service worker ----------
 
 let bar: HTMLElement | undefined;
+let barFrame: HTMLIFrameElement | undefined;
+
+/** Chrome's own autofill dropdown and bubbles fade in; nothing animates when the user asked for less motion. */
+function appear(el: HTMLElement) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 100, easing: "cubic-bezier(.2,0,0,1)" });
+}
 
 chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (name: string) => void) => {
   if (msg.type === "clickedFieldName") {
@@ -257,12 +276,20 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (n
     bar.style.cssText = "all:initial!important;position:fixed!important;top:12px!important;right:12px!important;z-index:2147483647!important;display:block!important;opacity:1!important;transform:none!important;filter:none!important;width:380px!important;max-width:calc(100vw - 24px)!important";
     const f = document.createElement("iframe");
     f.src = `${chrome.runtime.getURL("bar.html")}#${String((msg as { token?: unknown }).token ?? "")}`;
-    f.style.cssText = "all:initial;display:block;width:100%;height:132px;border:0;border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.28);color-scheme:normal";
+    // Chrome's bubble: 12 px radius, Material elevation 3; the height follows the content (bar.ts).
+    f.style.cssText = "all:initial;display:block;width:100%;height:208px;border:0;border-radius:12px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 3px rgba(0,0,0,.3),0 4px 8px 3px rgba(0,0,0,.15);color-scheme:normal";
     bar.attachShadow({ mode: "closed" }).append(f);
     document.documentElement.append(bar);
+    barFrame = f;
+    appear(f);
   }
   if (msg.type === "barHide") {
-    bar?.remove();
-    bar = undefined;
+    // Fades out as it faded in (appear); it takes no clicks while it goes.
+    const [b, f] = [bar, barFrame];
+    bar = barFrame = undefined;
+    if (b && f && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      f.style.pointerEvents = "none";
+      f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, easing: "cubic-bezier(.3,0,.8,.15)" }).finished.then(() => b.remove(), () => b.remove());
+    } else b?.remove();
   }
 });

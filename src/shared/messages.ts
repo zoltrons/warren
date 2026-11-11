@@ -837,7 +837,8 @@ export type FrameRequest =
   | { type: "inlineList"; nonce: string }
   | { type: "inlineFill"; id: string; nonce: string }
   | { type: "inlinePasskey"; nonce: string }
-  | { type: "inlineUnlock"; nonce: string }
+  /** Opens the popup: to unlock, or from the menu's "Manage passwords" row. */
+  | { type: "inlineOpen"; nonce: string }
   | { type: "inlineNewLogin"; nonce: string }
   | { type: "barInfo"; token: string }
   | { type: "barAction"; action: "save" | "never" | "close"; token: string };
@@ -846,7 +847,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineList: obj({ type: literal("inlineList"), nonce: secret }),
   inlineFill: obj({ type: literal("inlineFill"), id: str, nonce: secret }),
   inlinePasskey: obj({ type: literal("inlinePasskey"), nonce: secret }),
-  inlineUnlock: obj({ type: literal("inlineUnlock"), nonce: secret }),
+  inlineOpen: obj({ type: literal("inlineOpen"), nonce: secret }),
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
   barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close"), token: secret }),

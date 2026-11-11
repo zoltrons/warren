@@ -133,6 +133,7 @@ const github: Json = {
 };
 
 const menuData: MenuData = {
+  kind: "login",
   host: "github.com",
   locked: false,
   items: [

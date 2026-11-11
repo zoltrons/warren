@@ -9,16 +9,16 @@ const app = document.getElementById("app")!;
 /** The secret of the document that opened this menu (see content.ts); the worker checks it. */
 const nonce = location.hash.slice(1);
 
-function row(icn: Node, title: string, sub: string, onclick: () => void, label = title) {
-  return h("button", { type: "button", class: "row", "aria-label": label, onclick }, icn, h("div", { class: "body" }, h("span", { class: "title" }, title), sub ? h("span", { class: "sub" }, sub) : null));
+function row(icn: Node, title: string, sub: string, onclick: () => void, label = title, role?: string) {
+  return h("button", { type: "button", class: "row", "aria-label": label, role, onclick }, icn, h("div", { class: "body" }, h("span", { class: "title" }, title), sub ? h("span", { class: "sub" }, sub) : null));
 }
 
 async function render() {
   const r = await ask<MenuData>({ type: "inlineList", nonce });
-  if (!r.ok) return app.replaceChildren(h("div", { class: "note" }, r.error));
+  if (!r.ok) return app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), r.error));
   const d = r.data;
   if (d.locked)
-    return app.replaceChildren(h("div", { class: "group" }, row(icon("lock"), t("unlockToFill"), t("appName"), () => void ask({ type: "inlineUnlock", nonce }))));
+    return app.replaceChildren(h("div", { class: "group" }, row(icon("lock"), t("unlockToFill"), t("appName"), () => void ask({ type: "inlineOpen", nonce }))));
   // A website waiting on a conditional passkey request: the stored passkey is one click away.
   const passkey = d.passkey
     ? row(
@@ -27,25 +27,31 @@ async function render() {
         t("appName"),
         async () => {
           const p = await ask({ type: "inlinePasskey", nonce });
-          if (!p.ok) app.replaceChildren(h("div", { class: "note" }, p.error));
+          if (!p.ok) app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), p.error));
         },
         t("passkeySignInTitle"),
+        "option",
       )
     : null;
-  const create = d.create ? row(icon("plus"), t("createAccount"), t("appName"), () => void ask({ type: "inlineNewLogin", nonce })) : null;
+  const create = d.create ? row(icon("plus"), t("createAccount"), t("appName"), () => void ask({ type: "inlineNewLogin", nonce }), t("createAccount"), "option") : null;
   app.replaceChildren(
     h(
       "div",
-      { class: "group", role: "list", "aria-label": t("appName") },
+      { class: "group", role: "listbox", "aria-label": t("appName") },
       passkey,
       create,
-      ...d.items.map((i) =>
-        row(tile(i.name, i.type), i.name || t("untitled"), i.sub, async () => {
+      ...d.items.map((i) => {
+        const name = i.name || t("untitled");
+        // Logins lead with the account, as Chrome's dropdown does; the item name says where it is from.
+        const [title, sub] = d.kind === "login" && i.sub ? [i.sub, name] : [name, i.sub];
+        return row(tile("", i.type), title, sub, async () => {
           const f = await ask({ type: "inlineFill", id: i.id, nonce });
-          if (!f.ok) app.replaceChildren(h("div", { class: "note" }, f.error));
-        }, t("fillNamed", i.name)),
-      ),
+          if (!f.ok) app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), f.error));
+        }, [title, sub].filter(Boolean).join(", "), "option"); // the visible text is the name (WCAG 2.5.3)
+      }),
     ),
+    // Pinned under the list, like Chrome's "Manage passwords…": the frame height counts it (content.ts).
+    h("div", { class: "menu-foot" }, row(icon("key"), t("managePasswords"), "", () => void ask({ type: "inlineOpen", nonce }))),
   );
 }
 
@@ -54,6 +60,10 @@ async function render() {
 const rows = () => [...app.querySelectorAll<HTMLElement>("button.row")];
 addEventListener("focus", () => {
   if (!app.contains(document.activeElement)) rows()[0]?.focus();
+});
+// The focused option is the selected one (listbox semantics), and is what the filled highlight marks.
+addEventListener("focusin", () => {
+  for (const r of rows()) if (r.getAttribute("role") === "option") r.setAttribute("aria-selected", String(r === document.activeElement));
 });
 addEventListener("keydown", (e) => {
   const list = rows();

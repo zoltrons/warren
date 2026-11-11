@@ -451,7 +451,7 @@ function twoFactorView(s: State): HTMLElement {
     supported.length
       ? h(
           "div",
-          { class: "chips", role: "group", "aria-label": t("twoFactorMethod") },
+          { class: "chips segmented", role: "group", "aria-label": t("twoFactorMethod") },
           offered.includes(TWO_FACTOR.Authenticator) ? chip(TWO_FACTOR.Authenticator, t("providerAuthenticator"), "phone") : null,
           offered.includes(TWO_FACTOR.Email) ? chip(TWO_FACTOR.Email, t("providerEmail"), "mail") : null,
           offered.includes(TWO_FACTOR.YubiKey) ? chip(TWO_FACTOR.YubiKey, t("providerYubiKey"), "key") : null,
@@ -596,7 +596,7 @@ function lockedView(s: State): HTMLElement {
       switchMethod,
     ),
     // Leaving the account is not an unlock method: set apart and quieter.
-    h("div", { class: "actions apart" }, h("button", { type: "button", class: "btn text small", disabled: ui.busy, onclick: () => void act({ type: "logout" }) }, t("logOut"))),
+    h("div", { class: "actions apart" }, h("button", { type: "button", class: "btn text small quiet", disabled: ui.busy, onclick: () => void act({ type: "logout" }) }, t("logOut"))),
   );
 }
 
@@ -853,7 +853,7 @@ function settingsTab(s: State): HTMLElement {
       h(
       "div",
       { class: "group" },
-      row(t("lockNow"), undefined, icon("lock"), { type: "button", onclick: () => void act({ type: "lock" }) }, "button"),
+      row(t("lockNow"), undefined, icon("lock"), { class: "row action-row", type: "button", onclick: () => void act({ type: "lock" }) }, "button"),
       row(t("autoLock"), undefined, withChevron(select)),
       row(
         t("timeoutAction"),

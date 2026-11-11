@@ -775,7 +775,8 @@ function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
     const ids = new Set(page.items.filter((i) => i.type === 1).map((i) => i.id));
     const site = items.filter((i) => ids.has(i.id));
     for (const i of site) shownAbove.add(i.id);
-    if (site.length || browsing) {
+    // An empty vault leads with its own empty state: no site heading over nothing.
+    if (items.length && (site.length || browsing)) {
       nodes.push(sectionTitle(t("onThisSite", page.host!)));
       if (site.length) nodes.push(h("div", { class: "group", role: "list" }, ...site.map((i) => suggestionRow(ctx, i))));
       if (browsing) nodes.push(h("button", { type: "button", class: "btn text small add-page", onclick: () => void saveFromPage(ctx) }, icon("plus"), t("saveFromPage")));
@@ -999,7 +1000,7 @@ function listView(ctx: Ctx): HTMLElement {
       "div",
       // Filters over an empty vault could only ever say "no matches".
       { class: "chips scroll", role: "group", "aria-label": t("filters"), hidden: st.list?.items.length === 0 && !st.list.trash.length },
-      chip("fav", t("favorites"), "star"),
+      chip("fav", t("favorites"), "starBorder"), // outline, like the other chips' glyphs
       chip("t:1", t("typeLogin"), "key"),
       chip("t:3", t("typeCard"), "card"),
       chip("t:4", t("typeIdentity"), "user"),

@@ -146,23 +146,23 @@ function listView(ctx: Ctx): HTMLElement {
                 h(
                   s.failed ? "div" : "button",
                   s.failed ? { class: "row-main" } : { type: "button", class: "row-main", onclick: () => ((sd.error = undefined), void editSend(ctx, s)) },
-                  tile(s.name, s.type === 1 ? 2 : 1),
+                  // What the Send holds, at a glance: a file or a text.
+                  h("span", { class: "tile glyph", "aria-hidden": "true" }, icon(s.type === 1 ? "attach" : "note")),
                   h(
                     "div",
                     { class: "body" },
                     h("span", { class: "title" }, s.failed ? t("decryptFailed") : s.name),
                     h("span", { class: "sub wrap" }, t("sendDeletes", date(s.deletionDate))),
                     s.hasPassword || s.disabled
-                      ? h("span", { class: `sub wrap${s.disabled ? " warn-text" : ""}` }, [s.hasPassword ? t("sendPasswordProtected") : "", s.disabled ? t("sendDisabled") : ""].filter(Boolean).join(", "))
+                      ? h("span", { class: "sub wrap" }, [s.hasPassword ? t("sendPasswordProtected") : "", s.disabled ? t("sendDisabled") : ""].filter(Boolean).join(", "))
                       : null,
                     sd.confirmDelete === s.id ? h("span", { class: "sub wrap warn-text", role: "status" }, t("tapAgainToDelete")) : null,
                   ),
                 ),
                 h(
                   "span",
-                  { class: "field-actions" },
+                  { class: "field-actions hover-actions" },
                   s.failed ? null : iconButton("copy", t("copyLinkNamed", s.name), () => void copy(ctx, s.link)),
-                  s.failed ? null : iconButton("edit", t("editNamed", s.name), () => ((sd.error = undefined), void editSend(ctx, s))),
                   // Armed, the icon turns red in place (the row does not shift) and the row says it in words below.
                   sd.confirmDelete === s.id
                     ? iconButton("trash", t("tapAgainToDelete"), () => void remove(ctx, s.id), { class: "icon-btn danger" })
@@ -240,7 +240,7 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
     "form",
     { class: "page", onsubmit: (e: Event) => (e.preventDefault(), void create(ctx, d)) },
     h("div", { class: "top" }, iconButton("back", t("cancel"), () => ((sd.draft = undefined), (sd.error = undefined), ctx.rerender())), h("h1", {}, t(isNew ? "newSend" : "editSend"))),
-    isNew ? h("div", { class: "chips", role: "group", "aria-label": t("sendType") }, kindChip("text", t("sendText"), "note"), kindChip("file", t("sendFile"), "attach")) : null,
+    isNew ? h("div", { class: "chips segmented", role: "group", "aria-label": t("sendType") }, kindChip("text", t("sendText"), "note"), kindChip("file", t("sendFile"), "attach")) : null,
     field("send-name", t("name"), input("name", { required: true, "data-autofocus": "1" })),
     d.kind === "text"
       ? field("send-text", t("sendText"), h("textarea", { rows: 4, value: d.text, oninput: (e: Event) => (d.text = (e.target as HTMLTextAreaElement).value) }))

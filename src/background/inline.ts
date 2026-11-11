@@ -100,7 +100,7 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
 
 const offerCreate = (ctx: InlineContext, logins: number) => ctx.kind === "login" && (ctx.signup || !logins);
 
-async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: string, tabId: number, frameId: number): Promise<{ rows: number }> {
+async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
   if (!(await getSettings()).inlineMenu || !(await getLocal("account"))) return { rows: 0 };
   const ctx: InlineContext = { frameId, url, kind, nonce, signup };
   await setTabState("inline", tabId, ctx);
@@ -109,7 +109,8 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
   const logins = (await items(kind, url)).length;
   // A website waiting on a conditional passkey request gets one extra row for it.
   const passkey = kind === "login" && (await conditionalReady(tabId, frameId));
-  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) };
+  // footer: the menu's "Manage passwords" row under the list, as in Chrome's own autofill dropdown.
+  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0), footer: true };
 }
 
 async function loginSubmitted(tabId: number, url: string, username: string, password: string) {
@@ -218,7 +219,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
   if (!ctx) throw new Error("no field is focused");
   // Only the menu this document opened may act: a copy of menu.html framed by the page has no nonce.
   if (req.nonce !== ctx.nonce) throw new Error("this menu is not the one opened for this page");
-  if (req.type === "inlineUnlock") {
+  if (req.type === "inlineOpen") {
     await chrome.action.openPopup().catch(() => undefined);
     return null;
   }

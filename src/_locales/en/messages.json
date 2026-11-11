@@ -614,17 +614,6 @@
   "passkeySaveTo": {
     "message": "Or add it to a login you already have:"
   },
-  "userOnHost": {
-    "message": "$P1$ on $P2$",
-    "placeholders": {
-      "p1": {
-        "content": "$1"
-      },
-      "p2": {
-        "content": "$2"
-      }
-    }
-  },
   "passkeyHasOne": {
     "message": "$P1$, already has a passkey",
     "placeholders": {
@@ -683,6 +672,12 @@
   },
   "unlockToFill": {
     "message": "Unlock to fill"
+  },
+  "generatorType": {
+    "message": "Type"
+  },
+  "managePasswords": {
+    "message": "Manage passwords…"
   },
   "close": {
     "message": "Close"
@@ -2088,14 +2083,6 @@
   },
   "copyLinkNamed": {
     "message": "Copy link $P1$",
-    "placeholders": {
-      "p1": {
-        "content": "$1"
-      }
-    }
-  },
-  "editNamed": {
-    "message": "Edit $P1$",
     "placeholders": {
       "p1": {
         "content": "$1"
