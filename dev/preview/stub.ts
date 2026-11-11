@@ -94,6 +94,10 @@ const vault: VaultList = {
   syncedAt: Date.now(),
 };
 
+// `?items=N`: a vault that large (logins on N distinct hosts), for profiling the list.
+const many = Number(new URLSearchParams(location.search).get("items")) || 0;
+for (let n = items.length; n < many; n++) items.push(item({ id: `x${n}`, name: `Site ${n}`, sub: `user${n}@example.com`, uris: [`https://site${n}.example`] }));
+
 /** The "empty" scene: a new account's vault. */
 const listed: VaultList = scene === "empty" ? { ...vault, items: [], folders: [] } : vault;
 

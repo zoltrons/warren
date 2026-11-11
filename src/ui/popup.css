@@ -237,7 +237,11 @@ html:not(.frame, .panel) { scrollbar-gutter: stable; }
 html.centered:not(.frame) { overflow-y: hidden; }
 html.centered body, html.centered #app { min-height: 0; }
 .page.center { padding-bottom: 24px; }
+/* Narrow layouts key on the body's width (@container below), not the viewport's: Chrome sizes the action popup by
+   laying it out at 25 px wide and back on every content change, and a viewport @media rule flipping there
+   re-checked the whole vault list twice each time (100+ ms per hover or scroll with 600 items). */
 body {
+  container-type: inline-size;
   width: 380px;
   min-height: 600px;
   background: var(--bg);
@@ -640,7 +644,7 @@ a.row { text-decoration: none; color: var(--text); }
 /* A list row keeps room for its tile and name; Fill and the actions wrap under it before that. */
 .row > .row-main { flex: 1 1 8em; }
 /* Very narrow (a side panel at high zoom): the status marks give their room to the name; the row's label keeps them. */
-@media (max-width: 240px) { .row-main .meta { display: none; } }
+@container (max-width: 240px) { .row-main .meta { display: none; } }
 .row > .field-actions, .row > .select { margin-inline-start: auto; }
 .row > .trailing { display: flex; align-items: center; gap: 8px; flex: none; }
 /* Inline-editable text inside a row (folder names, the new-folder field). */
@@ -806,7 +810,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .nav .pill { max-width: 100%; }
 .nav .label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Below ~220 px the labels would only show "Gene…": icons alone, the label kept for screen readers. */
-@media (max-width: 220px) { .nav .label { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); } }
+@container (max-width: 220px) { .nav .label { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); } }
 .nav button:hover { color: var(--text); }
 .nav button:hover .pill { background-image: linear-gradient(var(--tint), var(--tint)); }
 .nav button[aria-current="page"] { color: var(--link); }

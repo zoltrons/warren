@@ -2,6 +2,13 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Fixed
+
+- The popup no longer stutters on hover, scroll and website icon loads in a large vault: each time the browser sized
+  the popup to its content, two narrow-layout rules made it re-check the styles of the whole list, twice.
+
 ## 0.0.17 — 2026-11-11
 
 ### Fixed
