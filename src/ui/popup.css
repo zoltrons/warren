@@ -231,10 +231,11 @@
 html, body { margin: 0; }
 /* The action popup sizes itself to its content, up to Chrome's 600 px limit. Asking for the limit keeps the
    window the same height on every screen; taller screens scroll. The gutter does the same for the width. */
-html:not(.frame):not(:has(body.panel)) { scrollbar-gutter: stable; }
+html:not(.frame, .panel) { scrollbar-gutter: stable; }
 /* Locked/login screens are short: a transient height change (error box, busy bar) must not flash a scrollbar. */
-html:not(.frame):has(.page.center) { overflow-y: hidden; }
-body:has(.page.center), body:has(.page.center) #app { min-height: 0; }
+/* html.centered: set by popup.ts render (a :has() on the root re-checked the whole list on every DOM change). */
+html.centered:not(.frame) { overflow-y: hidden; }
+html.centered body, html.centered #app { min-height: 0; }
 .page.center { padding-bottom: 24px; }
 body {
   width: 380px;
@@ -332,7 +333,7 @@ svg.i.solid { fill: currentColor; }
 .mono { font-family: var(--mono); font-feature-settings: "ss01", "ss02"; letter-spacing: 0.02em; }
 
 #app { display: flex; flex-direction: column; min-height: 600px; }
-#app:has(.nav) .page { padding-bottom: 68px; }
+#app.has-nav .page { padding-bottom: 68px; }
 .splash { flex: 1; }
 .page {
   flex: 1;
@@ -765,8 +766,6 @@ a.row { text-decoration: none; color: var(--text); }
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   text-align: center; padding: 24px 16px; color: var(--muted);
 }
-/* The empty vault leads with its own "New item": the header one would say it twice. */
-.page:has(.empty .btn.filled) .icon-btn.add { display: none; }
 .empty strong { color: var(--text); font-weight: 500; font-size: var(--fs-body); }
 .empty p { margin: 0; max-width: 280px; font-size: var(--fs-body-sm); }
 .empty .row-actions { margin-top: 4px; flex-direction: column; align-items: center; }
@@ -1098,7 +1097,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 /* Inline menu: Chrome's autofill dropdown. 4 px padding, 28 px tile, 13/12 labels, 8 px row highlight. Height: content.ts. */
 html.frame, body.frame { height: 100%; }
 /* The page sizes the inline menu and save bar frames in px (content.ts), so their text stays at the 16 px base. */
-html:has(body.frame) { font-size: 16px; }
+html.frame { font-size: 16px; }
 body.frame { width: auto; min-height: 0; background: var(--surface-raised); }
 /* The frame height is computed from the row count; more than five matches scroll. */
 body.frame #app { min-height: 0; height: 100%; padding: 4px; overflow: hidden; }

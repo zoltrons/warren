@@ -883,12 +883,15 @@ function listView(ctx: Ctx): HTMLElement {
   if (st.folder === "trash" && st.list && !st.list.trash.length) st.folder = ""; // the trash was emptied
   const listBox = h("div", { class: "list-body" });
   arrowNav(listBox);
+  const addBtn = iconButton("plus", t("newItem"), () => void newItem(ctx), { class: "icon-btn sm add" });
   const redraw = () => {
     const q = st.query.trim().toLowerCase();
     const source = st.folder === "trash" ? st.list?.trash : st.list?.items;
     const clauses = parseQuery(st.query);
     const items = sortItems((source ?? []).filter((i) => matches(i, clauses)));
     fillList(ctx, listBox, items, q);
+    // The empty vault leads with its own "New item" (emptyState): the header one would say it twice.
+    addBtn.hidden = !(st.loading && !st.list) && !items.length && !q && !st.folder; // not under the first-load skeleton
     // Said to screen readers while a search or filter is on: how many items it leaves (polite, so typing is not cut).
     status.textContent = q || st.folder ? (items.length ? plural("itemsFound", items.length) : t("noMatches")) : "";
   };
@@ -994,7 +997,7 @@ function listView(ctx: Ctx): HTMLElement {
       sortButton,
       iconButton("refresh", t("syncNow"), () => void syncNow(ctx, true), { class: `icon-btn sm${st.syncing ? " spin" : ""}`, disabled: st.syncing }),
       iconButton("lock", t("lockNow"), () => ctx.lock(), { class: "icon-btn sm" }),
-      iconButton("plus", t("newItem"), () => void newItem(ctx), { class: "icon-btn sm add" }),
+      addBtn,
     ),
     h(
       "div",

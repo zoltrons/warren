@@ -2,6 +2,13 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Fixed
+
+- The popup and side panel no longer lag in a large vault, most of all with animations on: every website icon that
+  loaded made the browser re-check the styles of the whole list (a regression in 0.0.15).
+
 ## 0.0.16 — 2026-11-11
 
 ### Added

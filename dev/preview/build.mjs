@@ -41,6 +41,8 @@ for (const [file, entry, body] of [
   ["menu.html", "menu", '<body class="frame">'],
   ["bar.html", "bar", '<body class="frame">'],
 ]) {
-  writeFileSync(join(out, file), shell.replace("<body>", body).replace("popup.js", `${entry}.js`));
+  // The frames carry html.frame too, as src/ui/menu.html and bar.html do (popup.css keys their sizes on it).
+  const html = body.includes("frame") ? '<html lang="en" class="frame">' : '<html lang="en">';
+  writeFileSync(join(out, file), shell.replace('<html lang="en">', html).replace("<body>", body).replace("popup.js", `${entry}.js`));
 }
 console.log(`preview built: ${out}`);

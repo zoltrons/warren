@@ -129,7 +129,8 @@ function listView(ctx: Ctx): HTMLElement {
       "div",
       { class: "top" },
       h("h1", { class: "grow" }, t("send")),
-      h("button", { type: "button", class: "icon-btn sm add", "aria-label": t("newSend"), title: t("newSend"), onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus")),
+      // The empty list leads with its own "New Send": the header one would say it twice.
+      h("button", { type: "button", class: "icon-btn sm add", hidden: !(sd.loading && !sd.list) && !items.length, "aria-label": t("newSend"), title: t("newSend"), onclick: () => ((sd.draft = newDraft()), (sd.error = undefined), ctx.rerender()) }, icon("plus")),
     ),
     errorBox(),
     sd.loading && !sd.list

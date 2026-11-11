@@ -1266,6 +1266,9 @@ function render(): void {
     // A sideways chip row keeps its position on the same screen (picking a chip re-renders it).
     const chipsLeft = lastScreen === key ? app.querySelector(".chips.scroll")?.scrollLeft : undefined;
     app.replaceChildren(view);
+    // Classes instead of :has() on html/#app, which made every DOM change re-check the whole list (popup.css).
+    document.documentElement.classList.toggle("centered", !!app.querySelector(".page.center"));
+    app.classList.toggle("has-nav", !!app.querySelector(":scope > .nav"));
     const chips = app.querySelector(".chips.scroll");
     if (chips && chipsLeft) chips.scrollLeft = chipsLeft;
     const again = focused ? document.getElementById(focused) : path ? atPath(path) : null;

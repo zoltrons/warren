@@ -30,7 +30,7 @@ function copyStatic() {
   writeFileSync(join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
   cpSync(join(root, "src/ui/popup.html"), join(out, "popup.html"));
   // Same UI in the side panel; the body class switches it to a fluid layout.
-  writeFileSync(join(out, "sidepanel.html"), readFileSync(join(root, "src/ui/popup.html"), "utf8").replace("<body>", '<body class="panel">'));
+  writeFileSync(join(out, "sidepanel.html"), readFileSync(join(root, "src/ui/popup.html"), "utf8").replace('<html lang="en">', '<html lang="en" class="panel">').replace("<body>", '<body class="panel">'));
   cpSync(join(root, "src/ui/popup.css"), join(out, "popup.css"));
   for (const f of ["menu.html", "bar.html"]) cpSync(join(root, "src/ui", f), join(out, f));
   cpSync(join(root, "src/offscreen/offscreen.html"), join(out, "offscreen.html"));
