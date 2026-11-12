@@ -2310,7 +2310,7 @@
     "message": "E-mail addresses found in breaches"
   },
   "reportEmailsStopped": {
-    "message": "The server stopped answering part-way (HIBP limits requests). The list below is what was checked."
+    "message": "Not every address was checked: the server stopped answering part-way (HIBP limits requests), or there were more than 40. The list below is what was checked."
   },
   "attentionTitle": {
     "message": "Logins need attention ($P1$)",

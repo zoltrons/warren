@@ -401,11 +401,15 @@ export async function deleteSend(id: string): Promise<SendItem[]> {
 
 const MAX_BREACH_EMAILS = 40;
 
-/** Asks the user's own server (which asks HIBP) about each address, one at a time; stops when the server has no key or throttles. */
+/**
+ * Asks the user's own server (which asks HIBP) about each address, one at a time; stops when the server has no key or
+ * throttles. Past MAX_BREACH_EMAILS the answer is `stopped`, so the report never calls unchecked addresses clean.
+ */
 export async function breachEmails(emails: string[]): Promise<BreachResults> {
   const { base, token } = await auth();
   const results: BreachResults["results"] = [];
-  for (const email of [...new Set(emails)].slice(0, MAX_BREACH_EMAILS)) {
+  const unique = [...new Set(emails)];
+  for (const email of unique.slice(0, MAX_BREACH_EMAILS)) {
     try {
       const r = await emailBreaches(base, token, email);
       if (r.status === "unconfigured") return { unconfigured: true, results: [] };
@@ -414,5 +418,5 @@ export async function breachEmails(emails: string[]): Promise<BreachResults> {
       return { results, stopped: true };
     }
   }
-  return { results };
+  return unique.length > MAX_BREACH_EMAILS ? { results, stopped: true } : { results };
 }
