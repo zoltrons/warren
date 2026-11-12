@@ -1,5 +1,6 @@
 // Autofill on the active tab from the popup, Ctrl+Shift+L or the context menu.
 import type { FillResult, PageLogin } from "../autofill/types.ts";
+import { rememberFill } from "./passkey.ts";
 import type { PageMatches, VaultItem, VaultList } from "../shared/messages.ts";
 import { pickPageLoadLogin } from "../shared/pageload.ts";
 import { httpUrl } from "../shared/url.ts";
@@ -135,6 +136,7 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   }
   if (r.filled) {
     await markUsed(id);
+    if (!values) await rememberFill(tab.id, url.origin, id);
     // Not onto the clipboard of a vault that locked after the fill.
     if (totp && (await getSettings()).autoCopyTotp && epoch === lockEpoch()) await copyToClipboard(totp);
   }

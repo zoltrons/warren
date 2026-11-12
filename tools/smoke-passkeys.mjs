@@ -160,11 +160,12 @@ try {
   const forgedPage = await ctx.newPage();
   await open(forgedPage, `${site}/forged`);
   await forgedPage.waitForFunction(() => document.title !== "");
-  assert.deepEqual(JSON.parse(await forgedPage.title()), { fallback: true });
+  // Conditional create needs no gesture, but nothing was filled in this tab: refused (WebAuthn's NotAllowedError).
+  assert.equal(JSON.parse(await forgedPage.title()).error?.name, "NotAllowedError");
   await new Promise((r) => setTimeout(r, 500));
   assert.equal(forgedWindows.length, 0, "a forged conditional create opened a window");
   ctx.off("page", onForged);
-  console.log("ok  a forged conditional create without user activation opens nothing");
+  console.log("ok  a forged conditional create without user activation opens nothing and is refused");
 
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(swErrors, []);

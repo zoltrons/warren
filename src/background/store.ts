@@ -74,11 +74,14 @@ interface Session {
 /**
  * Per-tab state in storage.session, one key per tab ("inline:<tabId>", "save:<tabId>"), so writes for
  * different tabs (or the login session) never overwrite each other.
- *   inline: the field the inline menu belongs to;  save: a submitted login waiting in the save bar.
+ *   inline: the field the inline menu belongs to;  save: a submitted login waiting in the save bar;
+ *   filled: the login the user last had filled.
  */
 interface TabState {
   inline: InlineContext;
   save: PendingSave;
+  /** The last login the user had Warren fill in this tab: a passkey upgrade may join it for a while (passkey.ts). */
+  filled: { origin: string; itemId: string; at: number };
 }
 
 export async function getTabState<K extends keyof TabState>(kind: K, tabId: number): Promise<TabState[K] | undefined> {
@@ -95,7 +98,7 @@ export async function clearPendingSaves(): Promise<void> {
   await chrome.storage.session.remove(keys);
 }
 
-export const clearTabState = (tabId: number) => chrome.storage.session.remove([`inline:${tabId}`, `save:${tabId}`]);
+export const clearTabState = (tabId: number) => chrome.storage.session.remove([`inline:${tabId}`, `save:${tabId}`, `filled:${tabId}`]);
 
 /** Biometric unlock: the user key wrapped with a key derived from the authenticator's PRF output. */
 export interface Biometric {

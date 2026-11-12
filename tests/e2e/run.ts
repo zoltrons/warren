@@ -2422,6 +2422,48 @@ try {
     await cdp.detach();
   });
 
+  await step("passkeys: an automatic upgrade (conditional create) joins the login Warren just filled, and only that", async () => {
+    const s = await apiSession(vaultUser);
+    const { id } = await s.create({ type: 1, name: "Upgrade me", login: { username: "up-user", password: "up-pass", uris: [{ uri: SITE, match: null }] } });
+    if (page.isClosed()) await reopenPopup();
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
+    const upgrade = (name: string) =>
+      loginPage.evaluate(async ({ ch, name }) => {
+        try {
+          const c = (await navigator.credentials.create({
+            mediation: "conditional",
+            publicKey: { rp: { name: "Local" }, user: { id: new Uint8Array([5, 5]), name, displayName: name }, challenge: Uint8Array.from(ch), pubKeyCredParams: [{ type: "public-key", alg: -7 }] },
+          } as CredentialCreationOptions)) as PublicKeyCredential;
+          return { flags: new Uint8Array((c.response as AuthenticatorAttestationResponse).getAuthenticatorData())[32] };
+        } catch (e) {
+          return (e as DOMException).name;
+        }
+      }, { ch: [...challenge], name });
+    await loginPage.goto(`${SITE}/login`);
+    // Nothing filled in this tab yet: refused, and nothing is saved.
+    assert.equal(await upgrade("up-user"), "NotAllowedError");
+    await loginPage.click("#u");
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: "up-user, Upgrade me" }).click();
+    await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value === "up-pass");
+    // Another account than the one filled: refused (and the chance is used up).
+    assert.equal(await upgrade("someone-else"), "NotAllowedError");
+    await loginPage.goto(`${SITE}/login`); // a fresh menu frame, not the one that faded out
+    await loginPage.click("#u");
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: "up-user, Upgrade me" }).click();
+    await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value === "up-pass");
+    const made = await upgrade("up-user");
+    assert.equal(typeof made, "object", `upgrade refused: ${String(made)}`);
+    assert.equal((made as { flags: number }).flags & 0x05, 0, "neither UP nor UV in a conditional create");
+    assert.equal(await upgrade("up-user"), "NotAllowedError", "a second upgrade from one fill");
+    const saved = (await s.ciphers()).find((x) => x.id === id);
+    assert.equal(saved?.login.fido2Credentials?.length, 1, "the passkey did not join the filled login");
+    assert.equal(saved?.login.password, "up-pass");
+    // Gone again, so later steps see the site's logins as before.
+    await call(BASE, "DELETE", `/api/ciphers/${id}`, { token: s.token });
+    s.done();
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
+  });
+
   await step("passkeys: an RP ID Warren may not use goes to the browser, with no window", async () => {
     await loginPage.locator("#u").click();
     const opened: Page[] = [];

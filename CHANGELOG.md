@@ -6,6 +6,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Automatic passkey upgrades: right after Warren fills a site's password, a site that offers to switch you to a
+  passkey saves it into that same login, without a prompt (a notification says so). Nothing else can save a passkey
+  silently.
 - Registration forms: the inline menu offers "New e-mail alias" once an alias service is set up (Settings →
   Generator). It asks that service for the site and writes the address into the focused field only.
 - Security report: logins on a site that offers authenticator-app codes, with none set up, are listed. The list of

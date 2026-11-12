@@ -70,7 +70,7 @@ const sha256 = async (b: Uint8Array | string) =>
 
 // Flags: UP, UV only when the user was verified for this request, and BE | BS because the credential syncs through
 // the vault. AT is added on creation.
-const flags = (uv: boolean) => 0x01 | (uv ? 0x04 : 0) | 0x08 | 0x10;
+const flags = (uv: boolean, up = true) => (up ? 0x01 : 0) | (uv ? 0x04 : 0) | 0x08 | 0x10;
 const AT = 0x40;
 // Bitwarden's AAGUID: the passkey lives in a Bitwarden vault and the official apps serve it too, so sites that name
 // providers by AAGUID (passkey-authenticator-aaguids) show "Bitwarden" rather than an unknown authenticator.
@@ -92,6 +92,8 @@ export interface CreateInput {
   user: { id: string; name: string; displayName: string };
   discoverable: boolean;
   uv: boolean;
+  /** UP: false only for a conditional create (no user gesture). */
+  up?: boolean;
 }
 
 /** New ES256 credential: the stored fido2Credential plus the attestation response for the page. */
@@ -102,7 +104,7 @@ export async function createCredential(i: CreateInput) {
   const credentialId = crypto.randomUUID();
   const rawId = credentialIdBytes(credentialId);
   const cose = new Map<number, unknown>([[1, 2], [3, -7], [-1, 1], [-2, pub.subarray(1, 33)], [-3, pub.subarray(33)]]);
-  const data = await authData(i.rpId, flags(i.uv) | AT, 0, [...AAGUID, rawId.length >> 8, rawId.length & 255, ...rawId, ...cbor(cose)]);
+  const data = await authData(i.rpId, flags(i.uv, i.up !== false) | AT, 0, [...AAGUID, rawId.length >> 8, rawId.length & 255, ...rawId, ...cbor(cose)]);
   const attestationObject = new Uint8Array(cbor(new Map<string, unknown>([["fmt", "none"], ["attStmt", new Map()], ["authData", data]])));
   return {
     fido2Credential: {

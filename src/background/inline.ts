@@ -9,7 +9,7 @@ import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadli
 import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
-import { conditionalReady, openConditional } from "./passkey.ts";
+import { conditionalReady, openConditional, rememberFill } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
 import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/alias.ts";
 import { generateAlias, getAliasSettings } from "./alias.ts";
@@ -305,6 +305,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     res = (await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "login", origin, username, password, totp, autosubmit, customFields: await customFieldsOf(req.id), epoch }))[0]?.result;
     if (res?.filled) {
       await markUsed(req.id);
+      await rememberFill(tabId, origin, req.id);
       if (totp && (await getSettings()).autoCopyTotp && epoch === lockEpoch()) await copyToClipboard(totp);
     }
   } else {

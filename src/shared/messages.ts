@@ -678,6 +678,7 @@ const passkeyCreateInput: Validator<PasskeyCreateInput> = obj({
   user,
   discoverable: bool,
   uv: bool,
+  up: opt(bool),
 });
 
 const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest, { op: K }>> } = {
@@ -760,6 +761,8 @@ interface PasskeyCreateInput {
   discoverable: boolean;
   /** The UV flag: set only when the user was verified for this request (see passkey.ts `verified`). */
   uv: boolean;
+  /** The UP flag; false only for a conditional create, which by WebAuthn involves no user gesture. Default true. */
+  up?: boolean;
 }
 
 /** The RP's `userVerification`. WebAuthn: an unknown value is ignored, which means "preferred". */
@@ -770,6 +773,8 @@ const uvField: Validator<UserVerification> = (v) => (v === "required" || v === "
 export type PasskeyCall =
   | {
       kind: "create";
+      /** Conditional create (an automatic passkey upgrade): no UI, only right after Warren signed the user in. */
+      conditional?: boolean;
       options: { rpId?: string; rpName: string; user: { id: string; name: string; displayName: string }; challenge: string; exclude: string[]; discoverable: boolean; userVerification: UserVerification };
     }
   | { kind: "get"; conditional: boolean; options: { rpId?: string; challenge: string; allow: string[]; userVerification: UserVerification } };
@@ -782,6 +787,7 @@ export function parsePasskeyCall(v: unknown): PasskeyCall {
   if (kind === "create")
     return obj({
       kind: literal("create"),
+      conditional: opt(bool),
       options: obj({ rpId: opt(rpIdField), rpName: capped(1024), user, challenge: challengeField, exclude: credIdList, discoverable: bool, userVerification: uvField }),
     })(v, "");
   return obj({ kind: literal("get"), conditional: bool, options: obj({ rpId: opt(rpIdField), challenge: challengeField, allow: credIdList, userVerification: uvField }) })(v, "");

@@ -591,6 +591,20 @@
   "createSendCopyLink": {
     "message": "Create and copy link"
   },
+  "passkeyUpgradedTitle": {
+    "message": "Passkey saved"
+  },
+  "passkeyUpgradedNote": {
+    "message": "$P1$ added a passkey for $P2$ after you signed in. It is saved in that login.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
   "passkeySaveTitle": {
     "message": "Save passkey"
   },

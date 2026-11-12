@@ -21,7 +21,7 @@ import { ApiError } from "../transport/http.ts";
 import { coreCall } from "./core.ts";
 import { assertEpoch, lockEpoch } from "./lock.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
-import { getLocal, getSettings } from "./store.ts";
+import { getLocal, getSettings, getTabState, setTabState } from "./store.ts";
 import { isBlocked } from "./private.ts";
 import { ensureLoaded, isUnlocked, putCipher, requireUnlocked, sync } from "./vault.ts";
 import { Psl } from "../autofill/match.ts";
@@ -99,6 +99,46 @@ const refreshMenu = (tabId: number, frameId: number) =>
 const conditionalFor = (tabId: number, frameId?: number) =>
   [...pending.values()].find((p) => p.conditional && p.tabId === tabId && (frameId === undefined || p.frameId === frameId));
 
+/** How long after the user had Warren fill a login a site may upgrade it to a passkey without asking (conditional create). */
+const UPGRADE_WINDOW_MS = 5 * 60_000;
+
+/** A login fill the user asked for (popup, shortcut, context menu, inline menu); a page-load fill is not one. */
+export const rememberFill = (tabId: number, origin: string, itemId: string) => setTabState("filled", tabId, { origin, itemId, at: Date.now() });
+
+/**
+ * Conditional create, the automatic passkey upgrade a site starts after a password sign-in: no window, no gesture. As
+ * WebAuthn requires, only right after Warren mediated that sign-in: the user had it fill a login of this origin in this
+ * tab, its username is the account's, and it holds no passkey yet. The passkey joins that login, once per fill, with
+ * neither UP nor UV, and a notification says so. Anything else is NotAllowedError, which tells the site nothing.
+ */
+async function conditionalCreate(call: Extract<PasskeyCall, { kind: "create" }>, origin: string, rpId: string, tabId: number): Promise<PasskeyResult> {
+  const epoch = lockEpoch();
+  const refuse = error("NotAllowedError", "The operation either timed out or was not allowed.");
+  const o = call.options;
+  if (o.userVerification === "required" || !(await isUnlocked()) || (await isBlocked(origin, true))) return refuse;
+  const filled = await getTabState("filled", tabId);
+  if (!filled || filled.origin !== origin || Date.now() - filled.at > UPGRADE_WINDOW_MS) return refuse;
+  await setTabState("filled", tabId, undefined); // one passkey per sign-in
+  await ensureLoaded();
+  const item = await coreCall<VaultItem>({ op: "cipherSummary", id: filled.itemId }).catch(() => undefined);
+  if (!item || item.readOnly || item.failed || item.hasPasskey || repromptPending(item)) return refuse;
+  if (item.sub && item.sub.toLowerCase() !== o.user.name.toLowerCase()) return refuse;
+  const p = { rpId, origin } as Pending;
+  if (o.exclude.length && (await candidates(p, o.exclude)).length) return refuse;
+  try {
+    const r = await coreCall<{ cipher: Record<string, unknown>; response: Record<string, unknown> }>({
+      op: "passkeyCreate",
+      input: { origin, rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv: false, up: false },
+      itemId: filled.itemId,
+    });
+    await putCipher(r.cipher, () => assertEpoch(epoch));
+    chrome.notifications.create({ type: "basic", iconUrl: "icons/warren-128.png", title: chrome.i18n.getMessage("passkeyUpgradedTitle"), message: chrome.i18n.getMessage("passkeyUpgradedNote", [item.name || rpId, o.user.name]) });
+    return { credential: r.response };
+  } catch {
+    return refuse;
+  }
+}
+
 export function onPasskeyPort(port: chrome.runtime.Port): void {
   const sender = port.sender;
   const origin = sender?.origin;
@@ -144,6 +184,11 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     if (!(await getLocal("account"))) return port.postMessage({ fallback: true });
     const rpId = (call.options.rpId || new URL(origin).hostname).toLowerCase();
     if (!(await rpIdUsable(rpId, origin))) return port.postMessage({ fallback: true });
+    if (call.kind === "create" && call.conditional) {
+      const r = await conditionalCreate(call, origin, rpId, tabId);
+      if (!closed) port.postMessage(r);
+      return;
+    }
     const conditional = call.kind === "get" && call.conditional;
     // Only modal calls open a window on their own, so only they are limited: one per tab, like the
     // browser, so a page cannot pile up windows by calling in a loop. Checked on the pending entry, not

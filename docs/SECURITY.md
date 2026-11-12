@@ -201,6 +201,14 @@ freed rather than zeroed in place.
     requires verification and nothing verified the user, the window asks for the master password, and the inline
     menu's one-click sign-in opens the window instead (`src/background/passkey.ts`).
 
+11b. **A passkey is saved without asking only as an upgrade of a sign-in Warren just did.** Conditional create
+    (`mediation: "conditional"`, the automatic passkey upgrade) is the one WebAuthn call that needs no gesture and opens
+    no window, so any page script can make it. `conditionalCreate` (`src/background/passkey.ts`) accepts it only within
+    5 minutes of a login fill the user asked for in that tab (popup, shortcut, context menu, inline menu; a page-load
+    fill does not count), for the same origin, the same username, into that very login, which must be editable, not
+    flagged for re-prompt and without a passkey yet; once per fill. It sets neither UP nor UV, a notification says it
+    happened, and every refusal is the same NotAllowedError.
+
 12. **Rendered data is text, not markup.** No `innerHTML` anywhere; the `h()` helper sets properties
     from static keys and `textContent` for values, so vault, server and page strings cannot become
     markup. External links are restricted to http(s) (`webUrl`). The extension pages' CSP requires Trusted

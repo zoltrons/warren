@@ -28,13 +28,13 @@
     );
   }
   // Sites newer than those two functions ask getClientCapabilities() (WebAuthn L3) before offering passkeys: report what
-  // Warren adds on top of the browser's answer. Nothing it does not do (conditionalCreate, relatedOrigins, prf).
+  // Warren adds on top of the browser's answer. Nothing it does not do (relatedOrigins, prf).
   const capabilities = pkc.getClientCapabilities;
   if (typeof capabilities === "function") {
     try {
       pkc.getClientCapabilities = async () => {
         const native = ((await Promise.resolve((capabilities as () => Promise<Record<string, boolean>>).call(pkc)).catch(() => ({}))) ?? {}) as Record<string, boolean>;
-        const all: Record<string, boolean> = { ...native, conditionalGet: true, "extension:credProps": true, passkeyPlatformAuthenticator: true, userVerifyingPlatformAuthenticator: true };
+        const all: Record<string, boolean> = { ...native, conditionalCreate: true, conditionalGet: true, "extension:credProps": true, passkeyPlatformAuthenticator: true, userVerifyingPlatformAuthenticator: true };
         return Object.fromEntries(Object.entries(all).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))); // keys sorted, as WebAuthn has them
       };
     } catch {
@@ -133,8 +133,8 @@
           addEventListener("focus", done);
         });
 
-  const settle = async (kind: "create" | "get", opts: unknown, fallback: () => Promise<Credential | null>, signal?: AbortSignal | null) => {
-    const { result } = await ask(kind, opts, false, signal);
+  const settle = async (kind: "create" | "get", opts: unknown, fallback: () => Promise<Credential | null>, signal?: AbortSignal | null, conditional = false) => {
+    const { result } = await ask(kind, opts, conditional, signal);
     if ("credential" in result) return credential(result.credential, kind);
     if ("error" in result) throw new DOMException(result.error.message, result.error.name);
     await refocused();
@@ -194,8 +194,11 @@
 
   c.create = (opts?: CredentialCreationOptions) => {
     const pk = opts?.publicKey;
+    // Conditional create (an automatic passkey upgrade after a password sign-in) opens nothing: Warren saves it only
+    // right after it filled that sign-in, and otherwise refuses, as WebAuthn has it.
+    const conditional = (opts as { mediation?: string } | undefined)?.mediation === "conditional";
     // An unfocused document is the browser's to refuse: it must not open (and focus) our window.
-    if (!pk || !pk.pubKeyCredParams.some((p) => p.alg === -7) || !document.hasFocus()) return create(opts);
+    if (!pk || !pk.pubKeyCredParams.some((p) => p.alg === -7) || (!conditional && !document.hasFocus())) return create(opts);
     return settle(
       "create",
       {
@@ -209,6 +212,7 @@
       },
       () => create(opts),
       opts.signal,
+      conditional,
     );
   };
 
