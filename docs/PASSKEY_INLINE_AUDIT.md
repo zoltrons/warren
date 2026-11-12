@@ -44,7 +44,7 @@ Priority: **P1** breaks a common flow, **P2** loses interop or a feature that si
 
 ## Order of work
 
-Status: I-1, I-2 done (e2e steps "modal dialog", "focus-trapping modal"). P-1 done (no automated proof: headless focus differs). P-2 done without ROR itself: such RP IDs go to the browser (e2e "an RP ID Warren may not use"). I-3 done for frames directly under the top page, when the menu does not fit (e2e "tiny iframe"); `chrome.runtime.getFrameId` does not exist in Helium's content scripts, so the top frame identifies the iframe by a posted token. I-5 done for same-origin frames only (e2e "split over one frame per field"); a cross-origin frame (e.g. the cardholder name on the shop's page) is still not filled. P-8 done: a user.id outside 1–64 bytes goes to the browser, which throws the TypeError.
+Status: I-1, I-2 done (e2e steps "modal dialog", "focus-trapping modal"). P-1 done (no automated proof: headless focus differs). P-2 done without ROR itself: such RP IDs go to the browser (e2e "an RP ID Warren may not use"). I-3 done for frames directly under the top page, when the menu does not fit (e2e "tiny iframe"); `chrome.runtime.getFrameId` does not exist in Helium's content scripts, so the top frame identifies the iframe by a posted token. I-5 done for same-origin frames only (e2e "split over one frame per field"); a cross-origin frame (e.g. the cardholder name on the shop's page) is still not filled. P-8 done: a user.id outside 1–64 bytes goes to the browser, which throws the TypeError. P-7 done (e2e "imported passkey with a sign counter").
 
 1. I-1 + I-2 (top layer and container), one change in `content.ts` `open()`/`place()`. Add an e2e page with a modal
    dialog login and a focus-trap modal.

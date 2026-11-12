@@ -2276,6 +2276,38 @@ try {
     assert.deepEqual([...Buffer.from(g.user, "base64")], [1, 2, 3, 4]);
   });
 
+  await step("passkeys: an imported passkey with a sign counter counts up, saved on the server", async () => {
+    const pair = generateKeyPairSync("ec", { namedCurve: "P-256" });
+    const credentialId = crypto.randomUUID();
+    const s = await apiSession(vaultUser);
+    const fido2 = { credentialId, keyType: "public-key", keyAlgorithm: "ECDSA", keyCurve: "P-256", keyValue: pair.privateKey.export({ format: "der", type: "pkcs8" }).toString("base64url"), rpId: "localhost", rpName: "Local", userHandle: Buffer.from([9, 9]).toString("base64url"), userName: "imp-pk", userDisplayName: "Imported", counter: "5", discoverable: "true", creationDate: new Date().toISOString() };
+    const { id } = await s.create({ type: 1, name: "Imported passkey", login: { username: "imp-pk", uris: [{ uri: SITE, match: null }], fido2Credentials: [fido2] } });
+    await loginPage.locator("#u").click();
+    const got = loginPage.evaluate(async ({ ch, raw }) => {
+      const c = (await navigator.credentials.get({ publicKey: { challenge: Uint8Array.from(ch), rpId: "localhost", allowCredentials: [{ type: "public-key", id: Uint8Array.from(raw) }], userVerification: "discouraged" } })) as PublicKeyCredential;
+      const r = c.response as AuthenticatorAssertionResponse;
+      const b = (x: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(x)));
+      return { clientData: b(r.clientDataJSON), authData: b(r.authenticatorData), sig: b(r.signature) };
+    }, { ch: [...challenge], raw: [...Buffer.from(credentialId.replace(/-/g, ""), "hex")] });
+    // Not in the local copy yet: the window syncs, then offers it.
+    await approve(async (w) => {
+      await w.getByRole("listitem").filter({ hasText: "imp-pk" }).click();
+    });
+    const g = await got;
+    const ad = Buffer.from(g.authData, "base64");
+    assert.equal(ad.readUInt32BE(33), 6, "sign counter");
+    const signed = Buffer.concat([ad, createHash("sha256").update(Buffer.from(g.clientData, "base64")).digest()]);
+    assert.ok(verify("sha256", signed, pair.publicKey, Buffer.from(g.sig, "base64")), "assertion signature");
+    const saved = (await s.ciphers()).find((x) => x.id === id);
+    assert.equal(saved?.login.fido2Credentials[0].counter, "6", "counter saved on the server");
+    assert.equal(saved?.login.fido2Credentials[0].keyValue, fido2.keyValue, "the private key survived the save");
+    // Gone again (and synced), so the next steps still see one passkey for the site.
+    await call(BASE, "DELETE", `/api/ciphers/${id}`, { token: s.token });
+    s.done();
+    if (page.isClosed()) await reopenPopup();
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
+  });
+
   await step("passkeys: the inline menu entry signs in directly, without an approval window", async () => {
     // A passkey form: the site starts a conditional get (passkey autofill) and focuses the username field.
     await loginPage.goto(`${SITE}/login`);

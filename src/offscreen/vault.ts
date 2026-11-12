@@ -587,7 +587,16 @@ export async function passkeyAssert(itemId: string, wanted: string, rpId: string
   // A malformed sibling credential must not break the one the user picked.
   const cred = (Array.isArray(creds) ? creds : []).find((x) => s(ci(x, "rpId")) === rpId && credentialId(x) === wanted);
   if (!cred) throw new Error("passkey not found");
-  return fido2.assert(cred as Json, origin, challenge, uv);
+  const counter = Number(s(ci(cred, "counter"))) || 0;
+  // Passkeys made by Warren or Bitwarden keep a counter of 0 for good. One imported with a counter must count up, or
+  // sites that check it take the passkey for a clone: the raised counter is saved before the site gets the signature.
+  // A read-only item cannot be saved, so it keeps its counter.
+  if (counter === 0 || summary(get(itemId)).readOnly) return fido2.assert(cred as Json, origin, challenge, uv);
+  const key = Object.keys(cred as Json).find((k) => k.toLowerCase() === "counter") ?? "counter";
+  const next = { ...(cred as Json), [key]: String(counter + 1) };
+  const item = structuredClone(live(itemId));
+  o(ci(item, "login"))!.fido2Credentials = (creds as unknown[]).map((x) => (x === cred ? next : x));
+  return { ...(await fido2.assert(next, origin, challenge, uv)), cipher: prepareSave(item) };
 }
 
 /**

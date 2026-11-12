@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- A passkey imported from another manager with a sign counter now counts up on every sign-in (saved to the vault
+  first), so sites that check the counter no longer take it for a copied passkey.
 - A card picked in the inline menu fills a checkout whose number, expiry and security code sit in separate frames
   of the payment provider, not only the field you were in.
 - Card fields in a checkout's small iframes (one field per frame) get a usable inline menu: the page draws it under

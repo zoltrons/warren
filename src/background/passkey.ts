@@ -358,7 +358,13 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       if (!c) throw new UserError("invalid", "Choose one of the passkeys for this site");
       // The window has no password prompt: a flagged item must be confirmed in the popup first (the grant is per item).
       if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: c.itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
-      const credential = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv });
+      const { cipher, ...credential } = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv });
+      // An imported passkey's raised sign counter (offscreen/vault.ts passkeyAssert) is saved before the site gets it.
+      if (cipher)
+        await putCipher(cipher as Record<string, unknown>, () => {
+          if (pending.get(id) !== p) throw new UserError("sessionExpired", "The site cancelled the passkey request");
+          assertEpoch(epoch);
+        });
       p.done({ credential });
     } else {
       const o = p.call.options;
