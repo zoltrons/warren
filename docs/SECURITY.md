@@ -76,8 +76,8 @@ freed rather than zeroed in place.
    A frame too small for the menu (a payment form's one-field iframe) has the top frame draw it (`inlineRemote`,
    `src/background/inline.ts`). The nonce goes from the worker to the top frame's content script over
    `chrome.tabs.sendMessage`, never through the page. The top frame finds the asking `<iframe>` by a one-time token
-   the field's frame posts to it (exactly one window must have sent it), and clamps the menu to that iframe's box, so a
-   framed page cannot place the menu over the rest of the page. Only the frame the current menu context belongs to may
+   the field's frame posts to it (exactly one window must have sent it), and keeps the field's box (where the menu hangs) inside
+   that iframe's box, so a framed page cannot hang the menu anywhere else on the page. Only the frame the current menu context belongs to may
    ask (`ctx.frameId`); what it lists is still matched to that frame's own URL.
 
    **Neither frame takes a click it was not seen for (clickjacking).** A page can lay its own element over the

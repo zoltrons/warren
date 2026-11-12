@@ -309,7 +309,12 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     }
   } else {
     const values = await coreCall<Record<string, string>>({ op: "formValues", id: req.id });
-    res = (await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "form", origin, values, customFields: await customFieldsOf(req.id), epoch }))[0]?.result;
+    // A checkout that puts each card field in its own frame (number, expiry, code): a pick in one of them fills the
+    // frames on that frame's origin. Frames on any other origin are refused by fillInFrames, so nothing leaves it.
+    const target = ctx.frameId === 0 ? { frameIds: [0] } : ({ allFrames: true } as const);
+    const results = await fillInFrames(tabId, target, { mode: "form", origin, values, customFields: await customFieldsOf(req.id), epoch });
+    res = results.find((r) => r.frameId === ctx.frameId)?.result;
+    if (!res?.filled) res = results.find((r) => r.result.filled)?.result ?? res;
   }
   await setTabState("inline", tabId, undefined);
   return res ?? { filled: false };

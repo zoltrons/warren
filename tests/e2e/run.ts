@@ -216,6 +216,10 @@ const pages: Record<string, string> = {
   "/trap": `<div id="m" role="dialog" aria-modal="true">${LOGIN_FORM}</div><script>document.addEventListener("focusin", (e) => { if (!document.getElementById("m").contains(e.target)) document.getElementById("u").focus(); });</script>`,
   // A payment form's one-field iframe (another origin), far too small for the menu.
   "/card-number": `<input id="cc" autocomplete="cc-number" style="width:280px">`,
+  "/card-exp": `<input id="exp" autocomplete="cc-exp" style="width:120px">`,
+  "/card-cvc": `<input id="cvc" autocomplete="cc-csc" style="width:80px">`,
+  // A checkout that puts each card field in its own frame, all on the payment provider's origin.
+  "/split-card": ["number", "exp", "cvc"].map((f) => `<iframe id="${f}" src="http://127.0.0.1:8099/card-${f}" style="width:300px;height:44px"></iframe>`).join(""),
   "/tiny-frame": `<p>Checkout</p><iframe id="f" src="http://127.0.0.1:8099/card-number" style="width:300px;height:44px;border:1px solid #888"></iframe>`,
   "/useronly": `<form onsubmit="return false"><input id="u" name="login" placeholder="Email or phone"><button type="submit">Next</button></form>`,
 };
@@ -1651,6 +1655,15 @@ try {
     assert.equal((await values(f, ["cc"]))[0], "4111111111111111");
     await loginPage.waitForTimeout(300);
     assert.equal(await loginPage.locator("warren-menu").count(), 0, "the top page's menu stayed after the fill");
+  });
+
+  await step("inline menu: a card form split over one frame per field is filled by one pick", async () => {
+    await loginPage.goto(`${SITE}/split-card`);
+    await loginPage.frameLocator("#number").locator("#cc").click();
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /^Visa/ }).click();
+    const frame = (path: string) => loginPage.frames().find((x) => x.url().endsWith(path))!;
+    await frame("/card-cvc").waitForFunction(() => (document.getElementById("cvc") as HTMLInputElement).value !== "");
+    assert.deepEqual([(await values(frame("/card-number"), ["cc"]))[0], (await values(frame("/card-exp"), ["exp"]))[0], (await values(frame("/card-cvc"), ["cvc"]))[0]], ["4111111111111111", "01/30", "123"]);
   });
 
   await step("inline menu: identity fields list identities and fill name, e-mail, phone and address", async () => {

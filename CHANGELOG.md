@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- A card picked in the inline menu fills a checkout whose number, expiry and security code sit in separate frames
+  of the payment provider, not only the field you were in.
 - Card fields in a checkout's small iframes (one field per frame) get a usable inline menu: the page draws it under
   the field instead of the frame cutting it off.
 - A passkey request for an RP ID Warren may not use (another site's, or one allowed only through the site's related
