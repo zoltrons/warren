@@ -2,74 +2,76 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.19 — 2026-11-12
 
 ### Added
 
-- Passkeys work in sign-in forms a site embeds from another domain, when the site allows that frame to use passkeys.
+- Passkeys work in sign-in forms a site embeds from another domain, when the site allows that frame to use passkeys. ([1398219](https://github.com/zoltrons/warren/commit/1398219c8681c186cab67b7421a8ee4af8674350))
 - When a site tells the browser you renamed your account there (WebAuthn's signal API), the passkey in Warren takes
-  the new name.
+  the new name. ([6711d6f](https://github.com/zoltrons/warren/commit/6711d6fa2b3648b3c45a132b47a1cf89a00c16ee))
 - Automatic passkey upgrades: right after Warren fills a site's password, a site that offers to switch you to a
   passkey saves it into that same login, without a prompt (a notification says so). Nothing else can save a passkey
-  silently.
+  silently. ([f75b317](https://github.com/zoltrons/warren/commit/f75b31792c90af7735e8ced68cfa5d0a33212f2c), [d64d130](https://github.com/zoltrons/warren/commit/d64d130df969e4ae05b8654b3aa89d3daa122e4e))
 - Registration forms: the inline menu offers "New e-mail alias" once an alias service is set up (Settings →
-  Generator). It asks that service for the site and writes the address into the focused field only.
+  Generator). It asks that service for the site and writes the address into the focused field only. ([a851f33](https://github.com/zoltrons/warren/commit/a851f33331adfdd167cf20b866b7746ff3b20964))
 - Security report: logins on a site that offers authenticator-app codes, with none set up, are listed. The list of
-  sites (24 KB, from 2fa.directory, MIT) ships with the extension; nothing is asked from that service.
-- A banner on the vault list says how many logins have reused or weak passwords and opens the security report.
+  sites (24 KB, from 2fa.directory, MIT) ships with the extension; nothing is asked from that service. ([025bf6b](https://github.com/zoltrons/warren/commit/025bf6b7322f36545abb09dbdbfdb54eb95abd53), [299045e](https://github.com/zoltrons/warren/commit/299045e9db205a3288afacd7c353f243f782cb5e))
+- A banner on the vault list says how many logins have reused or weak passwords and opens the security report. ([6b098f6](https://github.com/zoltrons/warren/commit/6b098f682a0ccd4f91939c479219c58596a6ddef))
 - Security report: "Check e-mail addresses through your server" asks your Vaultwarden, which asks Have I Been
   Pwned, about the e-mail addresses used as login usernames. It works only when the server admin set an HIBP API key,
-  and the report says so when not.
-- A one-time banner in the vault list offers the "default password manager" setting; "Not now" hides it for good.
+  and the report says so when not. ([b618d35](https://github.com/zoltrons/warren/commit/b618d35e1f6fe5ab17977ed2c896f1846df7d2d2), [8045746](https://github.com/zoltrons/warren/commit/804574660d8d8f2ff734bd96c166ef1eaa0242ea))
+- A one-time banner in the vault list offers the "default password manager" setting; "Not now" hides it for good. ([1be21a6](https://github.com/zoltrons/warren/commit/1be21a648ccb746067965a03d7b5c3dd18070ea8))
 - Optional setting (off by default): a new login password is checked against known breaches when you save it, and a
-  toast warns when it was found. Only the first 5 characters of its SHA-1 hash leave the device.
+  toast warns when it was found. Only the first 5 characters of its SHA-1 hash leave the device. ([1be21a6](https://github.com/zoltrons/warren/commit/1be21a648ccb746067965a03d7b5c3dd18070ea8))
 - Import reads the CSV exports of other managers (Chrome, Edge, Brave, Firefox, LastPass, 1Password, Keeper,
-  KeePassXC, Proton Pass, NordPass, RoboForm) as logins and secure notes, picked by their column names.
+  KeePassXC, Proton Pass, NordPass, RoboForm) as logins and secure notes, picked by their column names. ([c75e477](https://github.com/zoltrons/warren/commit/c75e4778db88871ac8f46848d525214400a422b1))
 - Bank account, driver's license and passport items can be created, viewed and edited (Vaultwarden already stored
-  them; they showed in the list without fields). Their numbers are hidden like card numbers.
+  them; they showed in the list without fields). Their numbers are hidden like card numbers. ([a04ccd5](https://github.com/zoltrons/warren/commit/a04ccd51361b9348bdd7e806db8a5fe74a2e63ae), [2f31f56](https://github.com/zoltrons/warren/commit/2f31f56876833dba300f111568bdb386f2150416))
 - Security report (a chip in the vault list): reused passwords, weak passwords and sites without https, plus an
   on-demand check of every password against known breaches. Only the first 5 characters of each SHA-1 hash leave
-  the device; the worker matches the answers, so the popup never holds a password or a full hash.
+  the device; the worker matches the answers, so the popup never holds a password or a full hash. ([b5f06ba](https://github.com/zoltrons/warren/commit/b5f06ba6d2d8ec4f04a4077066065467f7d063e4))
 - Archive: an item can be archived and unarchived. Archived items leave the list, search, autofill and passkey
-  sign-in, wait under an "Archive" chip, and are part of an export. Needs Vaultwarden 1.36.0 or newer.
-- Card rows get hover shortcuts like logins: copy the number and the security code.
+  sign-in, wait under an "Archive" chip, and are part of an export. Needs Vaultwarden 1.36.0 or newer. ([f16110b](https://github.com/zoltrons/warren/commit/f16110b129eac161027af8c2e87b2875f21374b5))
+- Card rows get hover shortcuts like logins: copy the number and the security code. ([08b73db](https://github.com/zoltrons/warren/commit/08b73db8e0ddaab662e4eaf5f5ba7ff11fa6829d))
 
 ### Changed
 
 - With biometric unlock set up, a site that asks to verify you for a passkey gets Touch ID / Windows Hello in the
-  passkey window instead of the master password, and sites that only prefer verification now get it too.
+  passkey window instead of the master password, and sites that only prefer verification now get it too. ([179bc1d](https://github.com/zoltrons/warren/commit/179bc1d5aea2712c50f32f8aed79e9563f91a48c))
 - New passkeys carry Bitwarden's authenticator id (AAGUID), so sites that list passkeys by provider show
-  "Bitwarden" instead of an unknown authenticator.
+  "Bitwarden" instead of an unknown authenticator. ([9b693bb](https://github.com/zoltrons/warren/commit/9b693bb9fa60fb644fdfa06e7f7a07cb7bb430d2), [ddb1cad](https://github.com/zoltrons/warren/commit/ddb1cad115a52f5dfecb23f416bfb31c5eb872e4))
 
 ### Fixed
 
-- A page that rebuilds itself and drops the inline menu no longer leaves the field without one: a click brings it back.
-- Logins inside web components that close their shadow root get the inline menu and are filled.
+- A page that rebuilds itself and drops the inline menu no longer leaves the field without one: a click brings it back. ([d8998f4](https://github.com/zoltrons/warren/commit/d8998f4b34a78e6e72d3dd5c71ddd275de931842))
+- Logins inside web components that close their shadow root get the inline menu and are filled. ([685bd9b](https://github.com/zoltrons/warren/commit/685bd9b47bbd24a18c3103a2a10bc7650c61f464))
 - The inline menu opens above a field near the bottom of the window instead of off screen, stays inside the right
-  edge for wide fields, and follows its field when the page shifts it.
+  edge for wide fields, and follows its field when the page shifts it. ([28c71dc](https://github.com/zoltrons/warren/commit/28c71dc7e9ea491a4d09ddb049214248e03d0174))
 - Sites that ask the newer `getClientCapabilities()` before offering passkeys now see that passkeys and passkey
-  autofill are available, also in a browser without a built-in authenticator.
+  autofill are available, also in a browser without a built-in authenticator. ([c659ca9](https://github.com/zoltrons/warren/commit/c659ca9ec19cf376c2699f77aedc93f047ba99ca))
 - A passkey imported from another manager with a sign counter now counts up on every sign-in (saved to the vault
-  first), so sites that check the counter no longer take it for a copied passkey.
+  first), so sites that check the counter no longer take it for a copied passkey. ([a061b48](https://github.com/zoltrons/warren/commit/a061b4893fdc0c6739e2ab8bb6eac6e5cd2af3d6))
 - A card picked in the inline menu fills a checkout whose number, expiry and security code sit in separate frames
-  of the payment provider, not only the field you were in.
+  of the payment provider, not only the field you were in. ([2cc1188](https://github.com/zoltrons/warren/commit/2cc1188c9e565a8d17202e861b6aa481ff48f4b1))
 - Card fields in a checkout's small iframes (one field per frame) get a usable inline menu: the page draws it under
-  the field instead of the frame cutting it off.
+  the field instead of the frame cutting it off. ([c1e0241](https://github.com/zoltrons/warren/commit/c1e024149c54425dad3f68845d80098e6695d82d))
 - A passkey request for an RP ID Warren may not use (another site's, or one allowed only through the site's related
-  origins) goes straight to the browser instead of an approval window that could only fail.
+  origins) goes straight to the browser instead of an approval window that could only fail. ([8b249bc](https://github.com/zoltrons/warren/commit/8b249bcd38ae537fdf954f407a72ebfde8ad158a))
 - "Use another device or browser" in the passkey window hands the request to the browser only once the page has
-  focus again, so the browser no longer refuses it as coming from an unfocused page.
+  focus again, so the browser no longer refuses it as coming from an unfocused page. ([6c1f878](https://github.com/zoltrons/warren/commit/6c1f878a236493f83d8f9ffa7aebfd11a71adb7d))
 - The inline menu works on logins inside a modal dialog or a focus-trapping pop-up: it opens above them (the
-  browser's top layer) and takes clicks and the arrow keys. The save bar sits in the top layer too.
+  browser's top layer) and takes clicks and the arrow keys. The save bar sits in the top layer too. ([3373099](https://github.com/zoltrons/warren/commit/3373099ac5f97c28e0d88fc24527bf36808b6de7))
 - An item saved elsewhere (the page's save bar, a passkey, another window) shows up in the open popup or side
-  panel at once, and a new login joins "On this site" right after saving.
+  panel at once, and a new login joins "On this site" right after saving. ([08b73db](https://github.com/zoltrons/warren/commit/08b73db8e0ddaab662e4eaf5f5ba7ff11fa6829d))
 - The popup opens a large vault faster after unlock and after a sync: the whole list is built once instead of four
-  times, and a sync that finds nothing new only stops the spinner (1500 items: four 150–390 ms freezes down to one).
+  times, and a sync that finds nothing new only stops the spinner (1500 items: four 150–390 ms freezes down to one). ([5992de9](https://github.com/zoltrons/warren/commit/5992de949e481bb094d8ff2aa69a9a08ed802ff9))
 - The vault list in a large vault re-renders, scrolls and hovers faster: rows out of view are no longer laid out or
-  painted (1500 items: a filter or clear about 700 ms down to 300).
-- Scrolling no longer waits for the popup's script: the mouse wheel handler sits on the sideways filter row only.
+  painted (1500 items: a filter or clear about 700 ms down to 300). ([5992de9](https://github.com/zoltrons/warren/commit/5992de949e481bb094d8ff2aa69a9a08ed802ff9))
+- Scrolling no longer waits for the popup's script: the mouse wheel handler sits on the sideways filter row only. ([5992de9](https://github.com/zoltrons/warren/commit/5992de949e481bb094d8ff2aa69a9a08ed802ff9))
 - Coming back to the vault list (from an item, another tab, or a re-sort) shows the same rows where they were, also
-  when the item just joined "Recently opened" or long names wrap onto two lines.
+  when the item just joined "Recently opened" or long names wrap onto two lines. ([5992de9](https://github.com/zoltrons/warren/commit/5992de949e481bb094d8ff2aa69a9a08ed802ff9))
+
+All commits: [v0.0.18...v0.0.19](https://github.com/zoltrons/warren/compare/v0.0.18...v0.0.19)
 
 ## 0.0.18 — 2026-11-11
 
