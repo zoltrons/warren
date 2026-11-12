@@ -243,6 +243,9 @@
   "copiedOnly": {
     "message": "Copied"
   },
+  "nothingToCopy": {
+    "message": "Nothing to copy"
+  },
   "copiedClears": {
     "message": "Copied. Clears in $P1$",
     "placeholders": {

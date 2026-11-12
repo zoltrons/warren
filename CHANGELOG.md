@@ -4,8 +4,14 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ## Unreleased
 
+### Added
+
+- Card rows get hover shortcuts like logins: copy the number and the security code.
+
 ### Fixed
 
+- An item saved elsewhere (the page's save bar, a passkey, another window) shows up in the open popup or side
+  panel at once, and a new login joins "On this site" right after saving.
 - The popup opens a large vault faster after unlock and after a sync: the whole list is built once instead of four
   times, and a sync that finds nothing new only stops the spinner (1500 items: four 150–390 ms freezes down to one).
 - The vault list in a large vault re-renders, scrolls and hovers faster: rows out of view are no longer laid out or

@@ -474,7 +474,8 @@ async function loadList(ctx: Ctx) {
 
 /** A push sync changed the vault in the background: show the new list without leaving the current screen. */
 export async function reloadList(): Promise<void> {
-  if (!st.list || !currentCtx) return;
+  // A save of this screen stores the vault before it answers: its own answer brings the list, a second render is waste.
+  if (!st.list || !currentCtx || st.busy) return;
   const r = await send<VaultList>({ type: "vaultList", passive: true });
   if (r.ok) st.list = r.data;
   await refreshPageMatches(true);
@@ -603,8 +604,10 @@ async function fullItem(ctx: Ctx, id: string): Promise<Json | undefined> {
 
 async function copyOf(ctx: Ctx, id: string, pick: (item: Json) => string) {
   const item = await fullItem(ctx, id);
-  const value = item ? pick(item) : "";
+  if (!item) return;
+  const value = pick(item);
   if (value) await copy(ctx, value);
+  else toast(ctx, t("nothingToCopy"));
 }
 
 async function copyTotp(ctx: Ctx, id: string) {
@@ -618,7 +621,8 @@ const iconMode = () => !settingsOf()?.quickActionMenus;
 
 /**
  * Quick actions of a list row, like the official extension. By default one button each for a login:
- * open the website, copy the username, the password and the code (dimmed when the login has none). With
+ * open the website, copy the username, the password and the code (dimmed when the login has none); for a
+ * card: copy the number and the security code. With
  * the "Compact row actions" setting: a copy button (a menu when there is a choice) and "⋮" with
  * favorite, website, edit and clone. Secrets are fetched on use, through the worker's re-prompt check.
  */
@@ -627,10 +631,15 @@ function rowActions(ctx: Ctx, i: VaultItem): Child[] {
   const field = (o: string, k: string) => (item: Json) => str(obj(item[o])?.[k]);
   const name = i.name || t("untitled");
   if (iconMode()) {
-    if (i.type !== 1) return [];
-    const url = i.uris.map(webUrl).find(Boolean);
     const button = (ic: IconName, text: string, run: () => void, enabled: boolean) =>
       iconButton(ic, `${text} (${name})`, run, { class: "icon-btn sm quick-action", disabled: !enabled });
+    if (i.type === 3)
+      return [
+        button("card", t("copyField", label("number")), () => void copyOf(ctx, i.id, field("card", "number")), true),
+        button("key", t("copyField", label("code")), () => void copyOf(ctx, i.id, field("card", "code")), true),
+      ];
+    if (i.type !== 1) return [];
+    const url = i.uris.map(webUrl).find(Boolean);
     return [
       button("external", t("openWebsite"), () => void chrome.tabs.create({ url: url! }), !!url),
       button("user", t("copyField", label("username")), () => void copy(ctx, i.sub), !!i.sub),
@@ -1416,6 +1425,7 @@ async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: stri
   if (!r.ok) return ((st.error = r.error), ctx.rerender());
   st.list = r.data;
   st.item = undefined;
+  await refreshPageMatches(); // e.g. a restored login of this site is back under "On this site"
   if (back) open(ctx, { kind: "list" });
   else {
     // Refetch before rendering, so the item page shows the saved item instead of flashing its loading bar.
@@ -2187,6 +2197,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     if (!r.ok) return ((st.error = r.error), ctx.rerender());
     st.list = r.data;
     st.item = undefined;
+    await refreshPageMatches(); // a new login for this site joins "On this site"
     open(ctx, isNew ? { kind: "list" } : { kind: "item", id: str(d.base.id) });
     toast(ctx, t("saved"));
   };
