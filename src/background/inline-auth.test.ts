@@ -58,7 +58,7 @@ test("sender: the inline menu belongs to the frame the browser reports, not to t
 test("frame secret: a menu without this document's nonce cannot list", async () => {
   await assert.rejects(handleFrame(parseFrameRequest({ type: "inlineList", nonce: "guessed" }), 1), /not the one opened/);
   // The right nonce gets as far as the lock check.
-  assert.deepEqual(await handleFrame(parseFrameRequest({ type: "inlineList", nonce: "n1" }), 1), { kind: "login", locked: true, items: [], passkey: false, create: false });
+  assert.deepEqual(await handleFrame(parseFrameRequest({ type: "inlineList", nonce: "n1" }), 1), { kind: "login", locked: true, items: [], passkey: false, create: false, alias: false });
 });
 
 test("frame secret: a save bar without the token of the bar this tab was shown cannot read or save", async () => {

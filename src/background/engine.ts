@@ -103,6 +103,22 @@ function intentOf(req: FillRequest): unknown {
  * Collect, plan and fill in the target frames, top frame first in the answer. A frame on another origin
  * is refused before it reads a field, and again before it is written to.
  */
+/**
+ * Writes `value` into the field that has focus in one frame and nothing else (the inline menu's "New e-mail alias").
+ * The collected page says which field is active; a password box is refused. `epoch`: lockEpoch() from before the value existed.
+ */
+export async function fillActiveField(tabId: number, frameId: number, req: { origin: string; value: string; epoch: number }): Promise<FillResult> {
+  const [collected] = await pageCall<CollectedPageDetails | FillResult>({ tabId, frameIds: [frameId] }, "collect", { origin: req.origin, mode: "FullPage" });
+  if (!collected) return { filled: false };
+  if (isResult(collected.result)) return collected.result;
+  const active = parsePageDetails(collected.result).fields.find((f) => f.isActive && f.type !== "password");
+  if (!active) return { filled: false, reason: "noFields" };
+  const guard = () => assertEpoch(req.epoch);
+  const execute: ExecuteFill = { origin: req.origin, ops: [{ fieldId: active.fieldId, value: req.value }], onlyEmpty: false };
+  const [res] = await pageCall<FillResult>({ tabId, documentIds: [collected.documentId] }, "execute", execute, guard).catch(() => (guard(), []));
+  return res?.result ?? { filled: false };
+}
+
 export async function fillInFrames(tabId: number, target: Target, req: FillRequest): Promise<{ frameId: number; result: FillResult }[]> {
   const collected = await pageCall<CollectedPageDetails | FillResult>({ tabId, ...target }, "collect", { origin: req.origin, mode: "FullPage" });
   await engine();

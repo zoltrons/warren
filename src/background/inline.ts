@@ -5,12 +5,14 @@ import type { FillResult } from "../autofill/types.ts";
 import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest, VaultItem } from "../shared/messages.ts";
 import { httpUrl } from "../shared/url.ts";
 import { coreCall } from "./core.ts";
-import { analyzeFocus, customFieldsOf, fillInFrames, pageDeadline } from "./engine.ts";
+import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadline } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
+import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/alias.ts";
+import { generateAlias, getAliasSettings } from "./alias.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
 import { isBlocked, readPrivate, updatePrivate } from "./private.ts";
@@ -100,6 +102,15 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
 
 const offerCreate = (ctx: InlineContext, logins: number) => ctx.kind === "login" && (ctx.signup || !logins);
 
+/** The first alias service that is set up (key and, where needed, domain). */
+async function aliasVendor(): Promise<AliasVendor | undefined> {
+  for (const v of ALIAS_VENDORS) if (!missingAliasFields(await getAliasSettings(v)).length) return v;
+  return undefined;
+}
+
+/** A new alias is offered on a registration form's fields, once a service is set up. */
+const offerAlias = async (ctx: InlineContext) => ctx.kind === "login" && ctx.signup && !!(await aliasVendor());
+
 async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
   if (!(await getSettings()).inlineMenu || !(await getLocal("account"))) return { rows: 0 };
   const ctx: InlineContext = { frameId, url, kind, nonce, signup };
@@ -110,7 +121,7 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
   // A website waiting on a conditional passkey request gets one extra row for it.
   const passkey = kind === "login" && (await conditionalReady(tabId, frameId));
   // footer: the menu's "Manage passwords" row under the list, as in Chrome's own autofill dropdown.
-  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0), footer: true };
+  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) + ((await offerAlias(ctx)) ? 1 : 0), footer: true };
 }
 
 async function loginSubmitted(tabId: number, url: string, username: string, password: string) {
@@ -228,7 +239,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     await openConditional(tabId, ctx.frameId);
     return null;
   }
-  if (!(await isUnlocked())) return { kind: ctx.kind, locked: true, items: [], passkey: false, create: false } satisfies MenuData;
+  if (!(await isUnlocked())) return { kind: ctx.kind, locked: true, items: [], passkey: false, create: false, alias: false } satisfies MenuData;
   if (req.type === "inlineNewLogin") {
     await touchAutoLock();
     await updateSession({ newLogin: new URL(ctx.url).origin });
@@ -237,7 +248,19 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
   }
   const available = await items(ctx.kind, ctx.url);
   const passkey = ctx.kind === "login" && (await conditionalReady(tabId, ctx.frameId));
-  if (req.type === "inlineList") return { kind: ctx.kind, locked: false, items: available, passkey, create: offerCreate(ctx, available.length) } satisfies MenuData;
+  if (req.type === "inlineList") return { kind: ctx.kind, locked: false, items: available, passkey, create: offerCreate(ctx, available.length), alias: await offerAlias(ctx) } satisfies MenuData;
+
+  if (req.type === "inlineAlias") {
+    const vendor = (await offerAlias(ctx)) ? await aliasVendor() : undefined;
+    if (!vendor) throw new Error("no e-mail alias service is set up");
+    await touchAutoLock();
+    // The service is asked for the tab's site (generateAlias reads the active tab), never for a URL from the page.
+    const alias = await generateAlias(vendor);
+    await chrome.tabs.sendMessage(tabId, { type: "inlineClose" }, { frameId: ctx.frameId }).catch(() => undefined);
+    const res = await fillActiveField(tabId, ctx.frameId, { origin: new URL(ctx.url).origin, value: alias, epoch });
+    await setTabState("inline", tabId, undefined);
+    return res ?? { filled: false };
+  }
 
   // inlineFill: only an item offered for this field and frame.
   if (!available.some((i) => i.id === req.id)) throw new Error("item not available here");

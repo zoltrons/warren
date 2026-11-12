@@ -888,6 +888,8 @@ export type FrameRequest =
   /** Opens the popup: to unlock, or from the menu's "Manage passwords" row. */
   | { type: "inlineOpen"; nonce: string }
   | { type: "inlineNewLogin"; nonce: string }
+  /** "New e-mail alias": made by the first configured alias service and filled into the registration field. */
+  | { type: "inlineAlias"; nonce: string }
   | { type: "barInfo"; token: string }
   | { type: "barAction"; action: "save" | "never" | "close"; token: string };
 
@@ -896,6 +898,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineFill: obj({ type: literal("inlineFill"), id: str, nonce: secret }),
   inlinePasskey: obj({ type: literal("inlinePasskey"), nonce: secret }),
   inlineOpen: obj({ type: literal("inlineOpen"), nonce: secret }),
+  inlineAlias: obj({ type: literal("inlineAlias"), nonce: secret }),
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
   barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close"), token: secret }),
@@ -927,6 +930,8 @@ export interface MenuData {
   passkey: boolean;
   /** No login for this site yet, or a registration form: offer "Create account". */
   create: boolean;
+  /** A registration form and an alias service is set up: offer "New e-mail alias". */
+  alias: boolean;
 }
 
 export interface BarInfo {

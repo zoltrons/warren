@@ -1707,6 +1707,40 @@ try {
     await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: "Create account" }).waitFor();
   });
 
+  await step("inline menu: a registration form offers a new e-mail alias once a service is set up, and fills it", async () => {
+    // Without a service the row is not there (an earlier step set a key: clear it first).
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "setAliasSettings", settings: { vendor: "simplelogin", token: "", baseUrl: "", domain: "", prefix: false } }));
+    await loginPage.bringToFront();
+    await loginPage.goto(`${SITE}/register`);
+    await loginPage.click("#u");
+    const before = await frameOf(loginPage, "menu.html");
+    await before.getByRole("option", { name: "Create account" }).waitFor();
+    assert.equal(await before.getByRole("option", { name: "New e-mail alias" }).count(), 0);
+    // A SimpleLogin that lives on this machine: what the extension sends, and what it answers.
+    const seen: { url: string; key: string | undefined }[] = [];
+    const stub = createServer((req, res) => {
+      seen.push({ url: req.url ?? "", key: req.headers.authentication as string | undefined });
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ alias: "fresh.alias@sl.example" }));
+    });
+    await new Promise<void>((r) => stub.listen(0, "127.0.0.1", r));
+    const base = `http://127.0.0.1:${(stub.address() as { port: number }).port}`;
+    try {
+      await page.evaluate((b) => chrome.runtime.sendMessage({ type: "setAliasSettings", settings: { vendor: "simplelogin", token: "sl-inline-key", baseUrl: b, domain: "", prefix: false } }), base);
+      await loginPage.goto(`${SITE}/register`);
+      await loginPage.click("#u");
+      await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: "New e-mail alias" }).click();
+      await loginPage.waitForFunction(() => (document.getElementById("u") as HTMLInputElement).value !== "");
+      assert.equal(await loginPage.inputValue("#u"), "fresh.alias@sl.example");
+      assert.equal(seen.length, 1);
+      assert.match(seen[0]!.url, /^\/api\/alias\/random\/new\?hostname=localhost$/);
+      assert.equal(seen[0]!.key, "sl-inline-key");
+    } finally {
+      stub.close();
+      await page.evaluate(() => chrome.runtime.sendMessage({ type: "setAliasSettings", settings: { vendor: "simplelogin", token: "", baseUrl: "", domain: "", prefix: false } }));
+    }
+  });
+
   await step("inline menu: it opens right under its field, also on a page taller than the window", async () => {
     await loginPage.bringToFront();
     await loginPage.goto(`${SITE}/login`);

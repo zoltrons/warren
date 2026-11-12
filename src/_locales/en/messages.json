@@ -2314,5 +2314,8 @@
   },
   "reportNoTotp": {
     "message": "Two-step codes available but not set up"
+  },
+  "inlineAlias": {
+    "message": "New e-mail alias"
   }
 }

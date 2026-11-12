@@ -34,12 +34,19 @@ async function render() {
       )
     : null;
   const create = d.create ? row(icon("plus"), t("createAccount"), t("appName"), () => void ask({ type: "inlineNewLogin", nonce }), t("createAccount"), "option") : null;
+  const alias = d.alias
+    ? row(icon("mail"), t("inlineAlias"), t("appName"), async () => {
+        const r = await ask({ type: "inlineAlias", nonce });
+        if (!r.ok) app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), r.error));
+      }, t("inlineAlias"), "option")
+    : null;
   app.replaceChildren(
     h(
       "div",
       { class: "group", role: "listbox", "aria-label": t("appName") },
       passkey,
       create,
+      alias,
       ...d.items.map((i) => {
         const name = i.name || t("untitled");
         // Logins lead with the account, as Chrome's dropdown does; the item name says where it is from.
