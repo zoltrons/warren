@@ -43,21 +43,29 @@ Rendered from the popup with a stubbed worker (`node dev/preview/build.mjs && no
 
 **Vault**
 - Logins, cards (with network marks), identities, secure notes, SSH keys, bank accounts, driver's licenses and
-  passports: view, edit, clone, search, folders, favorites, trash, password history, custom fields, attachments
+  passports: view, edit, clone, search, folders, favorites, archive, trash, password history, custom fields, attachments
   (add, download, delete).
 - A list that puts "On this site" first, then favorites and recently opened; copy, open and fill buttons on every
   row. Click a field in the item view to copy it.
 - Organizations: items in collections, move a personal item into an organization, change an item's collections.
 - Live sync over Vaultwarden's notifications; changes from other clients show immediately.
-- Import and export: Bitwarden JSON, password-protected JSON and CSV.
+- Import and export: Bitwarden JSON, password-protected JSON and CSV; import also reads the CSV exports of Chrome,
+  Firefox, LastPass, 1Password, Keeper, KeePassXC, Proton Pass, NordPass and RoboForm.
+- Security report: reused, weak and non-https logins, sites that offer two-step codes you have not set up, and an
+  on-demand breach check of passwords (only 5 characters of each hash leave the device) and of login e-mail addresses
+  (through your server's HIBP key).
 
 **Autofill and passkeys**
 - Fill from the popup, `Ctrl+Shift+L` (`⌘⇧L` on macOS), the context menu or an inline menu on the field; optional
   page-load fill, TOTP code copied after a fill, and autosubmit that never presses a destructive button.
+- The inline menu also works inside modal dialogs, closed shadow roots and a checkout's one-field iframes (a card
+  pick fills every frame of the payment form), and offers a new e-mail alias on registration forms.
 - Offers to save or update a login after you sign in, also on two-step sign-ins; "Change password on this site"
   opens the site's own page.
 - Blocked sites (no inline menu, page-load fill or passkey prompt) and never-save sites you can list by hand.
-- Passkeys: create and use passkeys stored in your vault, or add one to an existing login.
+- Passkeys: create and use passkeys stored in your vault, or add one to an existing login; also in sign-in frames a
+  site embeds from another domain. Automatic passkey upgrades join the login Warren just filled, a site's account
+  rename updates the passkey, and biometric unlock verifies you instead of the master password.
 
 **Tools**
 - TOTP codes with the next code shown, QR code and large type views, data-breach check, typing practice for a
