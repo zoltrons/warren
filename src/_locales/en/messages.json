@@ -2297,5 +2297,19 @@
   },
   "reportEmailsStopped": {
     "message": "The server stopped answering part-way (HIBP limits requests). The list below is what was checked."
+  },
+  "attentionTitle": {
+    "message": "Logins need attention ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "attentionBody": {
+    "message": "Their passwords are reused or weak."
+  },
+  "attentionReview": {
+    "message": "Review"
   }
 }

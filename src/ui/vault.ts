@@ -118,6 +118,8 @@ function savedSort(): Sort {
 const st = {
   list: undefined as VaultList | undefined,
   /** The security report screen: the lists, and the breach check's progress and findings. */
+  /** The "needs attention" banner was dismissed (until the popup is closed). */
+  attentionHidden: false,
   report: undefined as { data?: SecurityReport; exposed?: Map<string, number>; done: number; running: boolean; failed: boolean; emails?: BreachResults; emailsRunning?: boolean } | undefined,
   page: undefined as PageMatches | undefined,
   loading: false,
@@ -191,7 +193,7 @@ export function resetVault(): void {
   stopRepromptWatch();
   closeMenu();
   Object.assign(st, {
-    list: undefined, report: undefined, page: undefined, loading: false, syncing: false, busy: false, error: undefined, route: { kind: "list" }, query: "",
+    list: undefined, report: undefined, attentionHidden: false, page: undefined, loading: false, syncing: false, busy: false, error: undefined, route: { kind: "list" }, query: "",
     folder: "", item: undefined, reveal: new Set(), totp: undefined, confirmDelete: 0, draft: undefined,
     large: undefined, qr: undefined, pwned: undefined, memory: undefined, notesPreview: false,
     toast: "", toastError: false, toastAction: undefined, toastLeaving: false, copied: "", sawList: false, uriOpen: new Set(), picking: undefined,
@@ -1046,6 +1048,25 @@ function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
+    !st.attentionHidden && !st.query && !st.folder && st.list?.items.some((i) => i.reused || i.weak)
+      ? h(
+          "div",
+          { class: "notice warn", role: "region", "aria-label": t("securityReport") },
+          icon("error"),
+          h(
+            "div",
+            {},
+            h("strong", {}, t("attentionTitle", String(st.list.items.filter((i) => i.reused || i.weak).length))),
+            h("p", { class: "caption" }, t("attentionBody")),
+            h(
+              "div",
+              { class: "row-actions" },
+              h("button", { type: "button", class: "btn tonal small", onclick: () => open(ctx, { kind: "report" }) }, t("attentionReview")),
+              h("button", { type: "button", class: "btn text small", onclick: () => ((st.attentionHidden = true), ctx.rerender()) }, t("defaultAskLater")),
+            ),
+          ),
+        )
+      : null,
     ctx.settings() && !ctx.settings()!.defaultManager && uiPref("defaultAsked") !== "yes" && st.list?.items.length
       ? h(
           "div",

@@ -1052,7 +1052,7 @@ try {
     await page.getByText("Let Warren handle passwords in this browser").waitFor();
     await page.getByRole("button", { name: "Not now" }).click();
     await page.getByText("Let Warren handle passwords in this browser").waitFor({ state: "hidden" });
-    const hex = createHash("sha1").update("breach-me-1").digest("hex").toUpperCase();
+    const hex = createHash("sha1").update("123456").digest("hex").toUpperCase();
     await ctx.route("https://api.pwnedpasswords.com/range/*", (route) => {
       const prefix = route.request().url().split("/").pop()!;
       void route.fulfill({ status: 200, contentType: "text/plain", body: prefix === hex.slice(0, 5) ? `${hex.slice(5)}:5\r\n` : "0000000000000000000000000000000000A:0\r\n" });
@@ -1060,14 +1060,19 @@ try {
     // Off by default: a save sends nothing to HIBP and warns about nothing.
     await page.getByRole("button", { name: "New item" }).click();
     await fill("Name", "Quiet save");
-    await fill("Password", "breach-me-1");
+    await fill("Password", "123456");
     await page.getByRole("button", { name: "Save" }).click();
     await rows().filter({ hasText: "Quiet save" }).waitFor();
     assert.equal(await page.getByText("known data breaches").count(), 0);
+    // A weak password puts the "needs attention" banner on the list; Review opens the report, which lists it.
+    await page.getByText(/Logins need attention/).waitFor();
+    await page.getByRole("button", { name: "Review" }).click();
+    await page.getByRole("heading", { name: /Weak passwords/ }).waitFor();
+    await back();
     await page.evaluate(() => localStorage.setItem("breachSave", "on"));
     await page.getByRole("button", { name: "New item" }).click();
     await fill("Name", "Loud save");
-    await fill("Password", "breach-me-1");
+    await fill("Password", "123456");
     await page.getByRole("button", { name: "Save" }).click();
     await page.getByText("Found in 5 known data breaches").waitFor();
     await page.evaluate(() => localStorage.setItem("breachSave", "off"));

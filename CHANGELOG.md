@@ -6,6 +6,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- A banner on the vault list says how many logins have reused or weak passwords and opens the security report.
 - Security report: "Check e-mail addresses through your server" asks your Vaultwarden, which asks Have I Been
   Pwned, about the e-mail addresses used as login usernames. It works only when the server admin set an HIBP API key,
   and the report says so when not.
