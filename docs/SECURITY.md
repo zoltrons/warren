@@ -178,7 +178,9 @@ freed rather than zeroed in place.
 
 11. **Passkeys are bound to the origin.** `checkRpId` requires the RP ID to be the origin's host or a
     registrable parent, on a secure origin, and never a public suffix — including when the page's own
-    host *is* the public suffix. An IP address has no parent: it is only ever its own RP ID. Signing happens in the worker, and the private key never leaves it: `getCipher`
+    host *is* the public suffix. An IP address has no parent: it is only ever its own RP ID. The service worker runs the same check before
+    any window opens (`rpIdUsable`, `src/background/passkey.ts`) and hands a failing call to the browser; the worker
+    checks again before it signs. Signing happens in the worker, and the private key never leaves it: `getCipher`
     hands out items without `keyValue` and `prepareSave` restores it from the same item only
     (`src/offscreen/passkey-keys.ts`), so a clone does not copy a passkey. A new passkey is put into its item and
     encrypted in the worker (`passkeyCreate` answers with the ciphertext), so its key is never in the service worker.
