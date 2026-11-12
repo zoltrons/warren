@@ -1035,6 +1035,7 @@ function listView(ctx: Ctx): HTMLElement {
       chip("t:3", t("typeCard"), "card"),
       chip("t:4", t("typeIdentity"), "user"),
       chip("t:2", t("typeNote"), "note"),
+      ...([[6, "landmark"], [7, "card"], [8, "globe"]] as const).map(([type, ic]) => (st.list?.items.some((i) => i.type === type) ? chip(`t:${type}`, t(TYPE_LABEL[type]!), ic) : null)),
       st.list?.items.some((i) => i.reused) ? chip("reused", t("filterReused"), "error") : null,
       st.list?.items.some((i) => i.weak) ? chip("weak", t("filterWeak"), "error") : null,
       ...folders.map((f) => chip(f.id, f.name, "folder")),
