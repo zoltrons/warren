@@ -191,6 +191,7 @@ const SITE = "http://localhost:8099";
 const LOGIN_FORM = `<form onsubmit="return false"><input id="u" name="user" autocomplete="username"><input id="p" type="password" name="pw"><button type="button" id="show">Show</button><button>Sign in</button></form>`;
 const pages: Record<string, string> = {
   "/card": `<form><input id="cn" autocomplete="cc-name"><input id="cc" autocomplete="cc-number"><select id="m" autocomplete="cc-exp-month"><option></option><option>01</option><option>02</option></select><input id="y" name="exp-year"><input id="cvc" name="cvc"></form>`,
+  "/identity": `<form><input id="fn" autocomplete="given-name"><input id="ln" autocomplete="family-name"><input id="em" type="email" autocomplete="email"><input id="ph" type="tel" autocomplete="tel"><input id="ad" autocomplete="address-line1"><input id="ci" autocomplete="address-level2"><input id="zi" autocomplete="postal-code"></form>`,
   // Login fields inside an open shadow root.
   "/shadow": `<div id="host"></div><script>document.getElementById("host").attachShadow({ mode: "open" }).innerHTML = ${JSON.stringify(LOGIN_FORM)};</script>`,
   // Fills the form and fires submit on load, with no user gesture at all.
@@ -1613,6 +1614,27 @@ try {
     await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /^Visa/ }).click();
     await loginPage.waitForFunction(() => (document.getElementById("cc") as HTMLInputElement).value !== "");
     assert.deepEqual(await values(loginPage, ["cn", "cc", "m", "y", "cvc"]), ["Ada L", "4111111111111111", "01", "2030", "123"]);
+  });
+
+  await step("inline menu: identity fields list identities and fill name, e-mail, phone and address", async () => {
+    await reopenPopup();
+    await page.getByRole("button", { name: "New item" }).click();
+    await page.getByRole("button", { name: "Identity", exact: true }).click();
+    await fill("Name", "My identity");
+    await fill("First name", "Ada");
+    await fill("Last name", "Lovelace");
+    await fill("Email", "ada@example.test");
+    await fill("Phone", "5551234");
+    await fill("Address 1", "12 Analytical St");
+    await fill("City / Town", "London");
+    await fill("Postal code", "N1 9GU");
+    await page.getByRole("button", { name: "Save" }).click();
+    await rows().filter({ hasText: "My identity" }).first().waitFor(); // also listed under Identities for the open site
+    await loginPage.goto(`${SITE}/identity`);
+    await loginPage.click("#fn");
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /^My identity/ }).click();
+    await loginPage.waitForFunction(() => (document.getElementById("fn") as HTMLInputElement).value !== "");
+    assert.deepEqual(await values(loginPage, ["fn", "ln", "em", "ph", "ad", "ci", "zi"]), ["Ada", "Lovelace", "ada@example.test", "5551234", "12 Analytical St", "London", "N1 9GU"]);
   });
 
   await step("new item: the form starts on the active tab's site, other types start unnamed", async () => {
