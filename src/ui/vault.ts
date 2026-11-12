@@ -13,7 +13,7 @@ import { passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
-import { type Child, enter, h, inPanel, leave, plural, rowOf, send, t, when, withChevron } from "./dom.ts";
+import { type Child, chipRow, enter, h, inPanel, leave, plural, rowOf, send, t, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -454,19 +454,17 @@ function copyOnClick(ctx: Ctx, key: string, value: () => string, title: string):
 
 async function loadList(ctx: Ctx) {
   st.loading = true;
-  // Asked for alongside the list, and shown as soon as it is here (it used to wait for the sync).
+  // Asked for alongside the list and shown with it, not after the sync: one render for both (the matches are quick),
+  // as each render rebuilds the whole list, a long frame in a large vault.
   const page = send<PageMatches>({ type: "pageMatches" });
   const r = await send<VaultList>({ type: "vaultList" });
+  const p = r.ok ? await page : undefined;
   st.loading = false;
   if (r.ok) st.list = r.data;
   else st.error = r.error;
+  if (p?.ok) st.page = p.data;
   ctx.rerender();
   if (!r.ok) return;
-  const p = await page;
-  if (p.ok) {
-    st.page = p.data;
-    ctx.rerender();
-  }
   // Opened by the inline menu's "Create account": go straight to the form.
   const site = await send<string | null>({ type: "takeNewLogin" });
   if (site.ok && site.data) startEdit(ctx, undefined, sitePrefill(site.data));
@@ -491,7 +489,7 @@ export async function refreshPageMatches(passive = false): Promise<void> {
 
 async function syncNow(ctx: Ctx, force: boolean) {
   st.syncing = true;
-  ctx.rerender();
+  syncButton();
   const r = await send<VaultList | null>({ type: "sync", force });
   st.syncing = false;
   if (r.ok && r.data) {
@@ -501,7 +499,17 @@ async function syncNow(ctx: Ctx, force: boolean) {
     if (p.ok) st.page = p.data;
   }
   if (!r.ok) st.error = r.error;
-  ctx.rerender();
+  // Nothing new (null): only the spinner changes, so the list is not rebuilt for it.
+  if (r.ok && !r.data) syncButton();
+  else ctx.rerender();
+}
+
+/** The list's sync button follows st.syncing in place; a screen without it picks the state up on its next render. */
+function syncButton() {
+  const b = document.getElementById("vault-sync") as HTMLButtonElement | null;
+  if (!b) return;
+  b.classList.toggle("spin", st.syncing);
+  b.disabled = st.syncing;
 }
 
 function open(ctx: Ctx, route: Route) {
@@ -1001,14 +1009,13 @@ function listView(ctx: Ctx): HTMLElement {
     topBar(
       h("div", { class: "search" }, icon("search"), input, clearBtn),
       sortButton,
-      iconButton("refresh", t("syncNow"), () => void syncNow(ctx, true), { class: `icon-btn sm${st.syncing ? " spin" : ""}`, disabled: st.syncing }),
+      iconButton("refresh", t("syncNow"), () => void syncNow(ctx, true), { id: "vault-sync", class: `icon-btn sm${st.syncing ? " spin" : ""}`, disabled: st.syncing }),
       iconButton("lock", t("lockNow"), () => ctx.lock(), { class: "icon-btn sm" }),
       addBtn,
     ),
-    h(
-      "div",
+    chipRow(
       // Filters over an empty vault could only ever say "no matches".
-      { class: "chips scroll", role: "group", "aria-label": t("filters"), hidden: st.list?.items.length === 0 && !st.list.trash.length },
+      { role: "group", "aria-label": t("filters"), hidden: st.list?.items.length === 0 && !st.list.trash.length },
       chip("fav", t("favorites"), "starBorder"), // outline, like the other chips' glyphs
       chip("t:1", t("typeLogin"), "key"),
       chip("t:3", t("typeCard"), "card"),
@@ -2112,7 +2119,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     if (shownWarn) below.push(h("p", { class: "caption warn", role: "status" }, t("invalidCardNumber")));
     if (d.type === 1 && f.key === "username" && !get()) {
       const known = usernameSuggestions();
-      if (known.length) below.push(h("div", { class: "chips scroll", role: "group", "aria-label": t("suggestions") }, ...known.map((u) => h("button", { type: "button", class: "chip", onclick: () => ((d.data.username = u), ctx.rerender()) }, u))));
+      if (known.length) below.push(chipRow({ role: "group", "aria-label": t("suggestions") }, ...known.map((u) => h("button", { type: "button", class: "chip", onclick: () => ((d.data.username = u), ctx.rerender()) }, u))));
     }
     const wrap = (block: HTMLElement) => (below.length ? h("div", { class: "field-block" }, block, ...below) : block);
     const openGenerator = (field: GeneratorPick["field"]) => {

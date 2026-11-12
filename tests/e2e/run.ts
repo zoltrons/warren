@@ -657,9 +657,34 @@ try {
     await page.getByRole("searchbox").fill("");
     await page.getByRole("button", { name: "Work", exact: true }).click();
     assert.equal(await rows().count(), 1);
-    assert.match(await rows().first().innerText(), /GitHub/);
+    // textContent: innerText leaves out rows not rendered yet (content-visibility: auto, popup.css).
+    assert.match((await rows().first().textContent()) ?? "", /GitHub/);
     await page.getByRole("button", { name: "Work", exact: true }).click(); // chips toggle off again
     assert.equal(await rows().count(), 3);
+    // Back from an item: the row is where it was on screen and has focus (popup.ts scroll memory).
+    const github = rows().filter({ hasText: "GitHub" }).first();
+    const top = await github.evaluate((e) => e.getBoundingClientRect().top);
+    await github.click();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await page.waitForFunction((t) => {
+      const a = document.activeElement as HTMLElement | null;
+      return !!a?.textContent?.includes("GitHub") && Math.abs(a.getBoundingClientRect().top - t) < 1;
+    }, top);
+    // Opening builds the list once: the site matches come with it, and the sync after it, finding nothing new, only
+    // spins the sync button. Counted from before the popup's own script runs, so a fast sync cannot slip past.
+    await page.addInitScript(() =>
+      addEventListener("DOMContentLoaded", () => {
+        const app = document.getElementById("app")!;
+        const w = window as unknown as { listRenders: number };
+        w.listRenders = 0;
+        new MutationObserver(() => void (app.querySelector(".list-body [role=listitem]") && w.listRenders++)).observe(app, { childList: true });
+      }),
+    );
+    await open();
+    await rows().first().waitFor();
+    await page.waitForTimeout(1500); // the sync ends well within this on the local server
+    await page.waitForFunction(() => document.getElementById("vault-sync")?.matches(":not(:disabled, .spin)"));
+    assert.equal(await page.evaluate(() => (window as unknown as { listRenders: number }).listRenders), 1, "the list was built more than once");
   });
 
   await step("website icons are off by default, come from the server's icon service and can be turned off", async () => {
@@ -1205,7 +1230,8 @@ try {
     await page.getByRole("button", { name: "Vault", exact: true }).click();
     await page.getByRole("button", { name: "Lock now" }).click();
     await page.getByRole("heading", { name: "Vault locked" }).waitFor();
-    assert.ok(!(await page.locator("#app").innerText()).includes("GitHub"));
+    // The DOM, not what is painted: a skipped (content-visibility) row would hide from innerText.
+    assert.ok(!((await page.locator("#app").textContent()) ?? "").includes("GitHub"));
   });
 
   // ---------- autofill ----------

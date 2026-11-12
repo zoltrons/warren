@@ -136,6 +136,24 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 }
 
 /**
+ * A sideways chip row. A mouse wheel only scrolls vertically, so over the row it scrolls the row instead. The listener
+ * sits on the row, not the document: a non-passive document wheel listener made every page scroll wait for the main thread.
+ */
+export function chipRow(props: Record<string, unknown>, ...children: Child[]): HTMLDivElement {
+  const row = h("div", { ...props, class: "chips scroll" }, ...children);
+  row.addEventListener(
+    "wheel",
+    (e) => {
+      if (Math.abs(e.deltaX) >= Math.abs(e.deltaY) || row.scrollWidth <= row.clientWidth) return;
+      row.scrollLeft += e.deltaY;
+      e.preventDefault();
+    },
+    { passive: false },
+  );
+  return row;
+}
+
+/**
  * A <select> with the app's own label and chevron. Native select text cannot be aligned
  * reliably, so the real control is transparent on top of a plain text label.
  */

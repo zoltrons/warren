@@ -1214,8 +1214,38 @@ const vaultCtx: Ctx = {
 };
 let firstRender = true;
 
-/** One scroll offset per screen, so coming back from an item lands where the user left. */
-const scrollMemory = new Map<string, number>();
+/**
+ * One scroll position per screen, so coming back from an item lands where the user left. Besides the offset it keeps a
+ * row (`data-item`: the focused one in view, else the first in view) and where it sat in the viewport: rows can change
+ * height between renders (off-screen rows have an estimated one, popup.css; the item just opened joins "Recently
+ * opened"), so that row is put back exactly and the offset is only the fallback.
+ */
+const scrollMemory = new Map<string, { y: number; anchor?: { id: string; top: number; y: number } }>();
+
+function scrollAnchor(): { id: string; top: number; y: number } | undefined {
+  if (!window.scrollY) return undefined; // at the top the screen stays at the top
+  const at = (el: HTMLElement) => ({ id: el.dataset.item!, top: el.getBoundingClientRect().top, y: el.getBoundingClientRect().top + window.scrollY });
+  const inView = (el: HTMLElement) => { const b = el.getBoundingClientRect(); return b.bottom > 0 && b.top < innerHeight; };
+  const active = document.activeElement as HTMLElement | null;
+  if (active?.dataset.item && inView(active)) return at(active);
+  for (const el of app.querySelectorAll<HTMLElement>("[data-item]")) if (el.getBoundingClientRect().top >= 0) return at(el);
+  return undefined;
+}
+
+function restoreScroll(key: string) {
+  const mem = scrollMemory.get(key);
+  window.scrollTo(0, mem?.y ?? 0);
+  const a = mem?.anchor;
+  if (!a) return;
+  // The copy nearest its old place, when an item is listed twice (a favorite, a recent one).
+  let best: HTMLElement | undefined;
+  let gap = Infinity;
+  for (const el of app.querySelectorAll<HTMLElement>(`[data-item="${CSS.escape(a.id)}"]`)) {
+    const d = Math.abs(el.getBoundingClientRect().top + window.scrollY - a.y);
+    if (d < gap) [best, gap] = [el, d];
+  }
+  if (best) window.scrollTo(0, best.getBoundingClientRect().top + window.scrollY - a.top);
+}
 let lastScreen = "";
 
 function screenKey(): string {
@@ -1259,7 +1289,7 @@ function render(): void {
   const swap = () => {
     // A newer render (a lock, say) already replaced the screen: this one must not land on top of it.
     if (seq !== renderSeq) return;
-    if (lastScreen) scrollMemory.set(lastScreen, window.scrollY);
+    if (lastScreen) scrollMemory.set(lastScreen, { y: window.scrollY, anchor: scrollAnchor() });
     const focused = document.activeElement?.id;
     // A control without an id (copy, reveal, ±, a switch) is found again by where it sat, on the same screen only,
     // so a keyboard user is not thrown back to the top after every in-place action.
@@ -1277,7 +1307,7 @@ function render(): void {
     const heading = lastScreen !== key ? app.querySelector<HTMLElement>("h1") : null;
     heading?.setAttribute("tabindex", "-1");
     ((again ?? app.querySelector("[data-autofocus]") ?? heading) as HTMLElement | null)?.focus({ preventScroll: true });
-    window.scrollTo(0, scrollMemory.get(key) ?? 0);
+    restoreScroll(key);
     lastScreen = key;
     swapPending = false;
     for (const fn of afterSwap.splice(0)) fn();
@@ -1317,18 +1347,6 @@ document.addEventListener("keydown", (e) => {
   search.focus();
   search.select();
 });
-
-// A mouse wheel only scrolls vertically: on a sideways chip row it scrolls the row instead.
-document.addEventListener(
-  "wheel",
-  (e) => {
-    const row = (e.target as Element | null)?.closest?.(".chips.scroll");
-    if (!row || Math.abs(e.deltaX) >= Math.abs(e.deltaY) || row.scrollWidth <= row.clientWidth) return;
-    row.scrollLeft += e.deltaY;
-    e.preventDefault();
-  },
-  { passive: false },
-);
 
 // Test-only hook for tools/smoke-biometric.mjs (no Vaultwarden needed); compiled out of releases.
 declare const E2E: boolean;

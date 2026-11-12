@@ -2,6 +2,18 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Fixed
+
+- The popup opens a large vault faster after unlock and after a sync: the whole list is built once instead of four
+  times, and a sync that finds nothing new only stops the spinner (1500 items: four 150–390 ms freezes down to one).
+- The vault list in a large vault re-renders, scrolls and hovers faster: rows out of view are no longer laid out or
+  painted (1500 items: a filter or clear about 700 ms down to 300).
+- Scrolling no longer waits for the popup's script: the mouse wheel handler sits on the sideways filter row only.
+- Coming back to the vault list (from an item, another tab, or a re-sort) shows the same rows where they were, also
+  when the item just joined "Recently opened" or long names wrap onto two lines.
+
 ## 0.0.18 — 2026-11-11
 
 ### Fixed
