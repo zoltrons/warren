@@ -13,7 +13,7 @@ import { passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { PageMatches, Response as Reply, SecurityReport, Settings, VaultItem, VaultList } from "../shared/messages.ts";
-import { type Child, chipRow, enter, h, inPanel, leave, plural, rowOf, send, t, when, withChevron } from "./dom.ts";
+import { type Child, chipRow, enter, h, inPanel, leave, plural, rowOf, send, setUiPref, t, uiPref, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -1046,6 +1046,25 @@ function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
+    ctx.settings() && !ctx.settings()!.defaultManager && uiPref("defaultAsked") !== "yes" && st.list?.items.length
+      ? h(
+          "div",
+          { class: "notice", role: "region", "aria-label": t("defaultAskTitle") },
+          icon("shield"),
+          h(
+            "div",
+            {},
+            h("strong", {}, t("defaultAskTitle")),
+            h("p", { class: "caption" }, t("defaultAskBody")),
+            h(
+              "div",
+              { class: "row-actions" },
+              h("button", { type: "button", class: "btn tonal small", onclick: () => ctx.goto("settings", t("defaultManager")) }, t("defaultAskOpen")),
+              h("button", { type: "button", class: "btn text small", onclick: () => (setUiPref("defaultAsked", "yes"), ctx.rerender()) }, t("defaultAskLater")),
+            ),
+          ),
+        )
+      : null,
     status,
     listOrSkeleton(listBox),
   );
@@ -2263,6 +2282,10 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     await refreshPageMatches(); // a new login for this site joins "On this site"
     open(ctx, isNew ? { kind: "list" } : { kind: "item", id: str(d.base.id) });
     toast(ctx, t("saved"));
+    // Opt-in: a new login password is checked once, on save, and only warns.
+    const pw = d.data.password ?? "";
+    if (d.type === 1 && pw && pw !== str(obj(d.base.login)?.password) && uiPref("breachSave") === "on")
+      void pwnedCount(pw).then((n) => n > 0 && toast(ctx, t("pwnedFound", n.toLocaleString()), { error: true })).catch(() => undefined);
   };
   const typeChip = (type: number, ic: IconName) =>
     h("button", { type: "button", class: "chip", "aria-pressed": String(d.type === type), onclick: () => {

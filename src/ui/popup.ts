@@ -733,6 +733,7 @@ function settingsTab(s: State): HTMLElement {
       ),
       s.settings.savePrompt ? hostForm(t("addNeverSave"), (host) => ({ type: "setSettings", addNeverSave: host })) : null,
       row(t("defaultManager"), t("defaultManagerHint"), toggle(t("defaultManager"), s.settings.defaultManager, defaultManager)),
+      row(t("breachOnSave"), t("breachOnSaveHint"), toggle(t("breachOnSave"), uiPref("breachSave") === "on", (b) => setUiPref("breachSave", b.checked ? "on" : "off"))),
       row(t("autosubmit"), t("autosubmitHint"), toggle(t("autosubmit"), s.settings.autosubmit, (b) => void act({ type: "setSettings", autosubmit: b.checked }))),
       ),
     ),

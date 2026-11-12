@@ -2261,5 +2261,23 @@
   },
   "typePassport": {
     "message": "Passport"
+  },
+  "breachOnSave": {
+    "message": "Check new passwords for breaches when I save"
+  },
+  "breachOnSaveHint": {
+    "message": "Sends only the first 5 characters of the password's SHA-1 hash to Have I Been Pwned. Off by default."
+  },
+  "defaultAskTitle": {
+    "message": "Let Warren handle passwords in this browser"
+  },
+  "defaultAskBody": {
+    "message": "Turn off the browser's own password saving so you are not offered two managers."
+  },
+  "defaultAskOpen": {
+    "message": "Open setting"
+  },
+  "defaultAskLater": {
+    "message": "Not now"
   }
 }

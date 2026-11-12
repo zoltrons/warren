@@ -6,6 +6,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- A one-time banner in the vault list offers the "default password manager" setting; "Not now" hides it for good.
+- Optional setting (off by default): a new login password is checked against known breaches when you save it, and a
+  toast warns when it was found. Only the first 5 characters of its SHA-1 hash leave the device.
 - Import reads the CSV exports of other managers (Chrome, Edge, Brave, Firefox, LastPass, 1Password, Keeper,
   KeePassXC, Proton Pass, NordPass, RoboForm) as logins and secure notes, picked by their column names.
 - Bank account, driver's license and passport items can be created, viewed and edited (Vaultwarden already stored
