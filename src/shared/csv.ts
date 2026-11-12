@@ -2,6 +2,7 @@
 // secure notes only, one row each. Columns as upstream writes them.
 const CSV_COLUMNS = ["folder", "favorite", "type", "name", "notes", "fields", "reprompt", "login_uri", "login_username", "login_password", "login_totp"] as const;
 
+import { otherCsvToExport } from "./import-csv.ts";
 import { asString as s } from "./validate.ts";
 
 type Json = Record<string, unknown>;
@@ -76,7 +77,9 @@ export function itemsToCsv(items: Json[], folderName: (id: string) => string): {
 export function csvToExport(text: string): { folders: { id: string; name: string }[]; items: Json[] } {
   const [header, ...rows] = parseCsv(text);
   const col = new Map((header ?? []).map((h, i) => [h.trim().toLowerCase(), i]));
-  if (!col.has("name") || !col.has("type")) throw new Error("This is not a Bitwarden CSV export (needs at least the name and type columns)");
+  // Bitwarden's own columns; a file with name and type but no login_* column (Proton Pass, NordPass) is another manager's.
+  const bitwarden = col.has("name") && col.has("type") && ["login_uri", "login_username", "login_password", "fields"].some((k) => col.has(k));
+  if (!bitwarden) return otherCsvToExport(text);
   const get = (r: string[], k: string) => (DEFUSED.includes(k) ? undefuse : (v: string) => v)(r[col.get(k) ?? -1] ?? "");
   const folders = new Map<string, string>();
   const items = rows.map((r): Json => {

@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Import reads the CSV exports of other managers (Chrome, Edge, Brave, Firefox, LastPass, 1Password, Keeper,
+  KeePassXC, Proton Pass, NordPass, RoboForm) as logins and secure notes, picked by their column names.
 - Bank account, driver's license and passport items can be created, viewed and edited (Vaultwarden already stored
   them; they showed in the list without fields). Their numbers are hidden like card numbers.
 - Security report (a chip in the vault list): reused passwords, weak passwords and sites without https, plus an

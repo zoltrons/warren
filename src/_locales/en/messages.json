@@ -1277,7 +1277,7 @@
     "message": "Import"
   },
   "importHint": {
-    "message": "From a Bitwarden JSON (also password protected) or CSV export"
+    "message": "From a Bitwarden JSON (also password protected) or a CSV export of Bitwarden, Chrome, Firefox, Edge, Brave, LastPass, 1Password, Keeper, KeePassXC, Proton Pass, NordPass or RoboForm"
   },
   "imported": {
     "message": "Imported $P1$ item(s).",
