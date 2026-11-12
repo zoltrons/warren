@@ -689,6 +689,39 @@ try {
     assert.equal(await page.evaluate(() => (window as unknown as { listRenders: number }).listRenders), 1, "the list was built more than once");
   });
 
+  await step("list order: name both ways and most opened", async () => {
+    const order = async (...names: string[]) => {
+      const text = await rows().allTextContents();
+      return names.map((n) => text.findIndex((x) => x.includes(n)));
+    };
+    const sortBy = async (label: string) => {
+      await page.getByRole("button", { name: "Sort", exact: true }).click();
+      await page.getByRole("menu").getByText(label, { exact: true }).click();
+    };
+    let [gh, wifi] = await order("GitHub", "Wifi note");
+    assert.ok(gh! >= 0 && wifi! >= 0 && gh! < wifi!, "A-Z: GitHub before Wifi note");
+    await sortBy("Name (Z–A)");
+    [gh, wifi] = await order("GitHub", "Wifi note");
+    assert.ok(wifi! < gh!, "Z-A reverses it");
+    await sortBy("Most opened");
+    for (let i = 0; i < 2; i++) {
+      await rows().filter({ hasText: "Wifi note" }).first().click();
+      await page.getByRole("heading", { name: "Wifi note" }).waitFor();
+      await back();
+    }
+    // The counts are stored asynchronously and the list lands a frame after Back: poll.
+    for (let i = 0; i < 30; i++) {
+      await rows().first().waitFor();
+      [gh, wifi] = await order("GitHub", "Wifi note");
+      if (wifi! >= 0 && gh! >= 0 && wifi! < gh!) break;
+      await page.waitForTimeout(100);
+    }
+    assert.ok(wifi! >= 0 && wifi! < gh!, "the more often opened item leads");
+    await sortBy("Name (A–Z)");
+    [gh, wifi] = await order("GitHub", "Wifi note");
+    assert.ok(gh! < wifi!, "back to A-Z");
+  });
+
   await step("website icons are off by default, come from the server's icon service and can be turned off", async () => {
     const icon = () => rows().filter({ hasText: "GitHub" }).locator(".tile img");
     // Off by default: the hosts would reach the server in clear text.
