@@ -1840,6 +1840,17 @@ try {
     assert.equal(await loginPage.evaluate(() => ((window as unknown as { root: ShadowRoot }).root.getElementById("u") as HTMLInputElement).value), "local-user");
   });
 
+  await step("inline menu: a page that removes the menu does not leave its field without one", async () => {
+    await loginPage.goto(`${SITE}/login`);
+    await loginPage.click("#u");
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+    await loginPage.evaluate(() => document.querySelector("warren-menu")!.remove());
+    await loginPage.click("#u");
+    await loginPage.waitForFunction(() => !!document.querySelector("warren-menu"));
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
+    await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
+  });
+
   await step("inline menu: a login with each input in its own shadow root gets the menu and fills", async () => {
     await loginPage.bringToFront();
     await loginPage.goto(`${SITE}/split-shadow`);

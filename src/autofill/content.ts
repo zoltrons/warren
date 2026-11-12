@@ -92,6 +92,8 @@ function anchorBox(a: HTMLElement): { left: number; top: number; bottom: number;
 
 function place() {
   if (!host || !anchor) return;
+  // The page cleared its DOM (a single-page app re-rendering): no menu to move, and its field may be gone.
+  if (!host.isConnected || !anchor.isConnected) return close();
   const r = anchorBox(anchor);
   if (!r.width || r.bottom < 0 || r.top > innerHeight) return close();
   // The host's `all:initial!important` outranks anything set here without !important.
@@ -170,6 +172,7 @@ function draw(a: HTMLElement, height: number, secret: string) {
 let opening: HTMLInputElement | undefined;
 
 async function open(el: HTMLInputElement) {
+  if (anchor === el && !host?.isConnected) close(); // the page removed the menu: this focus opens a new one
   if (anchor === el || drawnAbove === el || opening === el || dismissed === el || Date.now() < quietUntil) return;
   const mine = ++gen;
   const details = api.collectActive(el);
@@ -301,7 +304,7 @@ addEventListener(
     if (el === dismissed && e.isTrusted) {
       dismissed = undefined;
       if (askable(el)) void open(el);
-    } else if (e.isTrusted && el !== anchor && askable(el) && active() === el) void open(el); // focused by the page (autofocus): the user's click opens it
+    } else if (e.isTrusted && (el !== anchor || !host?.isConnected) && askable(el) && active() === el) void open(el); // focused by the page (autofocus): the user's click opens it
     // Submit buttons (a <button> without a type is one), and the plain buttons single-page apps use when
     // they say what they do; not "show password" toggles and the like. The click may land on a child.
     const b = el.closest<HTMLButtonElement>("button,input[type=submit],[role=button]");

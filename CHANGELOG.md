@@ -42,6 +42,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- A page that rebuilds itself and drops the inline menu no longer leaves the field without one: a click brings it back.
 - Logins inside web components that close their shadow root get the inline menu and are filled.
 - The inline menu opens above a field near the bottom of the window instead of off screen, stays inside the right
   edge for wide fields, and follows its field when the page shifts it.
