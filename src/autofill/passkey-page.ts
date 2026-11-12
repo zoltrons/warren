@@ -87,7 +87,10 @@
       if (signal?.aborted) return abort();
       addEventListener("message", on);
       signal?.addEventListener("abort", abort, { once: true });
-      postMessage({ warren: "req", id, kind, conditional, options }, "*");
+      const send = () => void (signal?.aborted || postMessage({ warren: "req", id, kind, conditional, options }, "*"));
+      // A prerendered page (speculation rules) is not shown yet: Warren hears of the call once the user sees the page.
+      if ((document as { prerendering?: boolean }).prerendering) document.addEventListener("prerenderingchange", send, { once: true });
+      else send();
     });
 
   // Plain objects with the right prototypes: own data properties shadow the native getters.
