@@ -2356,6 +2356,24 @@ try {
     await cdp.detach();
   });
 
+  await step("passkeys: an RP ID Warren may not use goes to the browser, with no window", async () => {
+    await loginPage.locator("#u").click();
+    const opened: Page[] = [];
+    const watch = (p: Page) => opened.push(p);
+    ctx.on("page", watch);
+    const got = await loginPage.evaluate(async (ch) => {
+      try {
+        await navigator.credentials.get({ publicKey: { challenge: Uint8Array.from(ch), rpId: "example.com", timeout: 1000 } });
+        return "resolved";
+      } catch (e) {
+        return (e as DOMException).name;
+      }
+    }, [...challenge]);
+    ctx.off("page", watch);
+    assert.equal(got, "SecurityError"); // the browser's own answer for another site's RP ID
+    assert.deepEqual(opened.filter((p) => p.url().includes("popup.html?passkey=")), [], "Warren's window opened for an unusable RP ID");
+  });
+
   // ---------- SSO (mock IdP from docker-compose.yml) ----------
   const ssoUser = await register("sso", [1, 3, 64, 4]);
 

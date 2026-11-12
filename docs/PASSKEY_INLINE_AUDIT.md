@@ -44,7 +44,7 @@ Priority: **P1** breaks a common flow, **P2** loses interop or a feature that si
 
 ## Order of work
 
-Status: I-1, I-2 done (e2e steps "modal dialog", "focus-trapping modal").
+Status: I-1, I-2 done (e2e steps "modal dialog", "focus-trapping modal"). P-1 done (no automated proof: headless focus differs). P-2 done without ROR itself: such RP IDs go to the browser (e2e "an RP ID Warren may not use").
 
 1. I-1 + I-2 (top layer and container), one change in `content.ts` `open()`/`place()`. Add an e2e page with a modal
    dialog login and a focus-trap modal.

@@ -24,6 +24,8 @@ import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { getLocal, getSettings } from "./store.ts";
 import { isBlocked } from "./private.ts";
 import { ensureLoaded, isUnlocked, putCipher, requireUnlocked, sync } from "./vault.ts";
+import { Psl } from "../autofill/match.ts";
+import { checkRpId } from "../offscreen/fido2.ts";
 
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
 /**
@@ -66,6 +68,29 @@ export async function ensurePasskeyScripts(): Promise<void> {
 }
 
 const error = (name: string, message: string): PasskeyResult => ({ error: { name, message } });
+
+/** Rebuildable cache: the service worker reads the suffix list again after it restarts. */
+let psl: Promise<Psl> | undefined;
+
+/**
+ * Checked before any window opens. An RP ID Warren may not use (another site's, or one the site allows only through
+ * Related Origin Requests, which Warren does not implement) goes to the browser, which applies the full rules.
+ */
+async function rpIdUsable(rpId: string, origin: string): Promise<boolean> {
+  let list: Psl;
+  try {
+    list = await (psl ??= fetch(chrome.runtime.getURL("psl.json")).then(async (r) => new Psl((await r.json()) as string[])));
+  } catch {
+    psl = undefined;
+    return false;
+  }
+  try {
+    checkRpId(rpId, origin, (d) => list.isPublicSuffix(d));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Lets the content script refresh its inline menu (the passkey entry may have appeared or gone). */
 const refreshMenu = (tabId: number, frameId: number) =>
@@ -117,6 +142,8 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
 
   async function handle(call: PasskeyCall, origin: string): Promise<void> {
     if (!(await getLocal("account"))) return port.postMessage({ fallback: true });
+    const rpId = (call.options.rpId || new URL(origin).hostname).toLowerCase();
+    if (!(await rpIdUsable(rpId, origin))) return port.postMessage({ fallback: true });
     const conditional = call.kind === "get" && call.conditional;
     // Only modal calls open a window on their own, so only they are limited: one per tab, like the
     // browser, so a page cannot pile up windows by calling in a loop. Checked on the pending entry, not
@@ -129,7 +156,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
       id: crypto.randomUUID(),
       call,
       origin,
-      rpId: (call.options.rpId || new URL(origin).hostname).toLowerCase(),
+      rpId,
       tabId,
       frameId,
       conditional,

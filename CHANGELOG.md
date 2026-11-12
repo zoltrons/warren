@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- A passkey request for an RP ID Warren may not use (another site's, or one allowed only through the site's related
+  origins) goes straight to the browser instead of an approval window that could only fail.
 - "Use another device or browser" in the passkey window hands the request to the browser only once the page has
   focus again, so the browser no longer refuses it as coming from an unfocused page.
 - The inline menu works on logins inside a modal dialog or a focus-trapping pop-up: it opens above them (the

@@ -38,6 +38,7 @@ let windowUrl = "";
   },
   runtime: {
     id: "warren",
+    getURL: (path: string) => `chrome-extension://warren/${path}`,
     // The crypto worker, scripted: one login with a passkey, replaced by a new one.
     sendMessage: async ({ req }: { req: { op: string; ids?: string[] } }) => {
       ops.push(req.op);
@@ -63,6 +64,8 @@ const sent: { method: string; path: string; body: unknown }[] = [];
 const waiting = new Map<string, ((r: Response | Error) => void)[]>();
 globalThis.fetch = (async (url: string, init?: RequestInit) => {
   const path = new URL(url).pathname;
+  // The suffix list the passkey RP ID check reads (background/passkey.ts): not a server request.
+  if (path === "/psl.json") return new Response(JSON.stringify(["com"]));
   sent.push({ method: init?.method ?? "GET", path, body: typeof init?.body === "string" ? JSON.parse(init.body) : init?.body });
   const r = await new Promise<Response | Error>((resolve) => waiting.set(path, [...(waiting.get(path) ?? []), resolve]));
   if (r instanceof Error) throw r;
