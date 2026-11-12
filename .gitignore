@@ -8,3 +8,4 @@
 .DS_Store
 *.crx
 /.playwright-cli/
+/docs/PASSKEY_INLINE_AUDIT.md
