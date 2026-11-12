@@ -154,7 +154,10 @@ pub fn unlock_with_prf(
     protected_user_key: &str,
     encrypted_private_key: Option<&str>,
 ) -> Result<()> {
-    open_session(prf_user_key(prf_b64, protected_user_key)?, encrypted_private_key)
+    open_session(
+        prf_user_key(prf_b64, protected_user_key)?,
+        encrypted_private_key,
+    )
 }
 
 /// The user key a PRF output unwraps from `prf_protect_user_key`'s result.
@@ -533,7 +536,11 @@ mod tests {
         let other = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         open_session(other, None).unwrap();
         let theirs = prf_protect_user_key(&prf).unwrap();
-        open_session(SymmetricCryptoKey::try_from(expected.clone()).unwrap(), None).unwrap();
+        open_session(
+            SymmetricCryptoKey::try_from(expected.clone()).unwrap(),
+            None,
+        )
+        .unwrap();
         assert!(!verify_prf(&prf, &theirs).unwrap());
         assert_eq!(with_session(|s| Ok(s.user.to_base64())).unwrap(), expected);
         lock();
