@@ -39,12 +39,6 @@ function mapColumns(header: string[]): Map<Field, number> {
   return out;
 }
 
-/** Whether `header` looks like a login export of another manager (used by csvToExport to choose). */
-export const isOtherManagerCsv = (header: string[]): boolean => {
-  const c = mapColumns(header);
-  return c.has("password") && (c.has("url") || c.has("name"));
-};
-
 /** A login's host as a name, for exports that have no title column (Firefox). */
 const hostName = (url: string): string => URL.parse(url)?.hostname || url;
 

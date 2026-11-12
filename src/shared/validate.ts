@@ -57,6 +57,9 @@ export function ci(o: unknown, key: string): unknown {
   return undefined;
 }
 
+/** The own key `ci` would read for `key` (Vaultwarden's own casing), or `key` itself: for writing a field back. */
+export const ciKey = (o: object, key: string): string => Object.keys(o).find((n) => n.toLowerCase() === key.toLowerCase()) ?? key;
+
 type Shape = Record<string, Validator<unknown>>;
 type Out<S extends Shape> = { [K in keyof S]: ReturnType<S[K]> };
 

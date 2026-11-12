@@ -8,7 +8,7 @@ import { passwordLevel } from "../shared/strength.ts";
 import { parseRange, sha1Hex } from "../shared/pwned-range.ts";
 import { isInsecureUri } from "../shared/uri-tools.ts";
 import { loadTotpSites, offersTotp } from "../shared/totp-sites.ts";
-import { asObject as o, asString as s, ci } from "../shared/validate.ts";
+import { asObject as o, asString as s, ci, ciKey } from "../shared/validate.ts";
 import { Psl, uriMatches } from "../autofill/match.ts";
 import { b64u } from "../shared/url.ts";
 import * as fido2 from "./fido2.ts";
@@ -592,8 +592,7 @@ export async function passkeyAssert(itemId: string, wanted: string, rpId: string
   // sites that check it take the passkey for a clone: the raised counter is saved before the site gets the signature.
   // A read-only item cannot be saved, so it keeps its counter.
   if (counter === 0 || summary(get(itemId)).readOnly) return fido2.assert(cred as Json, origin, challenge, uv, topOrigin);
-  const key = Object.keys(cred as Json).find((k) => k.toLowerCase() === "counter") ?? "counter";
-  const next = { ...(cred as Json), [key]: String(counter + 1) };
+  const next = { ...(cred as Json), [ciKey(cred as Json, "counter")]: String(counter + 1) };
   const item = structuredClone(live(itemId));
   o(ci(item, "login"))!.fido2Credentials = (creds as unknown[]).map((x) => (x === cred ? next : x));
   return { ...(await fido2.assert(next, origin, challenge, uv, topOrigin)), cipher: prepareSave(item) };
@@ -610,13 +609,12 @@ export async function passkeyDetails(rpId: string, origin: string, userHandle: s
   for (const c of ciphers.values()) {
     const creds = ci(o(ci(c, "login")), "fido2Credentials");
     if (Number(ci(c, "type")) !== 1 || !Array.isArray(creds) || summary(c).readOnly) continue;
-    const key = (x: unknown, k: string) => Object.keys(x as Json).find((n) => n.toLowerCase() === k.toLowerCase()) ?? k;
     let changed = false;
     const next = creds.map((x) => {
       if (s(ci(x, "rpId")) !== rpId || s(ci(x, "userHandle")).replace(/=+$/, "") !== userHandle.replace(/=+$/, "")) return x;
       if (s(ci(x, "userName")) === name && s(ci(x, "userDisplayName")) === displayName) return x;
       changed = true;
-      return { ...(x as Json), [key(x, "userName")]: name, [key(x, "userDisplayName")]: displayName };
+      return { ...(x as Json), [ciKey(x as Json, "userName")]: name, [ciKey(x as Json, "userDisplayName")]: displayName };
     });
     if (!changed) continue;
     const item = structuredClone(c);
