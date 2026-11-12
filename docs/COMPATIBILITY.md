@@ -64,6 +64,9 @@ on 2026-10-29, unless marked otherwise.
 
 * Cipher JSON is camelCase and already includes new item types:
   `bankAccount, driversLicense, passport, sshKey, archivedDate, permissions`.
+* **No premium gate.** Vaultwarden returns `premium: true` for every user and `usersGetPremium: true` for every
+  organization, so features that are premium upstream (archive, TOTP, attachments, reports) are all open.
+  What Vaultwarden does not implement is listed in PARITY_REPORT.md, "Server support, verified against 1.37.5".
 * **`POST /api/ciphers` and `PUT /api/ciphers/{id}` require `encryptedFor` (user id)**; without it
   the request fails with 422 (`missing field encryptedFor`). Added in the web-v2025.6.0 protocol.
 * `DELETE /api/ciphers/{id}` hard-deletes; `PUT /api/ciphers/{id}/delete` moves to trash (sets

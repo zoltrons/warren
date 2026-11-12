@@ -134,8 +134,10 @@ No new permissions, dependencies or remote code.
 
 ## Still missing vs the official browser extension
 
-Server-gated (Vaultwarden has no equivalent): Archive (premium), at-risk password reports/notifications
-(premium, security-task API), admin/org management, premium/billing nudges, "import upgrade" flow.
+Server-gated (Vaultwarden has no equivalent): at-risk password notifications / security tasks (`GET /tasks`
+always returns an empty list; `RefreshSecurityTasks` is not sent), admin/org management, "import upgrade" flow.
+**Correction 2026-11-12:** this line used to list Archive as server-gated "(premium)". That was wrong, see
+"Server support, verified against Vaultwarden 1.37.5" at the end of this file.
 
 Done since: log in with device (request and approve, with notifications) and live sync over the WebSocket hub.
 
@@ -215,9 +217,12 @@ Compared with `browser-v2026.10.2` (2026-11-02; only a LastPass direct-import fi
 
 ## Still missing
 
-Server-gated or out of scope (no Vaultwarden support or premium-only upstream): archive, at-risk
-password reports / security tasks, admin and organization management, billing and premium nudges,
-Key Connector, trusted-device encryption (admin approval), emergency access (web vault only upstream).
+Server-gated or out of scope (Vaultwarden does not implement it): at-risk password notifications / security tasks,
+admin and organization management, Key Connector, trusted-device encryption (admin approval).
+Not server-gated, only not built yet (Vaultwarden supports them; every user is `premium: true`): **item archive**,
+**emergency access** (full endpoint set, `emergency_access_allowed` on by default), **bank account / driver's
+license / passport items** (cipher types 6-8). See "Server support, verified against Vaultwarden 1.37.5" below.
+(This paragraph used to call archive and emergency access server-gated or premium-only; corrected 2026-11-12.)
 
 Could be built:
 
@@ -264,3 +269,24 @@ E2E: 94 of 95 steps pass against Vaultwarden 1.37.5 in Helium (the SSO step need
   needs per-account storage keys, a worker session per account, and the lock/owner epochs per account.
 * Other managers' import formats (only Bitwarden JSON/CSV), account-restricted encrypted export, `viewPassword:
   false`, SSH keys in the inline menu, and the web-vault-only account operations stay open.
+
+---
+
+# Server support, verified against Vaultwarden 1.37.5 (2026-11-12)
+
+Checked in the server source at tag `1.37.5` (`src/api/core/*.rs`, `src/db/models/*.rs`, `src/config.rs`), not from
+upstream docs. Earlier sections called some features "server-gated" or "premium" without reading the server; this
+table replaces those statements.
+
+| Feature | Vaultwarden 1.37.5 | Warren |
+|---|---|---|
+| Premium gate | None: `premium: true` for every user, `usersGetPremium: true` for every organization | n/a |
+| Item archive | Supported since **1.36.0** (absent in 1.35.0): `PUT /ciphers/{id}/archive`, `/unarchive`, bulk `PUT /ciphers/archive` and `/unarchive`, `archivedDate` in cipher JSON and in `PUT /ciphers/{id}` (null un-archives) | Not built |
+| Emergency access | Full set under `/emergency-access/*` (invite, accept, confirm, initiate, approve, reject, view, takeover); `emergency_access_allowed` defaults to true | Not built (web vault only) |
+| Bank account / driver's license / passport items | Cipher types 6, 7, 8 accepted by create and update | Kept in export and sync; no list, view or editor |
+| Breach lookups through the server | `GET /hibp/breach?username=` proxies HIBP, needs the admin's `HIBP_API_KEY` | Not used (password check goes to HIBP range API directly) |
+| Security tasks / at-risk notifications | `GET /tasks` returns an empty list; `RefreshSecurityTasks` "Not supported" | Server-gated |
+| Email-verified sends | Refused ("Sends with email verification is not supported") | Server-gated |
+| Key Connector | `useKeyConnector: false  // Not supported` | Server-gated |
+| Trusted-device encryption (admin approval) | No admin auth-request endpoint; only user `auth-requests` (log in with device) | Server-gated |
+| Duo / YubiKey / WebAuthn / email 2FA | Supported (Duo needs configured keys, email 2FA needs SMTP) | Done, see above |
