@@ -40,6 +40,18 @@ const ctx = await chromium.launchPersistentContext(profile, {
   ignoreDefaultArgs: ["--disable-extensions"],
   args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`],
 });
+// The browser's first navigation after launch can be aborted by its own start-up tab (net::ERR_ABORTED, the page stays
+// about:blank). It is a race in the browser, not in the extension: a second attempt goes through.
+const open = async (page, url) => {
+  for (let i = 0; ; i++) {
+    try {
+      return await page.goto(url);
+    } catch (e) {
+      if (i >= 3 || !String(e).includes("ERR_ABORTED")) throw e;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+};
 const pageErrors = [];
 const swErrors = [];
 try {
@@ -58,7 +70,7 @@ try {
 
   const page = await ctx.newPage();
   page.on("pageerror", (e) => pageErrors.push(String(e)));
-  await page.goto(`${site}/login`);
+  await open(page, `${site}/login`);
 
   const patched = await page.evaluate(() => ({
     create: !/\[native code\]/.test(navigator.credentials.create.toString()),
@@ -140,7 +152,7 @@ try {
   const onForged = (p) => p.url().includes("popup.html?passkey=") && forgedWindows.push(p);
   ctx.on("page", onForged);
   const forgedPage = await ctx.newPage();
-  await forgedPage.goto(`${site}/forged`);
+  await open(forgedPage, `${site}/forged`);
   await forgedPage.waitForFunction(() => document.title !== "");
   assert.deepEqual(JSON.parse(await forgedPage.title()), { fallback: true });
   await new Promise((r) => setTimeout(r, 500));
