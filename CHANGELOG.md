@@ -28,6 +28,11 @@ All notable changes to Warren. Versions match the `v*` release tags.
   sign-in, wait under an "Archive" chip, and are part of an export. Needs Vaultwarden 1.36.0 or newer.
 - Card rows get hover shortcuts like logins: copy the number and the security code.
 
+### Changed
+
+- New passkeys carry Bitwarden's authenticator id (AAGUID), so sites that list passkeys by provider show
+  "Bitwarden" instead of an unknown authenticator.
+
 ### Fixed
 
 - An item saved elsewhere (the page's save bar, a passkey, another window) shows up in the open popup or side
