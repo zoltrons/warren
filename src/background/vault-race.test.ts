@@ -87,9 +87,9 @@ local.server = { url: "https://vault.test" };
 local.account = { email: "a@b.test", userId: "user-a", kdf: { type: 0, iterations: 600_000, memory: 0, parallelism: 0 }, protectedUserKey: "2.k|k|k" };
 session.session = { unlocked: true, accessToken: "token", accessExpiresAt: Date.now() + 3_600_000 };
 
-const { ensureLoaded, putCipher, sync } = await import("./vault.ts");
+const { breachEmails, ensureLoaded, putCipher, sync } = await import("./vault.ts");
 const { lockNow } = await import("./lock.ts");
-const { onPasskeyPort, passkeyDecision } = await import("./passkey.ts");
+const { onPasskeyPort, passkeyDecision, rememberFill } = await import("./passkey.ts");
 
 test("a save a lock overtook while the account and token were read is never sent", async () => {
   const saving = putCipher({ name: "2.enc" });
@@ -271,4 +271,56 @@ test("a passkey call the page aborts before it is registered opens no window and
   for (let i = 0; i < 200 && !windowUrl; i++) await new Promise((r) => setTimeout(r, 5));
   assert.ok(windowUrl, "the next call in that tab is served");
   second.on.disconnect!();
+});
+
+/** A port from the top frame of https://a.test in `tabId`, and what was posted to it. */
+function pagePort(tabId: number) {
+  const posted: unknown[] = [];
+  let message: ((m: unknown) => void) | undefined;
+  onPasskeyPort({
+    sender: { id: "warren", tab: { id: tabId, url: "https://a.test/" }, frameId: 0, origin: "https://a.test" },
+    onDisconnect: { addListener: () => undefined },
+    onMessage: { addListener: (l: (m: unknown) => void) => (message = l) },
+    postMessage: (m: unknown) => posted.push(m),
+    disconnect: () => undefined,
+  } as unknown as chrome.runtime.Port);
+  return { posted, send: (m: unknown) => message!(m) };
+}
+
+const unlock = () => {
+  session.session = { unlocked: true, accessToken: "token", accessExpiresAt: Date.now() + 3_600_000 };
+  offscreen = true;
+};
+
+test("two conditional creates at once after one fill make one passkey", async () => {
+  unlock();
+  await rememberFill(3, "https://a.test", "item-1");
+  ops.length = 0;
+  const call = { kind: "create", conditional: true, options: { rpName: "a", user: { id: "dQ", name: "u", displayName: "u" }, challenge: "Y2hhbGxlbmdl", exclude: [], discoverable: true, userVerification: "preferred" } };
+  const [a, b] = [pagePort(3), pagePort(3)];
+  a.send(call);
+  b.send(call);
+  for (let i = 0; i < 200 && a.posted.length + b.posted.length < 1; i++) await new Promise((r) => setTimeout(r, 5));
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(ops.filter((o) => o === "passkeyCreate").length, 1);
+});
+
+test("a page renaming its account in a loop gets only a few saves", async () => {
+  unlock();
+  ops.length = 0;
+  reply.passkeyDetails = [];
+  for (let i = 0; i < 6; i++) pagePort(4).send({ kind: "details", options: { user: { id: "dQ", name: `n${i}`, displayName: "n" } } });
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(ops.filter((o) => o === "passkeyDetails").length, 3);
+});
+
+test("past the e-mail cap the breach answer says not every address was checked", async () => {
+  unlock();
+  const emails = Array.from({ length: 41 }, (_, i) => `u${i}@b.test`);
+  const done = breachEmails(emails);
+  for (let i = 0; i < 40; i++) await answer("/api/hibp/breach", []);
+  assert.deepEqual(await done, { results: [], stopped: true });
+  const few = breachEmails(emails.slice(0, 2));
+  for (let i = 0; i < 2; i++) await answer("/api/hibp/breach", []);
+  assert.deepEqual(await few, { results: [] });
 });

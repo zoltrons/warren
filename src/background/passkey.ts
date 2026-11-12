@@ -103,6 +103,21 @@ const refreshMenu = (tabId: number, frameId: number) =>
 const conditionalFor = (tabId: number, frameId?: number) =>
   [...pending.values()].find((p) => p.conditional && p.tabId === tabId && (frameId === undefined || p.frameId === frameId));
 
+/** Rename signals saved per tab and RP ID in one window: a site renames an account now and then, never in a loop. */
+const RENAMES_PER_WINDOW = 3;
+const RENAME_WINDOW_MS = 60_000;
+/** Rebuildable cache: "tabId rpId" -> the window's start and the renames taken in it. */
+const renames = new Map<string, { at: number; n: number }>();
+
+function renamedTooOften(tabId: number, rpId: string): boolean {
+  const now = Date.now();
+  for (const [k, w] of renames) if (now - w.at >= RENAME_WINDOW_MS) renames.delete(k);
+  const key = `${tabId} ${rpId}`;
+  const w = renames.get(key) ?? { at: now, n: 0 };
+  renames.set(key, w);
+  return ++w.n > RENAMES_PER_WINDOW;
+}
+
 /** How long after the user had Warren fill a login a site may upgrade it to a passkey without asking (conditional create). */
 const UPGRADE_WINDOW_MS = 5 * 60_000;
 
@@ -115,7 +130,20 @@ export const rememberFill = (tabId: number, origin: string, itemId: string) => s
  * tab, its username is the account's, and it holds no passkey yet. The passkey joins that login, once per fill, with
  * neither UP nor UV, and a notification says so. Anything else is NotAllowedError, which tells the site nothing.
  */
+/** Tabs with a conditional create in flight: a second one at the same moment must not pass the `filled` check too. */
+const upgrading = new Set<number>();
+
 async function conditionalCreate(call: Extract<PasskeyCall, { kind: "create" }>, origin: string, rpId: string, tabId: number): Promise<PasskeyResult> {
+  if (upgrading.has(tabId)) return error("NotAllowedError", "The operation either timed out or was not allowed.");
+  upgrading.add(tabId);
+  try {
+    return await upgrade(call, origin, rpId, tabId);
+  } finally {
+    upgrading.delete(tabId);
+  }
+}
+
+async function upgrade(call: Extract<PasskeyCall, { kind: "create" }>, origin: string, rpId: string, tabId: number): Promise<PasskeyResult> {
   const epoch = lockEpoch();
   const refuse = error("NotAllowedError", "The operation either timed out or was not allowed.");
   const o = call.options;
@@ -195,7 +223,9 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     const rpId = (call.options.rpId || new URL(origin).hostname).toLowerCase();
     if (!(await rpIdUsable(rpId, origin))) return port.postMessage({ fallback: true });
     if (call.kind === "details") {
-      // Signal API, no window and no answer the page reads: only an unlocked vault learns the new name.
+      // Signal API, no window and no answer the page reads: only an unlocked vault learns the new name. A page calling
+      // it in a loop must not turn every call into a server save (and a sync on every device).
+      if (renamedTooOften(tabId, rpId)) return void (closed || port.postMessage({ fallback: true }));
       if (await isUnlocked()) {
         const epoch = lockEpoch();
         await ensureLoaded();
