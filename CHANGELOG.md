@@ -6,6 +6,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Security report (a chip in the vault list): reused passwords, weak passwords and sites without https, plus an
+  on-demand check of every password against known breaches. Only the first 5 characters of each SHA-1 hash leave
+  the device; the worker matches the answers, so the popup never holds a password or a full hash.
 - Archive: an item can be archived and unarchived. Archived items leave the list, search, autofill and passkey
   sign-in, wait under an "Archive" chip, and are part of an export. Needs Vaultwarden 1.36.0 or newer.
 - Card rows get hover shortcuts like logins: copy the number and the security code.

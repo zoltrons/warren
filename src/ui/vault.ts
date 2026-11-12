@@ -12,12 +12,12 @@ import { byRelevance, type Clause, folded, matchesQuery, parseQuery, type Search
 import { passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
-import type { PageMatches, Response as Reply, Settings, VaultItem, VaultList } from "../shared/messages.ts";
+import type { PageMatches, Response as Reply, SecurityReport, Settings, VaultItem, VaultList } from "../shared/messages.ts";
 import { type Child, chipRow, enter, h, inPanel, leave, plural, rowOf, send, t, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { pwnedCount } from "./pwned.ts";
+import { fetchRange, pwnedCount } from "./pwned.ts";
 import { qrSvg } from "./qr.ts";
 
 type Json = Record<string, unknown>;
@@ -37,7 +37,7 @@ export interface Ctx {
 }
 
 type Sort = "name" | "nameDesc" | "updated" | "created" | "opened";
-type Route = { kind: "list" } | { kind: "item"; id: string } | { kind: "edit"; isNew: boolean } | { kind: "folders" } | { kind: "org"; id: string };
+type Route = { kind: "list" } | { kind: "item"; id: string } | { kind: "edit"; isNew: boolean } | { kind: "folders" } | { kind: "org"; id: string } | { kind: "report" };
 
 interface EditDraft {
   base: Json;
@@ -117,6 +117,8 @@ function savedSort(): Sort {
 
 const st = {
   list: undefined as VaultList | undefined,
+  /** The security report screen: the lists, and the breach check's progress and findings. */
+  report: undefined as { data?: SecurityReport; exposed?: Map<string, number>; done: number; running: boolean; failed: boolean } | undefined,
   page: undefined as PageMatches | undefined,
   loading: false,
   syncing: false,
@@ -189,7 +191,7 @@ export function resetVault(): void {
   stopRepromptWatch();
   closeMenu();
   Object.assign(st, {
-    list: undefined, page: undefined, loading: false, syncing: false, busy: false, error: undefined, route: { kind: "list" }, query: "",
+    list: undefined, report: undefined, page: undefined, loading: false, syncing: false, busy: false, error: undefined, route: { kind: "list" }, query: "",
     folder: "", item: undefined, reveal: new Set(), totp: undefined, confirmDelete: 0, draft: undefined,
     large: undefined, qr: undefined, pwned: undefined, memory: undefined, notesPreview: false,
     toast: "", toastError: false, toastAction: undefined, toastLeaving: false, copied: "", sawList: false, uriOpen: new Set(), picking: undefined,
@@ -521,6 +523,8 @@ function open(ctx: Ctx, route: Route) {
   if (route.kind !== "edit") st.draft = undefined;
   else if (from.kind !== "edit") st.draftAtOpen = JSON.stringify(st.draft);
   if (route.kind === "org") orgDraft.id = ""; // read from the item on the first render
+  if (route.kind === "report") void loadReport(ctx);
+  else st.report = undefined;
   if (route.kind === "item") noteOpened(route.id);
   ctx.rerender();
   // Back on the list, focus returns to the row the item was opened from (the copy in view, when it is listed twice).
@@ -1037,6 +1041,7 @@ function listView(ctx: Ctx): HTMLElement {
       folders.length ? chip("none", t("noFolder"), "folder") : null,
       st.list?.archive.length ? chip("archive", t("archiveCount", String(st.list.archive.length)), "archive") : null,
       st.list?.trash.length ? chip("trash", t("trashCount", String(st.list.trash.length)), "trash") : null,
+      h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "report" }) }, icon("shield"), t("securityReport")),
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
@@ -2469,6 +2474,76 @@ function orgView(ctx: Ctx, id: string): HTMLElement {
   );
 }
 
+const REPORT_PARALLEL = 6;
+
+async function loadReport(ctx: Ctx) {
+  st.report = { done: 0, running: false, failed: false };
+  const r = await send<SecurityReport>({ type: "securityReport" });
+  if (st.route.kind !== "report") return;
+  if (!r.ok) return ((st.error = r.error), ctx.rerender());
+  st.report.data = r.data;
+  ctx.rerender();
+}
+
+/** Asks HIBP for each prefix (a few at a time) and lets the worker match the answers against its own hashes. */
+async function checkExposed(ctx: Ctx) {
+  const rep = st.report;
+  const prefixes = [...(rep?.data?.prefixes ?? [])];
+  if (!rep || rep.running) return;
+  Object.assign(rep, { running: true, failed: false, done: 0, exposed: new Map<string, number>() });
+  ctx.rerender();
+  const worker = async () => {
+    for (let p = prefixes.pop(); p !== undefined && !rep.failed; p = prefixes.pop()) {
+      try {
+        const body = await fetchRange(p);
+        const r = await send<{ id: string; count: number }[]>({ type: "exposedRange", prefix: p, body });
+        if (!r.ok) throw new Error(r.error);
+        for (const x of r.data) rep.exposed!.set(x.id, x.count);
+      } catch {
+        rep.failed = true;
+      }
+      rep.done++;
+      if (st.route.kind === "report") ctx.rerender();
+    }
+  };
+  await Promise.all(Array.from({ length: REPORT_PARALLEL }, worker));
+  rep.running = false;
+  if (st.route.kind === "report") ctx.rerender();
+}
+
+function reportView(ctx: Ctx): HTMLElement {
+  const rep = st.report;
+  const byId = new Map((st.list?.items ?? []).map((i) => [i.id, i]));
+  const rows = (ids: string[]) => ids.map((id) => byId.get(id)).filter((i): i is VaultItem => !!i);
+  const block = (title: string, ids: string[]): Child[] => {
+    const items = rows(ids);
+    return items.length ? [sectionTitle(`${title} (${items.length})`), h("div", { class: "group", role: "list" }, ...sortItems(items).map((i) => itemRow(ctx, i)))] : [];
+  };
+  const d = rep?.data;
+  const total = d?.prefixes.length ?? 0;
+  const exposedIds = [...(rep?.exposed?.keys() ?? [])];
+  const clean = !!d && !rows(d.reused).length && !rows(d.weak).length && !rows(d.insecure).length;
+  return h(
+    "div",
+    { class: "page" },
+    topBar(iconButton("back", t("back"), () => open(ctx, { kind: "list" })), h("h1", {}, t("securityReport"))),
+    errorBox(),
+    !d ? progress() : null,
+    d && clean && !exposedIds.length && !rep?.exposed ? h("div", { class: "empty" }, icon("shield"), h("p", { class: "title" }, t("reportClean")), h("p", { class: "caption" }, t("reportCleanHint"))) : null,
+    ...(d ? [...block(t("reportReused"), d.reused), ...block(t("reportWeak"), d.weak), ...block(t("reportInsecure"), d.insecure)] : []),
+    d && total
+      ? h(
+          "div",
+          { class: "group" },
+          h("button", { type: "button", class: "row", disabled: rep!.running, onclick: () => void checkExposed(ctx) }, icon("shield"), h("div", { class: "body" }, h("span", { class: "title" }, rep!.running ? t("reportChecking", String(rep!.done), String(total)) : t("reportCheckExposed")))),
+        )
+      : null,
+    d && total ? h("p", { class: "caption" }, t("reportExposedNote")) : null,
+    rep?.failed ? h("div", { class: "notice warn" }, icon("error"), h("div", {}, t("reportFailed"))) : null,
+    ...(rep?.exposed && !rep.running ? (exposedIds.length ? block(t("reportExposed"), exposedIds) : rep.failed ? [] : [h("p", { class: "caption" }, t("reportExposedNone"))]) : []),
+  );
+}
+
 function foldersView(ctx: Ctx): HTMLElement {
   const names = new Map((st.list?.folders ?? []).map((f) => [f.id, f.name]));
   const fresh = { name: "" };
@@ -2550,6 +2625,7 @@ export function vaultScreen(ctx: Ctx): HTMLElement {
   }
   if (r.kind === "edit" && st.draft) return editView(ctx, r.isNew);
   if (r.kind === "folders") return foldersView(ctx);
+  if (r.kind === "report") return reportView(ctx);
   if (r.kind === "org") return orgView(ctx, r.id);
   return listView(ctx);
 }

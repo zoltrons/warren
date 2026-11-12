@@ -289,3 +289,10 @@ table replaces those statements.
 | Key Connector | `useKeyConnector: false  // Not supported` | Server-gated |
 | Trusted-device encryption (admin approval) | No admin auth-request endpoint; only user `auth-requests` (log in with device) | Server-gated |
 | Duo / YubiKey / WebAuthn / email 2FA | Supported (Duo needs configured keys, email 2FA needs SMTP) | Done, see above |
+
+## Done on 2026-11-12
+
+| Item | How | Verified by |
+|---|---|---|
+| Item archive | see the server table above | e2e |
+| Security report | "Security report" chip: reused, weak and non-https logins (`securityReport` in the worker), and a breach check of all passwords: the popup fetches HIBP ranges for the 5-digit prefixes the worker lists (6 at a time, padded) and hands each answer back (`exposedRange`); the worker matches suffixes against its own hashes. Inactive-2FA is not offered (needs a domain list) | unit (`pwned-range.test.ts`) + e2e with HIBP stubbed |

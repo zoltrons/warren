@@ -119,6 +119,8 @@ async function handle(req: Request): Promise<unknown> {
     case "deleteItem":
     case "restoreItem":
     case "archiveItem":
+    case "securityReport":
+    case "exposedRange":
     case "unarchiveItem":
     case "purgeItem":
     case "downloadAttachment":
@@ -159,6 +161,8 @@ async function handle(req: Request): Promise<unknown> {
       if (req.type === "setCollections") return setCollections(req.id, req.collectionIds);
       if (req.type === "deleteItem") return trash(req.id);
       if (req.type === "restoreItem") return restore(req.id);
+      if (req.type === "securityReport") return coreCall({ op: "securityReport" });
+      if (req.type === "exposedRange") return coreCall({ op: "exposedRange", prefix: req.prefix, body: req.body });
       if (req.type === "archiveItem" || req.type === "unarchiveItem") return archive(req.id, req.type === "archiveItem");
       if (req.type === "purgeItem") return purge(req.id);
       if (req.type === "downloadAttachment") return downloadAttachment(req.cipherId, req.attachmentId);

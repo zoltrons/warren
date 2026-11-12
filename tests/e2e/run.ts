@@ -925,6 +925,29 @@ try {
     s.done();
   });
 
+  await step("security report: breach check finds only the login whose hash HIBP lists", async () => {
+    // Earlier steps edited this login, so take its password as the server has it now.
+    const s = await apiSession(vaultUser);
+    const password = (await s.ciphers()).find((x) => x.name === "GitHub")?.login?.password as string;
+    s.done();
+    assert.ok(password, "GitHub has no password");
+    const hex = createHash("sha1").update(password).digest("hex").toUpperCase();
+    const asked: string[] = [];
+    await ctx.route("https://api.pwnedpasswords.com/range/*", (route) => {
+      const prefix = route.request().url().split("/").pop()!;
+      asked.push(prefix);
+      void route.fulfill({ status: 200, contentType: "text/plain", body: prefix === hex.slice(0, 5) ? `${hex.slice(5)}:7\r\n` : "0000000000000000000000000000000000A:0\r\n" });
+    });
+    await page.getByRole("button", { name: "Security report" }).click();
+    await page.getByRole("heading", { name: "Security report" }).waitFor();
+    await page.getByRole("button", { name: "Check for breached passwords" }).click();
+    await page.getByRole("heading", { name: "Passwords found in breaches (1)" }).waitFor();
+    assert.ok(asked.includes(hex.slice(0, 5)), "the prefix was not asked for");
+    assert.ok(asked.every((p) => /^[0-9A-F]{5}$/.test(p)), "more than a 5-digit prefix left the device");
+    await ctx.unroute("https://api.pwnedpasswords.com/range/*");
+    await page.getByRole("button", { name: "Back" }).click();
+  });
+
   await step("move to trash", async () => {
     await rows().filter({ hasText: "Wifi note" }).click();
     await page.getByRole("button", { name: "Move to trash" }).click();

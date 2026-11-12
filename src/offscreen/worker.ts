@@ -72,6 +72,10 @@ function run(req: CoreRequest): unknown {
       return vault.getCipher(req.id);
     case "cipherSummary":
       return vault.cipherSummary(req.id);
+    case "securityReport":
+      return loadCommonWords().then(vault.securityReport);
+    case "exposedRange":
+      return vault.exposedFromRange(req.prefix, req.body);
     case "prepareSave":
       return vault.prepareSave(req.item);
     case "prepareShare":

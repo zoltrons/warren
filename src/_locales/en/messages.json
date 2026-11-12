@@ -2136,5 +2136,49 @@
   },
   "archiveEmptyHint": {
     "message": "Archive items you rarely use. They stay in your vault but leave the list, search and autofill."
+  },
+  "securityReport": {
+    "message": "Security report"
+  },
+  "reportReused": {
+    "message": "Reused passwords"
+  },
+  "reportWeak": {
+    "message": "Weak passwords"
+  },
+  "reportInsecure": {
+    "message": "Sites without https"
+  },
+  "reportExposed": {
+    "message": "Passwords found in breaches"
+  },
+  "reportCheckExposed": {
+    "message": "Check for breached passwords"
+  },
+  "reportChecking": {
+    "message": "Checking $P1$ of $P2$…",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "reportExposedNote": {
+    "message": "Only the first 5 characters of each password's SHA-1 hash leave your device, the same as the check on a single login."
+  },
+  "reportClean": {
+    "message": "Nothing to fix here"
+  },
+  "reportCleanHint": {
+    "message": "No reused or weak passwords and no sites without https in your logins."
+  },
+  "reportExposedNone": {
+    "message": "None of your passwords were found in known breaches."
+  },
+  "reportFailed": {
+    "message": "Could not reach the breach service. Try again later."
   }
 }

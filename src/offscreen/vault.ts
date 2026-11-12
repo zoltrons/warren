@@ -1,10 +1,12 @@
 // Decrypted vault held in the crypto worker's memory. Dropped when the worker is terminated (lock).
 import * as core from "../../dist/wasm/core_wasm.js";
-import type { Collection, Folder, KdfParams, PasskeyCandidate, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import type { Collection, Folder, KdfParams, PasskeyCandidate, SecurityReport, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
 import { csvToExport, itemsToCsv } from "../shared/csv.ts";
 import { cardBrand } from "../shared/card.ts";
 import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
+import { parseRange, sha1Hex } from "../shared/pwned-range.ts";
+import { isInsecureUri } from "../shared/uri-tools.ts";
 import { asObject as o, asString as s, ci } from "../shared/validate.ts";
 import { Psl, uriMatches } from "../autofill/match.ts";
 import { b64u } from "../shared/url.ts";
@@ -128,6 +130,44 @@ export function listVault(): VaultList | null {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
   return { items, folders, trash: sorted(trash), archive: sorted(archive), organizations, collections };
+}
+
+/**
+ * id -> SHA-1 of the item's password and the revision it was taken at, kept from the last report so range answers can
+ * be matched without the passwords. A sync in between keeps it; an item edited since no longer matches (exposedFromRange).
+ */
+let reportHashes = new Map<string, { hash: string; rev: string }>();
+
+/**
+ * Reused, weak and insecure-site logins as item ids, plus the SHA-1 prefixes a breach check has to ask for. No password
+ * and no suffix leaves the worker: the popup fetches the ranges and hands the answers back (exposedFromRange).
+ */
+export async function securityReport(): Promise<SecurityReport> {
+  if (!ciphers) throw new Error("vault not loaded");
+  const logins = [...ciphers.values()].filter((c) => !c.failed && Number(ci(c, "type")) === 1);
+  const pw = (c: Json) => s(ci(o(ci(c, "login")), "password"));
+  const uses = new Map<string, number>();
+  for (const c of logins) if (pw(c)) uses.set(pw(c), (uses.get(pw(c)) ?? 0) + 1);
+  const id = (c: Json) => s(ci(c, "id"));
+  reportHashes = new Map();
+  for (const c of logins) if (pw(c)) reportHashes.set(id(c), { hash: await sha1Hex(pw(c)), rev: s(ci(c, "revisionDate")) });
+  return {
+    reused: logins.filter((c) => pw(c) && uses.get(pw(c))! > 1).map(id),
+    weak: logins.filter((c) => pw(c) && passwordLevel(pw(c)) === 0).map(id),
+    insecure: logins.filter((c) => (ci(o(ci(c, "login")), "uris") as unknown[] | undefined)?.some((u) => isInsecureUri(s(ci(u, "uri"))))).map(id),
+    prefixes: [...new Set([...reportHashes.values()].map((h) => h.hash.slice(0, 5)))],
+  };
+}
+
+/** The items whose password hash starts with `prefix` and appears in the range answer `body`, with its count. */
+export function exposedFromRange(prefix: string, body: string): { id: string; count: number }[] {
+  const range = parseRange(body);
+  const out: { id: string; count: number }[] = [];
+  for (const [id, { hash, rev }] of reportHashes) {
+    const count = hash.startsWith(prefix) && s(ci(ciphers?.get(id) ?? {}, "revisionDate")) === rev ? range.get(hash.slice(5)) : undefined;
+    if (count) out.push({ id, count });
+  }
+  return out;
 }
 
 function get(id: string): Json {

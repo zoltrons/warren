@@ -22,6 +22,13 @@ const capped =
   };
 
 const field = capped(MAX_FIELD);
+/** A padded HIBP range answer is about 40 KiB. */
+const MAX_RANGE_CHARS = 512 * 1024;
+const hibpPrefix: Validator<string> = (v, p) => {
+  const s = str(v, p);
+  if (!/^[0-9A-F]{5}$/.test(s)) throw new ValidationError(`${p}: not a SHA-1 prefix`);
+  return s;
+};
 /** Per-document nonce / per-save token: a UUID or 32 hex chars. */
 const secret = capped(64);
 
@@ -103,6 +110,9 @@ export type Request =
   /** PUT /ciphers/{id}/archive and /unarchive: an archived item leaves the list, search and autofill but stays in the vault. */
   | { type: "archiveItem"; id: string }
   | { type: "unarchiveItem"; id: string }
+  /** The security report's lists (no secrets), then each breach-range answer the popup fetched for it. */
+  | { type: "securityReport" }
+  | { type: "exposedRange"; prefix: string; body: string }
   | { type: "purgeItem"; id: string }
   | { type: "downloadAttachment"; cipherId: string; attachmentId: string }
   | { type: "deleteAttachment"; cipherId: string; attachmentId: string }
@@ -251,6 +261,8 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   restoreItem: obj({ type: literal("restoreItem"), id: str }),
   archiveItem: obj({ type: literal("archiveItem"), id: str }),
   unarchiveItem: obj({ type: literal("unarchiveItem"), id: str }),
+  securityReport: obj({ type: literal("securityReport") }),
+  exposedRange: obj({ type: literal("exposedRange"), prefix: hibpPrefix, body: capped(MAX_RANGE_CHARS) }),
   purgeItem: obj({ type: literal("purgeItem"), id: str }),
   downloadAttachment: obj({ type: literal("downloadAttachment"), cipherId: str, attachmentId: str }),
   deleteAttachment: obj({ type: literal("deleteAttachment"), cipherId: str, attachmentId: str }),
@@ -444,6 +456,14 @@ export interface Collection extends Folder {
   readOnly: boolean;
 }
 
+/** Item ids by problem, and what a breach check must ask HIBP for. */
+export interface SecurityReport {
+  reused: string[];
+  weak: string[];
+  insecure: string[];
+  prefixes: string[];
+}
+
 export interface VaultList {
   items: VaultItem[];
   folders: Folder[];
@@ -558,6 +578,10 @@ export type CoreRequest =
   | { op: "getCipher"; id: string }
   /** The list entry of one item: no secrets. Enough for a re-prompt or type check. */
   | { op: "cipherSummary"; id: string }
+  /** Reused / weak / insecure-site login ids and the SHA-1 prefixes to look up; no secret. */
+  | { op: "securityReport" }
+  /** One HIBP range answer for `prefix` (5 upper-case hex digits): the items it exposes, with counts. */
+  | { op: "exposedRange"; prefix: string; body: string }
   | { op: "prepareSave"; item: Record<string, unknown> }
   | { op: "prepareShare"; id: string; organizationId: string }
   /** Save bar: the item with a new password, encrypted; the service worker never sees the item. */
@@ -655,6 +679,8 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   listVault: obj({ op: literal("listVault") }),
   getCipher: obj({ op: literal("getCipher"), id: str }),
   cipherSummary: obj({ op: literal("cipherSummary"), id: str }),
+  securityReport: obj({ op: literal("securityReport") }),
+  exposedRange: obj({ op: literal("exposedRange"), prefix: hibpPrefix, body: capped(MAX_RANGE_CHARS) }),
   prepareSave: obj({ op: literal("prepareSave"), item: record }),
   prepareShare: obj({ op: literal("prepareShare"), id: str, organizationId: str }),
   preparePassword: obj({ op: literal("preparePassword"), id: str, password: str, revisionDate: opt(num) }),
