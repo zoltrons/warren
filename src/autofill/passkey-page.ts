@@ -27,6 +27,20 @@
       () => undefined,
     );
   }
+  // Sites newer than those two functions ask getClientCapabilities() (WebAuthn L3) before offering passkeys: report what
+  // Warren adds on top of the browser's answer. Nothing it does not do (conditionalCreate, relatedOrigins, prf).
+  const capabilities = pkc.getClientCapabilities;
+  if (typeof capabilities === "function") {
+    try {
+      pkc.getClientCapabilities = async () => {
+        const native = ((await Promise.resolve((capabilities as () => Promise<Record<string, boolean>>).call(pkc)).catch(() => ({}))) ?? {}) as Record<string, boolean>;
+        const all: Record<string, boolean> = { ...native, conditionalGet: true, "extension:credProps": true, passkeyPlatformAuthenticator: true, userVerifyingPlatformAuthenticator: true };
+        return Object.fromEntries(Object.entries(all).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))); // keys sorted, as WebAuthn has them
+      };
+    } catch {
+      // Read-only in this browser: leave its answer alone.
+    }
+  }
   const b64u = (b: BufferSource) =>
     (ArrayBuffer.isView(b) ? new Uint8Array(b.buffer, b.byteOffset, b.byteLength) : new Uint8Array(b)).toBase64({ alphabet: "base64url", omitPadding: true });
   const buf = (s: string) => Uint8Array.fromBase64(s, { alphabet: "base64url" }).buffer;

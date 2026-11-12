@@ -85,7 +85,13 @@ try {
     await PublicKeyCredential.isConditionalMediationAvailable(),
   ]);
   assert.deepEqual(advertised, [true, true]);
-  console.log("ok  platform authenticator and conditional mediation advertised");
+  // The WebAuthn L3 form of the same question; what Warren does not do stays the browser's answer.
+  const caps = await page.evaluate(async () => (PublicKeyCredential.getClientCapabilities ? await PublicKeyCredential.getClientCapabilities() : null));
+  if (caps) {
+    for (const k of ["conditionalGet", "passkeyPlatformAuthenticator", "userVerifyingPlatformAuthenticator", "extension:credProps"]) assert.equal(caps[k], true, k);
+    assert.deepEqual(Object.keys(caps), Object.keys(caps).sort(), "keys sorted");
+  }
+  console.log(`ok  platform authenticator and conditional mediation advertised${caps ? " (also in getClientCapabilities)" : ""}`);
 
   // Not logged in: conditional mediation is declined, so it keeps waiting for the browser's own UI,
   // and an AbortSignal still rejects (with AbortError) instead of leaving the page hanging.

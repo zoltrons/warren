@@ -127,7 +127,8 @@ on 2026-10-29, unless marked otherwise.
   WebAuthn calls are intercepted on every secure origin: a call a stored passkey can answer opens
   Warren's approval window, anything else goes straight to the browser. Conditional mediation
   (passkey autofill) is raced against the browser and additionally shows "Sign in with passkey" in
-  the inline menu. A call whose RP ID fails Warren's check (not the host or a registrable parent; Related Origin
+  the inline menu. `getClientCapabilities()` reports `conditionalGet`, `passkeyPlatformAuthenticator`,
+  `userVerifyingPlatformAuthenticator` and `extension:credProps` on top of the browser's answer. A call whose RP ID fails Warren's check (not the host or a registrable parent; Related Origin
   Requests are not implemented) goes to the browser before any window opens. New passkeys carry Bitwarden's AAGUID (`d548826e-79b4-db40-a3d8-11116f7e8349`) with `none`
   attestation, as the official extension does.
 * **SSO** (`SSO_ENABLED`): `GET /identity/sso/prevalidate` fails when off. `/identity/connect/authorize`

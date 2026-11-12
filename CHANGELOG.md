@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Sites that ask the newer `getClientCapabilities()` before offering passkeys now see that passkeys and passkey
+  autofill are available, also in a browser without a built-in authenticator.
 - A passkey imported from another manager with a sign counter now counts up on every sign-in (saved to the vault
   first), so sites that check the counter no longer take it for a copied passkey.
 - A card picked in the inline menu fills a checkout whose number, expiry and security code sit in separate frames
