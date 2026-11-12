@@ -89,13 +89,21 @@ function place() {
   if (!r.width || r.bottom < 0 || r.top > innerHeight) return close();
   // The host's `all:initial!important` outranks anything set here without !important.
   const set = (name: string, value: string) => host!.style.setProperty(name, value, "important");
-  const [top, left] = [`${r.bottom + 4}px`, `${Math.max(4, Math.min(r.left, innerWidth - 324))}px`];
+  const width = Math.min(Math.max(r.width, 300), 420);
+  const height = parseFloat(frame?.style.height ?? "") || 0;
+  // Under the field, like Chrome's dropdown; above it when only there it fits.
+  const below = r.bottom + 4;
+  const y = below + height > innerHeight && r.top - 4 - height >= 0 ? r.top - 4 - height : below;
+  const [top, left] = [`${y}px`, `${Math.max(4, Math.min(r.left, innerWidth - width - 4))}px`];
   // A page can move the menu under the cursor: the frame restarts its click guard (guardClicks) on every move.
   if (host.style.top && (host.style.top !== top || host.style.left !== left)) frame?.contentWindow?.postMessage("moved", "*");
   set("top", top);
   set("left", left);
-  set("width", `${Math.min(Math.max(r.width, 300), 420)}px`);
+  set("width", `${width}px`);
 }
+
+/** The field moves without a scroll (an error line above it, a banner): the menu follows. */
+const follow = new ResizeObserver(() => place());
 
 /** The top frame draws (or drops) the menu for a child frame: see inline.ts `inlineRemote`. */
 const toTop = (msg: Record<string, unknown>) => chrome.runtime.sendMessage({ type: "inlineRemote", ...msg }).catch(() => undefined);
@@ -124,6 +132,7 @@ function close() {
     f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, easing: "cubic-bezier(.3,0,.8,.15)" }).finished.then(() => h.remove(), () => h.remove());
   } else h?.remove();
   host = frame = anchor = remote = undefined;
+  follow.disconnect();
   removeEventListener("scroll", place, true);
   removeEventListener("resize", place);
 }
@@ -144,6 +153,8 @@ function draw(a: HTMLElement, height: number, secret: string) {
   raise(host);
   appear(frame);
   place();
+  follow.observe(a);
+  follow.observe(document.documentElement);
   addEventListener("scroll", place, true);
   addEventListener("resize", place);
 }

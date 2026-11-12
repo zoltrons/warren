@@ -221,6 +221,8 @@ const pages: Record<string, string> = {
   // A checkout that puts each card field in its own frame, all on the payment provider's origin.
   "/split-card": ["number", "exp", "cvc"].map((f) => `<iframe id="${f}" src="http://127.0.0.1:8099/card-${f}" style="width:300px;height:44px"></iframe>`).join(""),
   "/tiny-frame": `<p>Checkout</p><iframe id="f" src="http://127.0.0.1:8099/card-number" style="width:300px;height:44px;border:1px solid #888"></iframe>`,
+  // A login at the very bottom of the window: no room for the menu under it.
+  "/bottom": `<div style="height:calc(100vh - 60px)"></div>${LOGIN_FORM}`,
   "/useronly": `<form onsubmit="return false"><input id="u" name="login" placeholder="Email or phone"><button type="submit">Next</button></form>`,
 };
 const site = createServer((req, res) => {
@@ -1809,6 +1811,22 @@ try {
     await loginPage.keyboard.press("ArrowDown");
     await loginPage.keyboard.press("Enter");
     await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
+  });
+
+  await step("inline menu: at the bottom of the window it opens above its field, and follows a layout shift", async () => {
+    await loginPage.goto(`${SITE}/bottom`);
+    await loginPage.click("#u");
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+    const boxes = () => loginPage.evaluate(() => ["#u", "warren-menu"].map((s) => { const r = document.querySelector(s)!.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, right: r.right }; }));
+    let [field, menu] = await boxes();
+    assert.ok(Math.abs(menu!.bottom - (field!.top - 4)) < 1, JSON.stringify({ field, menu }));
+    assert.ok(menu!.right <= (await loginPage.evaluate(() => innerWidth)), "menu past the right edge");
+    // Content above the form shrinks: the field moves up, no scroll event, and the menu goes with it.
+    await loginPage.evaluate(() => { (document.body.firstElementChild as HTMLElement).style.height = "200px"; });
+    await loginPage.waitForTimeout(200);
+    [field, menu] = await boxes();
+    assert.ok(Math.abs(menu!.top - (field!.bottom + 4)) < 1, `after the shift: ${JSON.stringify({ field, menu })}`);
+    await loginPage.keyboard.press("Escape");
   });
 
   await step("inline menu: a login with each input in its own shadow root gets the menu and fills", async () => {

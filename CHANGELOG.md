@@ -42,6 +42,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- The inline menu opens above a field near the bottom of the window instead of off screen, stays inside the right
+  edge for wide fields, and follows its field when the page shifts it.
 - Sites that ask the newer `getClientCapabilities()` before offering passkeys now see that passkeys and passkey
   autofill are available, also in a browser without a built-in authenticator.
 - A passkey imported from another manager with a sign counter now counts up on every sign-in (saved to the vault
