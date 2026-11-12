@@ -96,7 +96,7 @@ scripts may only send a whitelisted subset of message types).
 * JS API is batch oriented (one call decrypts the whole vault): `deriveMasterKey`, `makeAuthHash`,
   `unlockUserKey`, `decryptCipherList`, `decryptCipher`, `encryptCipher`, `totp`, `generatePassword`,
   and the PIN / biometric wrappers (`pinProtectUserKey`, `unlockWithPin`, `prfProtectUserKey`,
-  `unlockWithPrf`).
+  `unlockWithPrf`, and `verifyPrf`, which checks a biometric for a passkey without touching the session).
 * Release profile: `opt-level="z"`, `lto`, `codegen-units=1`, `panic="abort"`, `strip`, then
   `wasm-opt -Oz`. Size budget enforced in CI (`tools/size-budget`).
 * Keys live in a WASM-side keystore addressed by opaque handles; JS never receives raw key bytes after
