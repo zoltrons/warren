@@ -24,12 +24,15 @@ let sends = new Map<string, Json>();
 
 /** Trashed items: shown only in the trash view, never matched or filled. */
 let trash = new Map<string, Json>();
+/** Archived items: listed only in the archive view, never matched, filled or offered for a passkey sign-in. */
+let archive = new Map<string, Json>();
 
 function put(c: Json): void {
   const id = s(ci(c, "id"));
   ciphers!.delete(id);
   trash.delete(id);
-  (ci(c, "deletedDate") ? trash : ciphers!).set(id, c);
+  archive.delete(id);
+  (ci(c, "deletedDate") ? trash : ci(c, "archivedDate") ? archive : ciphers!).set(id, c);
 }
 
 export function loadVault(encCiphers: unknown[], encFolders: unknown[], encSends: unknown[], orgKeys: Record<string, string>, encCollections: unknown[], orgs: Folder[]): void {
@@ -45,6 +48,7 @@ export function loadVault(encCiphers: unknown[], encFolders: unknown[], encSends
   const r = JSON.parse(core.decryptCipherList(JSON.stringify(encCiphers))) as { ciphers: Json[]; failed: { id: string }[] };
   ciphers = new Map();
   trash = new Map();
+  archive = new Map();
   for (const c of r.ciphers) put(c);
   // Keep undecryptable items visible instead of silently hiding them.
   // `personal`: a live personal item, which an export must not leave out without saying so.
@@ -123,11 +127,11 @@ export function listVault(): VaultList | null {
       return { ...item, ...(uses.get(pw)! > 1 ? { reused: uses.get(pw)! } : {}), ...(passwordLevel(pw) === 0 ? { weak: true } : {}) };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
-  return { items, folders, trash: sorted(trash), organizations, collections };
+  return { items, folders, trash: sorted(trash), archive: sorted(archive), organizations, collections };
 }
 
 function get(id: string): Json {
-  const c = ciphers?.get(id) ?? trash.get(id);
+  const c = ciphers?.get(id) ?? archive.get(id) ?? trash.get(id);
   if (!c) throw new Error("item not found");
   return c;
 }
@@ -176,6 +180,8 @@ export function prepareSave(input: Json): Json {
   const enc = JSON.parse(core.encryptCipher(JSON.stringify(item), !existing)) as Json;
   // The revision the draft was read at, not the worker's: a sync since then must make the server refuse a stale draft.
   if (existing) enc.lastKnownRevisionDate = ci(item, "revisionDate") ?? ci(existing, "revisionDate");
+  // Vaultwarden un-archives an item saved without its archivedDate, so an edit has to carry it.
+  if (existing && ci(existing, "archivedDate")) enc.archivedDate = ci(existing, "archivedDate");
   return enc;
 }
 
@@ -355,7 +361,7 @@ function exportJson(): string {
   if (broken) throw new Error(`${broken} item(s) could not be decrypted, so the export would be incomplete. Nothing was exported.`);
   // Items would keep a folderId the export has no folder for: the backup would lose names and grouping.
   if (brokenFolders) throw new Error(`${brokenFolders} folder(s) could not be decrypted, so the export would be incomplete. Nothing was exported.`);
-  const items = [...ciphers.values()]
+  const items = [...ciphers.values(), ...archive.values()]
     .filter((c) => !c.failed && !ci(c, "organizationId"))
     .map((c) => ({ ...Object.fromEntries(EXPORT_KEYS.map((k) => [k, ci(c, k) ?? null])), organizationId: null, collectionIds: null, deletedDate: null }));
   return JSON.stringify({ encrypted: false, folders, items }, null, 2);

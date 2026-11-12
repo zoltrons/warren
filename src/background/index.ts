@@ -56,7 +56,7 @@ import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, 
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
 import { AUTOFILL_COMMAND, autofillFromGesture, fillShownTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
 import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
-import { addAttachment, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
+import { archive, addAttachment, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
 async function getState(): Promise<State> {
   const [server, account, session, settings, vault, bio] = await Promise.all([
@@ -118,6 +118,8 @@ async function handle(req: Request): Promise<unknown> {
     case "setCollections":
     case "deleteItem":
     case "restoreItem":
+    case "archiveItem":
+    case "unarchiveItem":
     case "purgeItem":
     case "downloadAttachment":
     case "addAttachment":
@@ -157,6 +159,7 @@ async function handle(req: Request): Promise<unknown> {
       if (req.type === "setCollections") return setCollections(req.id, req.collectionIds);
       if (req.type === "deleteItem") return trash(req.id);
       if (req.type === "restoreItem") return restore(req.id);
+      if (req.type === "archiveItem" || req.type === "unarchiveItem") return archive(req.id, req.type === "archiveItem");
       if (req.type === "purgeItem") return purge(req.id);
       if (req.type === "downloadAttachment") return downloadAttachment(req.cipherId, req.attachmentId);
       if (req.type === "addAttachment") return addAttachment(req.cipherId, req.file);

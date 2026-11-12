@@ -906,6 +906,25 @@ try {
     await back();
   });
 
+  await step("archive: leaves the list, shows in the archive, comes back", async () => {
+    await rows().filter({ hasText: "Wifi note" }).click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "Archived" }).waitFor();
+    assert.equal(await rows().filter({ hasText: "Wifi note" }).count(), 0);
+    let s = await apiSession(vaultUser);
+    assert.ok((await s.ciphers()).find((x) => x.name === "Wifi note")?.archivedDate, "not archived on the server");
+    s.done();
+    await page.getByRole("button", { name: "Archive (1)" }).click();
+    await rows().filter({ hasText: "Wifi note" }).click();
+    await page.getByText("This item is archived").waitFor();
+    await page.getByRole("button", { name: "Unarchive" }).click();
+    await page.getByRole("status").filter({ hasText: "Moved back to the vault" }).waitFor();
+    await rows().filter({ hasText: "Wifi note" }).waitFor();
+    s = await apiSession(vaultUser);
+    assert.ok(!(await s.ciphers()).find((x) => x.name === "Wifi note")?.archivedDate, "still archived on the server");
+    s.done();
+  });
+
   await step("move to trash", async () => {
     await rows().filter({ hasText: "Wifi note" }).click();
     await page.getByRole("button", { name: "Move to trash" }).click();

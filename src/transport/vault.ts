@@ -39,6 +39,11 @@ export async function restoreCipher(base: string, token: string, id: string): Pr
   await call(base, "PUT", `/api/ciphers/${encodeURIComponent(id)}/restore`, { token });
 }
 
+/** Vaultwarden 1.36.0+ (PUT /ciphers/{id}/archive); no premium check there. */
+export async function archiveCipher(base: string, token: string, id: string, archived: boolean): Promise<void> {
+  await call(base, "PUT", `/api/ciphers/${encodeURIComponent(id)}/${archived ? "archive" : "unarchive"}`, { token });
+}
+
 /** Permanent delete (from the trash). */
 export async function purgeCipher(base: string, token: string, id: string): Promise<void> {
   await call(base, "DELETE", `/api/ciphers/${encodeURIComponent(id)}`, { token });

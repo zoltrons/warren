@@ -2107,5 +2107,34 @@
         "content": "$1"
       }
     }
+  },
+  "archiveCount": {
+    "message": "Archive ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "archive": {
+    "message": "Archive"
+  },
+  "unarchive": {
+    "message": "Unarchive"
+  },
+  "archived": {
+    "message": "Archived"
+  },
+  "unarchived": {
+    "message": "Moved back to the vault"
+  },
+  "inArchive": {
+    "message": "This item is archived. It is hidden from the list, search and autofill."
+  },
+  "archiveEmpty": {
+    "message": "Nothing is archived"
+  },
+  "archiveEmptyHint": {
+    "message": "Archive items you rarely use. They stay in your vault but leave the list, search and autofill."
   }
 }

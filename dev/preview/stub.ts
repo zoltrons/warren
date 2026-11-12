@@ -157,6 +157,8 @@ function respond(req: Request): Response<unknown> {
       return { ok: true, data: listed };
     case "deleteItem":
     case "restoreItem":
+    case "archiveItem":
+    case "unarchiveItem":
       return { ok: true, data: vault };
     case "sync":
       return { ok: true, data: listed };

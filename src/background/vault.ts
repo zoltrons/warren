@@ -17,6 +17,7 @@ import {
   importCiphers,
   purgeCipher,
   removeSendPassword as apiRemoveSendPassword,
+  archiveCipher,
   restoreCipher,
   saveCipher,
   saveFolder as apiSaveFolder,
@@ -202,6 +203,7 @@ async function thenSync(change: (base: string, token: string) => Promise<void>, 
 
 export const trash = (id: string) => thenSync((b, t) => trashCipher(b, t, id));
 export const restore = (id: string) => thenSync((b, t) => restoreCipher(b, t, id));
+export const archive = (id: string, archived: boolean) => thenSync((b, t) => archiveCipher(b, t, id, archived));
 export const purge = (id: string) => thenSync((b, t) => purgeCipher(b, t, id));
 export const deleteFolder = (id: string) => thenSync((b, t) => apiDeleteFolder(b, t, id));
 

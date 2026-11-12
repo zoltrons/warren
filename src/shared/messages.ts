@@ -100,6 +100,9 @@ export type Request =
   | { type: "setCollections"; id: string; collectionIds: string[] }
   | { type: "deleteItem"; id: string }
   | { type: "restoreItem"; id: string }
+  /** PUT /ciphers/{id}/archive and /unarchive: an archived item leaves the list, search and autofill but stays in the vault. */
+  | { type: "archiveItem"; id: string }
+  | { type: "unarchiveItem"; id: string }
   | { type: "purgeItem"; id: string }
   | { type: "downloadAttachment"; cipherId: string; attachmentId: string }
   | { type: "deleteAttachment"; cipherId: string; attachmentId: string }
@@ -246,6 +249,8 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   setCollections: obj({ type: literal("setCollections"), id: str, collectionIds }),
   deleteItem: obj({ type: literal("deleteItem"), id: str }),
   restoreItem: obj({ type: literal("restoreItem"), id: str }),
+  archiveItem: obj({ type: literal("archiveItem"), id: str }),
+  unarchiveItem: obj({ type: literal("unarchiveItem"), id: str }),
   purgeItem: obj({ type: literal("purgeItem"), id: str }),
   downloadAttachment: obj({ type: literal("downloadAttachment"), cipherId: str, attachmentId: str }),
   deleteAttachment: obj({ type: literal("deleteAttachment"), cipherId: str, attachmentId: str }),
@@ -443,6 +448,7 @@ export interface VaultList {
   items: VaultItem[];
   folders: Folder[];
   trash: VaultItem[];
+  archive: VaultItem[];
   /** Names for organization items' details. */
   organizations?: Folder[];
   collections?: Collection[];

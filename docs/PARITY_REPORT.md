@@ -219,8 +219,7 @@ Compared with `browser-v2026.10.2` (2026-11-02; only a LastPass direct-import fi
 
 Server-gated or out of scope (Vaultwarden does not implement it): at-risk password notifications / security tasks,
 admin and organization management, Key Connector, trusted-device encryption (admin approval).
-Not server-gated, only not built yet (Vaultwarden supports them; every user is `premium: true`): **item archive**,
-**emergency access** (full endpoint set, `emergency_access_allowed` on by default), **bank account / driver's
+Not server-gated, only not built yet (Vaultwarden supports them; every user is `premium: true`): **emergency access** (full endpoint set, `emergency_access_allowed` on by default), **bank account / driver's
 license / passport items** (cipher types 6-8). See "Server support, verified against Vaultwarden 1.37.5" below.
 (This paragraph used to call archive and emergency access server-gated or premium-only; corrected 2026-11-12.)
 
@@ -281,7 +280,7 @@ table replaces those statements.
 | Feature | Vaultwarden 1.37.5 | Warren |
 |---|---|---|
 | Premium gate | None: `premium: true` for every user, `usersGetPremium: true` for every organization | n/a |
-| Item archive | Supported since **1.36.0** (absent in 1.35.0): `PUT /ciphers/{id}/archive`, `/unarchive`, bulk `PUT /ciphers/archive` and `/unarchive`, `archivedDate` in cipher JSON and in `PUT /ciphers/{id}` (null un-archives) | Not built |
+| Item archive | Supported since **1.36.0** (absent in 1.35.0): `PUT /ciphers/{id}/archive`, `/unarchive`, bulk `PUT /ciphers/archive` and `/unarchive`, `archivedDate` in cipher JSON and in `PUT /ciphers/{id}` (a save without it un-archives) | Done 2026-11-12: archive / unarchive from the item page, Archive chip, hidden from list, search, autofill and passkeys, kept in exports; edits send `archivedDate` back (`prepareSave`). e2e step "archive" |
 | Emergency access | Full set under `/emergency-access/*` (invite, accept, confirm, initiate, approve, reject, view, takeover); `emergency_access_allowed` defaults to true | Not built (web vault only) |
 | Bank account / driver's license / passport items | Cipher types 6, 7, 8 accepted by create and update | Kept in export and sync; no list, view or editor |
 | Breach lookups through the server | `GET /hibp/breach?username=` proxies HIBP, needs the admin's `HIBP_API_KEY` | Not used (password check goes to HIBP range API directly) |

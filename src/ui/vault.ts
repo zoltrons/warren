@@ -574,7 +574,7 @@ function matches(i: VaultItem, clauses: Clause[]): boolean {
     if (!i.weak) return false;
   } else if (f === "none") {
     if (i.folderId) return false;
-  } else if (f && f !== "trash" && i.folderId !== f) return false;
+  } else if (f && f !== "trash" && f !== "archive" && i.folderId !== f) return false;
   return !clauses.length || matchesQuery(clauses, searchable(i));
 }
 
@@ -748,9 +748,9 @@ function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
 
 function emptyState(ctx: Ctx, q: string): HTMLElement {
   const filtered = !!(q || st.folder);
-  const key = st.folder === "trash" ? "trashEmpty" : st.folder === "fav" ? "favoritesEmpty" : filtered ? "noMatches" : "vaultEmpty";
+  const key = st.folder === "trash" ? "trashEmpty" : st.folder === "archive" ? "archiveEmpty" : st.folder === "fav" ? "favoritesEmpty" : filtered ? "noMatches" : "vaultEmpty";
   // What fills this view, said where it is empty.
-  const hint = st.folder === "trash" ? "trashEmptyHint" : st.folder === "fav" ? undefined : filtered ? "noMatchesHint" : "vaultEmptyHint";
+  const hint = st.folder === "trash" ? "trashEmptyHint" : st.folder === "archive" ? "archiveEmptyHint" : st.folder === "fav" ? undefined : filtered ? "noMatchesHint" : "vaultEmptyHint";
   return h(
     "div",
     { class: "empty" },
@@ -904,12 +904,13 @@ function skeletonList(): HTMLElement {
 
 function listView(ctx: Ctx): HTMLElement {
   if (st.folder === "trash" && st.list && !st.list.trash.length) st.folder = ""; // the trash was emptied
+  if (st.folder === "archive" && st.list && !st.list.archive.length) st.folder = ""; // the last item left the archive
   const listBox = h("div", { class: "list-body" });
   arrowNav(listBox);
   const addBtn = iconButton("plus", t("newItem"), () => void newItem(ctx), { class: "icon-btn sm add" });
   const redraw = () => {
     const q = st.query.trim().toLowerCase();
-    const source = st.folder === "trash" ? st.list?.trash : st.list?.items;
+    const source = st.folder === "trash" ? st.list?.trash : st.folder === "archive" ? st.list?.archive : st.list?.items;
     const clauses = parseQuery(st.query);
     const items = sortItems((source ?? []).filter((i) => matches(i, clauses)));
     fillList(ctx, listBox, items, q);
@@ -1024,7 +1025,7 @@ function listView(ctx: Ctx): HTMLElement {
     ),
     chipRow(
       // Filters over an empty vault could only ever say "no matches".
-      { role: "group", "aria-label": t("filters"), hidden: st.list?.items.length === 0 && !st.list.trash.length },
+      { role: "group", "aria-label": t("filters"), hidden: st.list?.items.length === 0 && !st.list.trash.length && !st.list.archive.length },
       chip("fav", t("favorites"), "starBorder"), // outline, like the other chips' glyphs
       chip("t:1", t("typeLogin"), "key"),
       chip("t:3", t("typeCard"), "card"),
@@ -1034,6 +1035,7 @@ function listView(ctx: Ctx): HTMLElement {
       st.list?.items.some((i) => i.weak) ? chip("weak", t("filterWeak"), "error") : null,
       ...folders.map((f) => chip(f.id, f.name, "folder")),
       folders.length ? chip("none", t("noFolder"), "folder") : null,
+      st.list?.archive.length ? chip("archive", t("archiveCount", String(st.list.archive.length)), "archive") : null,
       st.list?.trash.length ? chip("trash", t("trashCount", String(st.list.trash.length)), "trash") : null,
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
@@ -1643,7 +1645,8 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       if (r.ok && !r.data && st.route.kind === "item" && st.route.id === id) hideForReprompt(ctx, id);
     }, REPROMPT_CHECK_MS);
   const inTrash = !!item.deletedDate;
-  const summary = [...(st.list?.items ?? []), ...(st.list?.trash ?? [])].find((i) => i.id === id);
+  const inArchive = !inTrash && !!item.archivedDate;
+  const summary = [...(st.list?.items ?? []), ...(st.list?.archive ?? []), ...(st.list?.trash ?? [])].find((i) => i.id === id);
   const type = Number(item.type);
   const editable = !summary?.readOnly && !inTrash && type >= 1 && type <= 5;
   const schema = SCHEMA[type];
@@ -1720,7 +1723,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
     ),
     quickActions(ctx, id, uris, type === 1 && !inTrash),
     errorBox(),
-    inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : summary?.readOnly ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("readOnlyItem"))) : null,
+    inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : inArchive ? h("div", { class: "notice" }, icon("archive"), h("div", {}, t("inArchive"))) : summary?.readOnly ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("readOnlyItem"))) : null,
     rows.length ? h("div", { class: "group" }, ...rows) : null,
     type === 4 ? identityActions(data) : null,
     reused
@@ -1829,6 +1832,11 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       { class: "group" },
       !inTrash && editable && !item.organizationId && writableOrgs().length ? actionRow("shield", t("moveToOrg"), () => open(ctx, { kind: "org", id })) : null,
       !inTrash && editable && item.organizationId && writableCollections(str(item.organizationId)).length ? actionRow("folder", t("editCollections"), () => open(ctx, { kind: "org", id })) : null,
+      !inTrash && !summary?.readOnly && type >= 1 && type <= 5
+        ? inArchive
+          ? actionRow("archive", t("unarchive"), () => void vaultAction(ctx, { type: "unarchiveItem", id }, "unarchived"))
+          : actionRow("archive", t("archive"), () => void vaultAction(ctx, { type: "archiveItem", id }, "archived", true, () => void vaultAction(ctx, { type: "unarchiveItem", id }, "unarchived", false)))
+        : null,
       inTrash
         ? actionRow("refresh", t("restore"), () => void vaultAction(ctx, { type: "restoreItem", id }, "restored"))
         : editable

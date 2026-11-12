@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Archive: an item can be archived and unarchived. Archived items leave the list, search, autofill and passkey
+  sign-in, wait under an "Archive" chip, and are part of an export. Needs Vaultwarden 1.36.0 or newer.
 - Card rows get hover shortcuts like logins: copy the number and the security code.
 
 ### Fixed
