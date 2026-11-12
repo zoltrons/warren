@@ -59,9 +59,16 @@ test("passkey calls: page-supplied options are bounded", () => {
   throws(() => parsePasskeyCall({ ...base, options: { challenge: "c", allow: Array.from({ length: 65 }, (_, i) => `id${i}`) } }), /too many/);
   throws(() => parsePasskeyCall({ ...base, options: { challenge: "c", allow: [], rpId: "a".repeat(300) } }), /too long/);
   throws(
-    () => parsePasskeyCall({ kind: "create", options: { rpName: "r", user: { id: "i", name: "n".repeat(2000), displayName: "d" }, challenge: "c", exclude: [], discoverable: true } }),
+    () => parsePasskeyCall({ kind: "create", options: { rpName: "r", user: { id: "aQ", name: "n".repeat(2000), displayName: "d" }, challenge: "c", exclude: [], discoverable: true } }),
     /too long/,
   );
+});
+
+test("passkey calls: user.id is 1 to 64 bytes, as WebAuthn requires", () => {
+  const create = (id: string) => parsePasskeyCall({ kind: "create", options: { rpName: "r", user: { id, name: "n", displayName: "d" }, challenge: "c", exclude: [], discoverable: true } });
+  create("aQ"); // 1 byte
+  create(Buffer.alloc(64, 7).toString("base64url")); // 64 bytes
+  for (const bad of ["", "a", Buffer.alloc(65, 7).toString("base64url"), "a+b/", "aaaaa"]) throws(() => create(bad), /1 to 64 bytes/);
 });
 
 test("popup requests: alias generation names a known service and caps its settings", () => {

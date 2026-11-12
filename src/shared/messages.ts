@@ -650,7 +650,13 @@ const kdfParams: Validator<KdfParams> = obj({ type: literal(0, 1), iterations: u
  */
 const rpIdField = capped(253);
 const challengeField = capped(64 * 1024);
-const user = obj({ id: capped(1024), name: capped(1024), displayName: capped(1024) });
+/** WebAuthn user.id: 1 to 64 bytes, base64url. Anything else goes to the browser, which throws the TypeError. */
+const userId: Validator<string> = (v, p) => {
+  const id = str(v, p);
+  if (!/^[A-Za-z0-9_-]{2,86}$/.test(id) || id.length % 4 === 1) throw new ValidationError(`${p}: not 1 to 64 bytes of base64url`);
+  return id;
+};
+const user = obj({ id: userId, name: capped(1024), displayName: capped(1024) });
 /** A page-supplied array of credential ids: bounded, so it cannot ask for unbounded work. */
 const credIdList = (v: unknown, p: string): string[] => {
   const list = arr(capped(1024))(v, p);
