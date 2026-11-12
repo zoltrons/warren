@@ -102,10 +102,28 @@
     userVerification: pk.userVerification ?? "preferred",
   });
 
+  /**
+   * The browser refuses WebAuthn from an unfocused document. After Warren's window closes ("use another device"),
+   * focus comes back a moment later: wait for it, bounded, before handing the call over.
+   */
+  const refocused = () =>
+    document.hasFocus()
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          const done = () => {
+            clearTimeout(timer);
+            removeEventListener("focus", done);
+            resolve();
+          };
+          const timer = setTimeout(done, 120_000);
+          addEventListener("focus", done);
+        });
+
   const settle = async (kind: "create" | "get", opts: unknown, fallback: () => Promise<Credential | null>, signal?: AbortSignal | null) => {
     const { result } = await ask(kind, opts, false, signal);
     if ("credential" in result) return credential(result.credential, kind);
     if ("error" in result) throw new DOMException(result.error.message, result.error.name);
+    await refocused();
     return fallback();
   };
 

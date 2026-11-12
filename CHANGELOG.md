@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- "Use another device or browser" in the passkey window hands the request to the browser only once the page has
+  focus again, so the browser no longer refuses it as coming from an unfocused page.
 - The inline menu works on logins inside a modal dialog or a focus-trapping pop-up: it opens above them (the
   browser's top layer) and takes clicks and the arrow keys. The save bar sits in the top layer too.
 - An item saved elsewhere (the page's save bar, a passkey, another window) shows up in the open popup or side
