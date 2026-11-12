@@ -158,7 +158,7 @@ export type Request =
   | { type: "passkeyPrompt"; id: string }
   /** `replace`: the user confirmed that a new passkey takes the place of the one `itemId` holds. */
   /** `password`: the master password, when the site requires user verification and nothing verified the user yet. */
-  | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string; replace?: boolean; password?: string }
+  | { type: "passkeyDecision"; id: string; action: "use" | "fallback"; itemId?: string; credentialId?: string; replace?: boolean; password?: string; prf?: string }
   // autofill on the active tab (host permissions cover every http(s) tab)
   /** `passive`: as for vaultList. */
   | { type: "pageMatches"; passive?: boolean }
@@ -311,7 +311,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   removeSendPassword: obj({ type: literal("removeSendPassword"), id: str }),
   setDefaultManager: obj({ type: literal("setDefaultManager"), enabled: bool }),
   passkeyPrompt: obj({ type: literal("passkeyPrompt"), id: str }),
-  passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str), replace: opt(bool), password: opt(str) }),
+  passkeyDecision: obj({ type: literal("passkeyDecision"), id: str, action: literal("use", "fallback"), itemId: opt(str), credentialId: opt(str), replace: opt(bool), password: opt(str), prf: opt(capped(256)) }),
   pageMatches: obj({ type: literal("pageMatches"), passive: opt(bool) }),
   takeNewLogin: obj({ type: literal("takeNewLogin") }),
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
@@ -522,6 +522,11 @@ export interface PasskeyPrompt {
   others?: number;
   /** The site requires user verification and nothing verified the user for this request yet: ask for the master password. */
   verify?: boolean;
+  /**
+   * Biometric unlock is set up and the site asks for verification (required or preferred) not yet given: the window
+   * asks the authenticator for this credential's PRF output and sends it with the decision.
+   */
+  biometric?: { credentialId: string; prfSalt: string };
 }
 
 /** Decrypted send for the list. `link` carries the decryption secret in its fragment. */
@@ -578,6 +583,8 @@ export type CoreRequest =
   // biometric: the user key wrapped with a key derived from a WebAuthn PRF output (base64)
   | { op: "prfProtect"; prf: string }
   | { op: "unlockPrf"; prf: string; protectedUserKey: string; encryptedPrivateKey?: string }
+  /** User verification while unlocked: does this biometric PRF output open the session's own user key? */
+  | { op: "verifyPrf"; prf: string; protectedUserKey: string }
   | { op: "freeKey"; handle: number }
   // log in with device (auth requests): RSA key pair here, user key wrapped for / by the other device
   | { op: "authRequestCreate"; email: string }
@@ -681,6 +688,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   unlockPin: obj({ op: literal("unlockPin"), pin: str, email: str, kdf: kdfParams, protectedUserKey: str, encryptedPrivateKey: opt(str) }),
   prfProtect: obj({ op: literal("prfProtect"), prf: str }),
   unlockPrf: obj({ op: literal("unlockPrf"), prf: str, protectedUserKey: str, encryptedPrivateKey: opt(str) }),
+  verifyPrf: obj({ op: literal("verifyPrf"), prf: str, protectedUserKey: str }),
   freeKey: obj({ op: literal("freeKey"), handle: num }),
   authRequestCreate: obj({ op: literal("authRequestCreate"), email: str }),
   authRequestUnlock: obj({ op: literal("authRequestUnlock"), key: str, encryptedPrivateKey: opt(str) }),

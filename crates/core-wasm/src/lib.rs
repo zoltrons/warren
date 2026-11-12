@@ -127,6 +127,12 @@ pub fn unlock_with_prf(
     .map_err(js)
 }
 
+/// True when `prf` (a biometric assertion's PRF output) opens the session's own user key; the session is untouched.
+#[wasm_bindgen(js_name = verifyPrf)]
+pub fn verify_prf(prf_b64: &str, protected_user_key: &str) -> Result<bool, JsError> {
+    api::verify_prf(prf_b64, protected_user_key).map_err(js)
+}
+
 /// Log in with device: a new RSA-2048 key pair, kept for the request. Returns `{"publicKey", "fingerprint"}`.
 #[wasm_bindgen(js_name = authRequestCreate)]
 pub fn auth_request_create(email: &str) -> Result<String, JsError> {

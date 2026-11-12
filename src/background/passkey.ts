@@ -316,10 +316,25 @@ export async function openConditional(tabId: number, frameId: number): Promise<v
 const verified = (p: Pending) => !!p.confirmed || p.startedLocked;
 const mustVerify = (p: Pending) => p.call.options.userVerification === "required" && !verified(p);
 
+/** Biometric unlock of this account, offered as user verification when the site asks for it and none happened yet. */
+async function biometricFor(p: Pending): Promise<{ credentialId: string; prfSalt: string } | undefined> {
+  if (verified(p) || p.call.options.userVerification === "discouraged") return undefined;
+  const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
+  return account && bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
+}
+
+/** A biometric assertion's PRF output for this request: it must open the session's own user key. */
+async function verifyBiometric(prf: string): Promise<void> {
+  const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
+  if (!account || !bio || bio.email !== account.email) throw new UserError("invalid", "Biometric unlock is not set up");
+  if (!(await coreCall<boolean>({ op: "verifyPrf", prf, protectedUserKey: bio.protectedUserKey }))) throw new UserError("invalid", "Biometric verification failed");
+}
+
 export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   await requireUnlocked();
   const p = get(id);
-  const base = { origin: p.origin, rpId: p.rpId, ...(mustVerify(p) ? { verify: true } : {}) };
+  const biometric = await biometricFor(p);
+  const base = { origin: p.origin, rpId: p.rpId, ...(mustVerify(p) ? { verify: true } : {}), ...(biometric ? { biometric } : {}) };
   if (p.call.kind === "get") {
     const found = await candidates(p, p.call.options.allow);
     // Nothing matches: say whether the vault has passkeys for this site at all (the site may know another one).
@@ -340,13 +355,17 @@ async function undoIfTaken(p: Pending, itemId: string, credentialId: string, und
   await putCipher({ ...undo, lastKnownRevisionDate: ci(now, "revisionDate") ?? null });
 }
 
-export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false, password?: string): Promise<null> {
+export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false, password?: string, prf?: string): Promise<null> {
   const epoch = lockEpoch();
   const p = get(id);
   if (action === "fallback") return (p.done({ fallback: true }), null);
   await requireUnlocked();
   if (password !== undefined) {
     await verifyMasterPassword(password); // a wrong one goes back to the window, which asks again
+    if (pending.get(id) !== p) return null;
+    p.confirmed = true;
+  } else if (prf !== undefined) {
+    await verifyBiometric(prf); // Touch ID / Windows Hello for this request: as good as the master password here
     if (pending.get(id) !== p) return null;
     p.confirmed = true;
   }

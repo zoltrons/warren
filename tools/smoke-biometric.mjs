@@ -101,6 +101,14 @@ try {
   assert.equal(bio?.email, email);
   assert.ok(!JSON.stringify(bio).includes(password), "master password stored");
 
+  // Unlocked, the same credential verifies the user for a passkey (verifyPrf): the session's own key, nothing changed.
+  const prf = await page.evaluate((b) => globalThis.warrenBiometric.getBiometricPrf(b.credentialId, b.prfSalt), bio);
+  const verify = (p) => sw.evaluate(({ p, k }) => chrome.runtime.sendMessage({ target: "warren-offscreen", req: { op: "verifyPrf", prf: p, protectedUserKey: k } }), { p, k: bio.protectedUserKey });
+  assert.deepEqual(await verify(prf), { ok: true, value: true });
+  assert.deepEqual(await verify(Buffer.alloc(32, 1).toString("base64")), { ok: true, value: false });
+  assert.ok(await unlocked(), "a verification must not lock or unlock anything");
+  console.log("ok: unlocked, the biometric PRF verifies the user for a passkey; another PRF does not");
+
   // Lock, then unlock with the biometric credential instead of the master password.
   await page.getByRole("button", { name: "Lock now" }).click();
   await poll("lock", async () => !(await unlocked()));

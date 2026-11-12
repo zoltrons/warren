@@ -154,6 +154,11 @@ pub fn unlock_with_prf(
     protected_user_key: &str,
     encrypted_private_key: Option<&str>,
 ) -> Result<()> {
+    open_session(prf_user_key(prf_b64, protected_user_key)?, encrypted_private_key)
+}
+
+/// The user key a PRF output unwraps from `prf_protect_user_key`'s result.
+fn prf_user_key(prf_b64: &str, protected_user_key: &str) -> Result<SymmetricCryptoKey> {
     let prf = STANDARD.decode(prf_b64).map_err(err)?;
     let key = derive_symmetric_key_from_prf(&prf).map_err(|_| "invalid PRF output")?;
     let encoded: String = EncString::from_str(protected_user_key)
@@ -161,8 +166,16 @@ pub fn unlock_with_prf(
         .decrypt_with_key(&key)
         .map_err(err)?;
     let bytes = STANDARD.decode(encoded).map_err(err)?;
-    let user = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(bytes)).map_err(err)?;
-    open_session(user, encrypted_private_key)
+    SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(bytes)).map_err(err)
+}
+
+/// User verification while unlocked (a passkey a site wants verified): the biometric credential's PRF output opens
+/// the very user key this session holds. The session is left as it is; a wrong PRF is `false`, not an error.
+pub fn verify_prf(prf_b64: &str, protected_user_key: &str) -> Result<bool> {
+    let Ok(key) = prf_user_key(prf_b64, protected_user_key) else {
+        return Ok(false);
+    };
+    with_session(|s| Ok(s.user.to_base64() == key.to_base64()))
 }
 
 // ---------- Log in with device (Bitwarden auth requests) ----------
@@ -504,6 +517,27 @@ mod tests {
         let weak = file.replace("\"kdfIterations\": 5000", "\"kdfIterations\": 1");
         assert!(password_open_export(&weak, "secret").is_err());
         assert!(password_protect_export("x", "", &kdf).is_err());
+    }
+
+    #[test]
+    fn prf_verify_leaves_the_session() {
+        let user = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let expected = user.to_base64();
+        open_session(user, None).unwrap();
+        let prf = STANDARD.encode([7u8; 32]);
+        let wrapped = prf_protect_user_key(&prf).unwrap();
+        assert!(verify_prf(&prf, &wrapped).unwrap());
+        assert!(!verify_prf(&STANDARD.encode([8u8; 32]), &wrapped).unwrap());
+        assert!(!verify_prf(&prf, "2.bogus").unwrap());
+        // Another account's key, wrapped with the same PRF, is not this session's.
+        let other = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        open_session(other, None).unwrap();
+        let theirs = prf_protect_user_key(&prf).unwrap();
+        open_session(SymmetricCryptoKey::try_from(expected.clone()).unwrap(), None).unwrap();
+        assert!(!verify_prf(&prf, &theirs).unwrap());
+        assert_eq!(with_session(|s| Ok(s.user.to_base64())).unwrap(), expected);
+        lock();
+        assert!(verify_prf(&prf, &wrapped).is_err(), "locked");
     }
 
     #[test]

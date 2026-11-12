@@ -35,6 +35,8 @@ function run(req: CoreRequest): unknown {
     }
     case "prfProtect":
       return core.prfProtectUserKey(req.prf);
+    case "verifyPrf":
+      return core.verifyPrf(req.prf, req.protectedUserKey);
     case "unlockPrf":
       core.unlockWithPrf(req.prf, req.protectedUserKey, req.encryptedPrivateKey);
       return true;

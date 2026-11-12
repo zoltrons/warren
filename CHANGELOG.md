@@ -30,6 +30,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Changed
 
+- With biometric unlock set up, a site that asks to verify you for a passkey gets Touch ID / Windows Hello in the
+  passkey window instead of the master password, and sites that only prefer verification now get it too.
 - New passkeys carry Bitwarden's authenticator id (AAGUID), so sites that list passkeys by provider show
   "Bitwarden" instead of an unknown authenticator.
 

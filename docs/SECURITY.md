@@ -193,10 +193,13 @@ freed rather than zeroed in place.
     encrypted in the worker (`passkeyCreate` answers with the ciphertext), so its key is never in the service worker.
 
 11a. **The UV flag is honest.** The RP's `userVerification` is carried, and the authenticator data says "user
-    verified" only when the user was verified for that request: the vault was unlocked for it, or the master
-    password was confirmed in the approval window. A click in an already unlocked vault is presence only. When the
-    RP requires verification and neither happened, the window asks for the master password, and the inline menu's
-    one-click sign-in opens the window instead (`src/background/passkey.ts`).
+    verified" only when the user was verified for that request: the vault was unlocked for it, the master
+    password was confirmed in the approval window, or biometric unlock's credential answered for it (the worker checks
+    that its PRF output opens the session's own user key, `verifyPrf`, and changes nothing). A click in an already
+    unlocked vault is presence only. When the RP asks for verification (required or preferred) and biometric unlock is
+    set up, the window asks for the biometric first; on preferred a failed one still signs, without UV. When the RP
+    requires verification and nothing verified the user, the window asks for the master password, and the inline
+    menu's one-click sign-in opens the window instead (`src/background/passkey.ts`).
 
 12. **Rendered data is text, not markup.** No `innerHTML` anywhere; the `h()` helper sets properties
     from static keys and `textContent` for values, so vault, server and page strings cannot become

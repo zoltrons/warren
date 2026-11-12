@@ -1,6 +1,7 @@
 // Approval window for a website's passkey request. The service worker opens popup.html?passkey=<id>;
 // after unlocking (if needed) the user picks a passkey, saves a new one, or hands the call back to the browser.
 import type { PasskeyCandidate, PasskeyPrompt } from "../shared/messages.ts";
+import { getBiometricPrf } from "./biometric.ts";
 import { h, send, t } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type Ctx, tile } from "./vault.ts";
@@ -38,9 +39,14 @@ async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, cre
   pk.busy = true;
   pk.confirm = undefined;
   ctx.rerender();
-  const password = action === "use" && pk.prompt?.verify ? pk.password : undefined;
+  // The site asks for user verification: Touch ID / Windows Hello first when biometric unlock is set up (a typed master
+  // password wins). If it fails, a site that only prefers verification still gets the passkey, without the UV flag.
+  const bio = action === "use" && !pk.password ? pk.prompt?.biometric : undefined;
+  const prf = bio ? await getBiometricPrf(bio.credentialId, bio.prfSalt).catch(() => undefined) : undefined;
+  if (pk !== mine) return;
+  const password = action === "use" && pk.prompt?.verify && prf === undefined ? pk.password : undefined;
   if (password === "") return ((pk.busy = false), (pk.error = t("passkeyVerifyHint")), ctx.rerender());
-  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}), ...(password !== undefined ? { password } : {}) });
+  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}), ...(password !== undefined ? { password } : {}), ...(prf !== undefined ? { prf } : {}) });
   if (r.ok) return window.close();
   if (pk !== mine) return;
   pk.password = "";
