@@ -54,7 +54,7 @@ test("passkeys: a new credential carries Bitwarden's AAGUID", async () => {
   const made = await createCredential({ origin: "https://example.com", rpId: "example.com", rpName: "E", challenge: "Yw", user: { id: "dQ", name: "u", displayName: "U" }, discoverable: true, uv: false });
   // authData: rpIdHash (32) | flags (1) | counter (4) | AAGUID (16) | ...
   const data = Uint8Array.fromBase64(String(made.response.authenticatorData), { alphabet: "base64url" });
-  assert.equal(data.subarray(37, 53).toHex(), "d548826e79b4db40a3d811116f7e8349");
+  assert.equal(Buffer.from(data.subarray(37, 53)).toString("hex"), "d548826e79b4db40a3d811116f7e8349");
 });
 
 test("passkeys: a conditional create sets neither UP nor UV", async () => {

@@ -74,7 +74,7 @@ const flags = (uv: boolean, up = true) => (up ? 0x01 : 0) | (uv ? 0x04 : 0) | 0x
 const AT = 0x40;
 // Bitwarden's AAGUID: the passkey lives in a Bitwarden vault and the official apps serve it too, so sites that name
 // providers by AAGUID (passkey-authenticator-aaguids) show "Bitwarden" rather than an unknown authenticator.
-const AAGUID = Uint8Array.fromHex("d548826e79b4db40a3d811116f7e8349");
+const AAGUID = new Uint8Array([0xd5, 0x48, 0x82, 0x6e, 0x79, 0xb4, 0xdb, 0x40, 0xa3, 0xd8, 0x11, 0x11, 0x6f, 0x7e, 0x83, 0x49]); // d548826e-79b4-db40-a3d8-11116f7e8349
 
 async function authData(rpId: string, flags: number, counter: number, attested: number[] = []): Promise<Uint8Array> {
   return new Uint8Array([...(await sha256(rpId)), flags, counter >>> 24, (counter >> 16) & 255, (counter >> 8) & 255, counter & 255, ...attested]);
