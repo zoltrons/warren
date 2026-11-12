@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Security report: logins on a site that offers authenticator-app codes, with none set up, are listed. The list of
+  sites (24 KB, from 2fa.directory, MIT) ships with the extension; nothing is asked from that service.
 - A banner on the vault list says how many logins have reused or weak passwords and opens the security report.
 - Security report: "Check e-mail addresses through your server" asks your Vaultwarden, which asks Have I Been
   Pwned, about the e-mail addresses used as login usernames. It works only when the server admin set an HIBP API key,

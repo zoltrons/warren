@@ -974,14 +974,24 @@ try {
       asked.push(prefix);
       void route.fulfill({ status: 200, contentType: "text/plain", body: prefix === hex.slice(0, 5) ? `${hex.slice(5)}:7\r\n` : "0000000000000000000000000000000000A:0\r\n" });
     });
+    // A login on a site that offers TOTP, with none set up, is listed; it is removed again at the end.
+    const s0 = await apiSession(vaultUser);
+    const dropbox = await s0.create({ type: 1, name: "Dropbox no 2FA", login: { username: "d@example.test", password: "Zq8!rT4mVx2#", uris: [{ uri: "https://www.dropbox.com/login", match: null }] } });
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
+    await rows().filter({ hasText: "Dropbox no 2FA" }).first().waitFor();
     await page.getByRole("button", { name: "Security report" }).click();
     await page.getByRole("heading", { name: "Security report" }).waitFor();
+    await page.getByRole("heading", { name: "Two-step codes available but not set up (1)" }).waitFor();
     await page.getByRole("button", { name: "Check for breached passwords" }).click();
     await page.getByRole("heading", { name: "Passwords found in breaches (1)" }).waitFor();
     assert.ok(asked.includes(hex.slice(0, 5)), "the prefix was not asked for");
     assert.ok(asked.every((p) => /^[0-9A-F]{5}$/.test(p)), "more than a 5-digit prefix left the device");
     await ctx.unroute("https://api.pwnedpasswords.com/range/*");
     await page.getByRole("button", { name: "Back" }).click();
+    await call(BASE, "DELETE", `/api/ciphers/${dropbox.id}`, { token: s0.token });
+    s0.done();
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
+    await page.waitForFunction(() => !document.body.textContent?.includes("Dropbox no 2FA"));
   });
 
   await step("server HIBP proxy: without an admin key the extension's lookup says so", async () => {

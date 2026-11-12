@@ -13,6 +13,7 @@ into `dist/ext`, so every `.zip` and `.crx` carries them.
 | publicsuffix/list | MPL-2.0 | Data file fetched at build time (`tools/fetch-psl.mjs`, pinned in `upstream.lock`) and shipped as `psl.json`. MPL-2.0 is GPL-compatible; ship its notice with releases. |
 | faker-js/faker | MIT | Dev dependency only. `tools/identity-data.mjs` picks name and city lists from its locale data into `src/ui/identity-data.json` (committed, shipped); the MIT notice is in `NOTICE`. No faker code ships. |
 | danielmiessler/SecLists | MIT | `tools/common-words.mjs` turns `10k-most-common.txt` (pinned commit) into the base-word list `src/shared/common-words.json` (committed, shipped) for the strength check; the MIT notice is in `NOTICE`. |
+| 2factorauth/twofactorauth | MIT | `tools/totp-sites.mjs` reads the domains that offer TOTP from the 2fa.directory API (snapshot 2026-11-12) into `src/shared/totp-sites.json` (committed, shipped) for the security report; the extension never contacts that service. The MIT notice is in `NOTICE`. |
 | dani-garcia/vaultwarden | AGPL-3.0-only | Protocol reference and a test server in Docker. No code linked or copied. |
 | lucide-icons/lucide (`lucide-static` 1.68.0) | ISC (Feather-derived icons: MIT) | SVG path data vendored in `src/ui/icons.ts` (55 glyphs; `<circle>`, `<line>` and `<rect>` rewritten as equivalent paths, shapes unchanged). ISC and MIT are GPL-3.0-compatible; both notices are in `NOTICE`. |
 

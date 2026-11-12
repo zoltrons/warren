@@ -2311,5 +2311,8 @@
   },
   "attentionReview": {
     "message": "Review"
+  },
+  "reportNoTotp": {
+    "message": "Two-step codes available but not set up"
   }
 }

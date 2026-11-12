@@ -2631,7 +2631,7 @@ function reportView(ctx: Ctx): HTMLElement {
   const d = rep?.data;
   const total = d?.prefixes.length ?? 0;
   const exposedIds = [...(rep?.exposed?.keys() ?? [])];
-  const clean = !!d && !rows(d.reused).length && !rows(d.weak).length && !rows(d.insecure).length;
+  const clean = !!d && !rows(d.reused).length && !rows(d.weak).length && !rows(d.insecure).length && !rows(d.noTotp).length;
   return h(
     "div",
     { class: "page" },
@@ -2639,7 +2639,7 @@ function reportView(ctx: Ctx): HTMLElement {
     errorBox(),
     !d ? progress() : null,
     d && clean && !exposedIds.length && !rep?.exposed ? h("div", { class: "empty" }, icon("shield"), h("p", { class: "title" }, t("reportClean")), h("p", { class: "caption" }, t("reportCleanHint"))) : null,
-    ...(d ? [...block(t("reportReused"), d.reused), ...block(t("reportWeak"), d.weak), ...block(t("reportInsecure"), d.insecure)] : []),
+    ...(d ? [...block(t("reportReused"), d.reused), ...block(t("reportWeak"), d.weak), ...block(t("reportInsecure"), d.insecure), ...block(t("reportNoTotp"), d.noTotp)] : []),
     d && total
       ? h(
           "div",

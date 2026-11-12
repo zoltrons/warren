@@ -7,6 +7,7 @@ import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
 import { parseRange, sha1Hex } from "../shared/pwned-range.ts";
 import { isInsecureUri } from "../shared/uri-tools.ts";
+import { loadTotpSites, offersTotp } from "../shared/totp-sites.ts";
 import { asObject as o, asString as s, ci } from "../shared/validate.ts";
 import { Psl, uriMatches } from "../autofill/match.ts";
 import { b64u } from "../shared/url.ts";
@@ -147,6 +148,7 @@ let reportHashes = new Map<string, { hash: string; rev: string }>();
  */
 export async function securityReport(): Promise<SecurityReport> {
   if (!ciphers) throw new Error("vault not loaded");
+  await loadTotpSites();
   const logins = [...ciphers.values()].filter((c) => !c.failed && Number(ci(c, "type")) === 1);
   const pw = (c: Json) => s(ci(o(ci(c, "login")), "password"));
   const uses = new Map<string, number>();
@@ -157,6 +159,7 @@ export async function securityReport(): Promise<SecurityReport> {
   return {
     reused: logins.filter((c) => pw(c) && uses.get(pw(c))! > 1).map(id),
     weak: logins.filter((c) => pw(c) && passwordLevel(pw(c)) === 0).map(id),
+    noTotp: logins.filter((c) => !s(ci(o(ci(c, "login")), "totp")) && (ci(o(ci(c, "login")), "uris") as unknown[] | undefined)?.some((u) => offersTotp(URL.parse(s(ci(u, "uri")))?.hostname ?? ""))).map(id),
     insecure: logins.filter((c) => (ci(o(ci(c, "login")), "uris") as unknown[] | undefined)?.some((u) => isInsecureUri(s(ci(u, "uri"))))).map(id),
     prefixes: [...new Set([...reportHashes.values()].map((h) => h.hash.slice(0, 5)))],
   };

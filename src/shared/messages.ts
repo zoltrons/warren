@@ -475,6 +475,8 @@ export interface SecurityReport {
   reused: string[];
   weak: string[];
   insecure: string[];
+  /** Logins on a site that offers authenticator-app codes, with none set up. */
+  noTotp: string[];
   prefixes: string[];
 }
 
