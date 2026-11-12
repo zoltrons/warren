@@ -63,3 +63,13 @@ test("passkeys: a conditional create sets neither UP nor UV", async () => {
   assert.equal(flagsByte & 0x05, 0);
   assert.equal(flagsByte & 0x40, 0x40, "attested credential data");
 });
+
+test("passkeys: a call from a cross-origin frame says so in clientDataJSON, with the top origin", async () => {
+  const input = { origin: "https://pay.example", rpId: "pay.example", rpName: "P", challenge: "Yw", user: { id: "dQ", name: "u", displayName: "U" }, discoverable: true, uv: false };
+  const cd = (b64: unknown) => JSON.parse(new TextDecoder().decode(Uint8Array.fromBase64(String(b64), { alphabet: "base64url" })));
+  assert.deepEqual(cd((await createCredential(input)).response.clientDataJSON), { type: "webauthn.create", challenge: "Yw", origin: "https://pay.example", crossOrigin: false });
+  const made = await createCredential({ ...input, topOrigin: "https://shop.example" });
+  assert.deepEqual(cd(made.response.clientDataJSON), { type: "webauthn.create", challenge: "Yw", origin: "https://pay.example", crossOrigin: true, topOrigin: "https://shop.example" });
+  const got = await sign(made.fido2Credential as Record<string, unknown>, "https://pay.example", "Yw", false, "https://shop.example");
+  assert.equal(cd(got.clientDataJSON).topOrigin, "https://shop.example");
+});

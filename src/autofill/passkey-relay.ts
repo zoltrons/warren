@@ -31,6 +31,15 @@ addEventListener("message", (ev: MessageEvent) => {
     postMessage({ warren: "res", id: d.id, result: { fallback: true } }, "*");
     return;
   }
+  // In a frame, only what the page lets it do (allow="publickey-credentials-get …"): the browser refuses the rest, so
+  // it gets the call. The ancestors decide crossOrigin / topOrigin in clientDataJSON (the worker checks the top one).
+  const inFrame = window !== top;
+  const feature = d.kind === "create" ? "publickey-credentials-create" : "publickey-credentials-get";
+  const policy = (document as { featurePolicy?: { allowsFeature(f: string): boolean } }).featurePolicy;
+  if (inFrame && !policy?.allowsFeature(feature)) {
+    postMessage({ warren: "res", id: d.id, result: { fallback: true } }, "*");
+    return;
+  }
   const port = chrome.runtime.connect({ name: PORT });
   ports.set(id, port);
   let done = false;
@@ -54,7 +63,7 @@ addEventListener("message", (ev: MessageEvent) => {
   });
   port.onDisconnect.addListener(() => reply({ fallback: true }));
   try {
-    port.postMessage({ kind: d.kind, conditional: d.conditional === true, options: d.options });
+    port.postMessage({ kind: d.kind, conditional: d.conditional === true, options: d.options, ...(inFrame ? { ancestors: [...location.ancestorOrigins] } : {}) });
   } catch {
     // The extension was reloaded or disabled between connect and the call: let the browser handle it.
     reply({ fallback: true });

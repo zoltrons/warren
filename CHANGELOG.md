@@ -6,6 +6,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Passkeys work in sign-in forms a site embeds from another domain, when the site allows that frame to use passkeys.
 - When a site tells the browser you renamed your account there (WebAuthn's signal API), the passkey in Warren takes
   the new name.
 - Automatic passkey upgrades: right after Warren fills a site's password, a site that offers to switch you to a

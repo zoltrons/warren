@@ -124,7 +124,8 @@ on 2026-10-29, unless marked otherwise.
   EncStrings except `creationDate`; GUID credential ids; base64url PKCS#8 `keyValue`; base64url
   `userHandle`; counter `"0"`; an imported one with a higher counter is raised by one and saved before each assertion,
   as the official clients do). Saved through the normal cipher PUT/POST; Vaultwarden keeps them.
-  WebAuthn calls are intercepted on every secure origin: a call a stored passkey can answer opens
+  WebAuthn calls are intercepted on every secure origin and in every frame the page's permissions policy allows
+  (clientDataJSON then carries `crossOrigin: true` and `topOrigin`): a call a stored passkey can answer opens
   Warren's approval window, anything else goes straight to the browser. Conditional mediation
   (passkey autofill) is raced against the browser and additionally shows "Sign in with passkey" in
   the inline menu. `getClientCapabilities()` reports `conditionalGet`, `passkeyPlatformAuthenticator`,

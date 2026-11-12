@@ -122,7 +122,7 @@ test("a replacing passkey save without an answer puts the old passkey back once 
   const posted: unknown[] = [];
   const listeners: ((m: unknown) => void)[] = [];
   onPasskeyPort({
-    sender: { id: "warren", tab: { id: 1 }, frameId: 0, origin: "https://a.test" },
+    sender: { id: "warren", tab: { id: 1, url: "https://a.test/" }, frameId: 0, origin: "https://a.test" },
     onDisconnect: { addListener: () => undefined },
     onMessage: { addListener: (l: (m: unknown) => void) => listeners.push(l) },
     postMessage: (m: unknown) => posted.push(m),
@@ -154,7 +154,7 @@ test("passkeys: only our content script in a web page's top frame gets a port se
   for (const sender of [
     { id: "warren", tab: { id: 1 }, frameId: 2, origin: "https://a.test" }, // a subframe
     { id: "warren", tab: { id: 1 }, frameId: 0, origin: "chrome-extension://warren" },
-    { id: "other", tab: { id: 1 }, frameId: 0, origin: "https://a.test" },
+    { id: "other", tab: { id: 1, url: "https://a.test/" }, frameId: 0, origin: "https://a.test" },
     { id: "warren", frameId: 0, origin: "https://a.test" }, // no tab
   ]) {
     let disconnected = false;
@@ -215,7 +215,7 @@ test("a passkey a lock overtook while the worker made it is never saved", async 
   windowUrl = "";
   const listeners: ((m: unknown) => void)[] = [];
   onPasskeyPort({
-    sender: { id: "warren", tab: { id: 1 }, frameId: 0, origin: "https://a.test" },
+    sender: { id: "warren", tab: { id: 1, url: "https://a.test/" }, frameId: 0, origin: "https://a.test" },
     onDisconnect: { addListener: () => undefined },
     onMessage: { addListener: (l: (m: unknown) => void) => listeners.push(l) },
     postMessage: () => undefined,
@@ -246,7 +246,7 @@ test("a passkey call the page aborts before it is registered opens no window and
     const posted: unknown[] = [];
     const on: { message?: (m: unknown) => void; disconnect?: () => void } = {};
     onPasskeyPort({
-      sender: { id: "warren", tab: { id: 2 }, frameId: 0, origin: "https://a.test" },
+      sender: { id: "warren", tab: { id: 2, url: "https://a.test/" }, frameId: 0, origin: "https://a.test" },
       onDisconnect: { addListener: (l: () => void) => (on.disconnect = l) },
       onMessage: { addListener: (l: (m: unknown) => void) => (on.message = l) },
       postMessage: (m: unknown) => posted.push(m),

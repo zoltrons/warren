@@ -46,7 +46,9 @@ test("popup requests: an import is size-capped", () => {
 
 test("passkey calls: page-supplied options are bounded", () => {
   const base = { kind: "get", conditional: false, options: { challenge: "c", allow: [] } };
-  assert.deepEqual(parsePasskeyCall(base), { ...base, options: { ...base.options, rpId: undefined, userVerification: "preferred" } });
+  assert.deepEqual(parsePasskeyCall(base), { ...base, ancestors: undefined, options: { ...base.options, rpId: undefined, userVerification: "preferred" } });
+  // A frame's ancestor origins: bounded too.
+  throws(() => parsePasskeyCall({ ...base, ancestors: Array.from({ length: 17 }, () => "https://a.test") }), /too many/);
   // The RP's userVerification is carried; an unknown value means "preferred", as in WebAuthn.
   const uv = (userVerification: unknown) => parsePasskeyCall({ ...base, options: { ...base.options, userVerification } }).options.userVerification;
   assert.equal(uv("required"), "required");

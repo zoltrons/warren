@@ -80,8 +80,9 @@ async function authData(rpId: string, flags: number, counter: number, attested: 
   return new Uint8Array([...(await sha256(rpId)), flags, counter >>> 24, (counter >> 16) & 255, (counter >> 8) & 255, counter & 255, ...attested]);
 }
 
-const clientData = (type: "webauthn.create" | "webauthn.get", challenge: string, origin: string) =>
-  new TextEncoder().encode(JSON.stringify({ type, challenge, origin, crossOrigin: false }));
+/** `topOrigin`: set only for a call from a frame that is not same-origin with its ancestors (WebAuthn L3). */
+const clientData = (type: "webauthn.create" | "webauthn.get", challenge: string, origin: string, topOrigin?: string) =>
+  new TextEncoder().encode(JSON.stringify(topOrigin ? { type, challenge, origin, crossOrigin: true, topOrigin } : { type, challenge, origin, crossOrigin: false }));
 
 export interface CreateInput {
   origin: string;
@@ -94,6 +95,8 @@ export interface CreateInput {
   uv: boolean;
   /** UP: false only for a conditional create (no user gesture). */
   up?: boolean;
+  /** The top-level origin, for a call from a cross-origin frame. */
+  topOrigin?: string;
 }
 
 /** New ES256 credential: the stored fido2Credential plus the attestation response for the page. */
@@ -124,7 +127,7 @@ export async function createCredential(i: CreateInput) {
     },
     response: {
       id: b64u(rawId),
-      clientDataJSON: b64u(clientData("webauthn.create", i.challenge, i.origin)),
+      clientDataJSON: b64u(clientData("webauthn.create", i.challenge, i.origin, i.topOrigin)),
       attestationObject: b64u(attestationObject),
       authenticatorData: b64u(data),
       publicKey: b64u(new Uint8Array(await crypto.subtle.exportKey("spki", pair.publicKey))),
@@ -137,10 +140,10 @@ export async function createCredential(i: CreateInput) {
 }
 
 /** Assertion with a stored credential. Bitwarden keeps synced counters at 0, so we do too. */
-export async function assert(cred: Json, origin: string, challenge: string, uv: boolean) {
+export async function assert(cred: Json, origin: string, challenge: string, uv: boolean, topOrigin?: string) {
   const key = await crypto.subtle.importKey("pkcs8", fromB64u(s(ci(cred, "keyValue"))) as Uint8Array<ArrayBuffer>, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
   const data = await authData(s(ci(cred, "rpId")), flags(uv), Number(s(ci(cred, "counter"))) || 0);
-  const cd = clientData("webauthn.get", challenge, origin);
+  const cd = clientData("webauthn.get", challenge, origin, topOrigin);
   const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new Uint8Array([...data, ...(await sha256(cd))])));
   return {
     id: b64u(credentialIdBytes(s(ci(cred, "credentialId")))),

@@ -225,6 +225,9 @@ const pages: Record<string, string> = {
   "/bottom": `<div style="height:calc(100vh - 60px)"></div>${LOGIN_FORM}`,
   // A web component that keeps its login in a closed shadow root; the page keeps the root for the test to read.
   "/closed-shadow": `<div id="host"></div><script>window.root = document.getElementById("host").attachShadow({ mode: "closed" }); window.root.innerHTML = ${JSON.stringify(LOGIN_FORM)};</script>`,
+  // A sign-in embedded from another origin, allowed (or not) to use WebAuthn by the page's permissions policy.
+  "/pk-frame": `<iframe id="pf" src="http://127.0.0.1:8099/login" allow="publickey-credentials-get *; publickey-credentials-create *" style="width:500px;height:200px"></iframe>`,
+  "/pk-frame-denied": `<iframe id="pf" src="http://127.0.0.1:8099/login" style="width:500px;height:200px"></iframe>`,
   "/useronly": `<form onsubmit="return false"><input id="u" name="login" placeholder="Email or phone"><button type="submit">Next</button></form>`,
 };
 const site = createServer((req, res) => {
@@ -2516,6 +2519,57 @@ try {
     for (let i = 0; i < 50 && (await name()) !== "pk-user"; i++) await loginPage.waitForTimeout(100);
     assert.equal(await name(), "pk-user");
     s.done();
+  });
+
+  await step("passkeys: a cross-origin frame the page allows gets Warren's passkeys, with crossOrigin and topOrigin", async () => {
+    await loginPage.goto(`${SITE}/pk-frame`);
+    const frame = () => loginPage.frames().find((f) => f.url() === "http://127.0.0.1:8099/login")!;
+    await loginPage.waitForFunction(() => !!document.querySelector("iframe"));
+    await loginPage.frameLocator("#pf").locator("#u").click(); // the frame's document needs the focus
+    const created = frame().evaluate(async (ch) => {
+      const c = (await navigator.credentials.create({ publicKey: { rp: { name: "Framed" }, user: { id: new Uint8Array([7, 7]), name: "framed-user", displayName: "Framed" }, challenge: Uint8Array.from(ch), pubKeyCredParams: [{ type: "public-key", alg: -7 }] } })) as PublicKeyCredential;
+      return { id: c.id, clientData: new TextDecoder().decode(c.response.clientDataJSON) };
+    }, [...challenge]);
+    await approve(async (w) => {
+      await w.getByRole("button", { name: "Save passkey" }).click();
+    });
+    const c = await created;
+    assert.deepEqual(JSON.parse(c.clientData), { type: "webauthn.create", challenge: challenge.toString("base64url"), origin: "http://127.0.0.1:8099", crossOrigin: true, topOrigin: SITE });
+    await loginPage.frameLocator("#pf").locator("#u").click();
+    const got = frame().evaluate(async ({ ch, id }) => {
+      const r = (await navigator.credentials.get({ publicKey: { challenge: Uint8Array.from(ch), allowCredentials: [{ type: "public-key", id: Uint8Array.fromBase64(id, { alphabet: "base64url" }) }], userVerification: "discouraged" } })) as PublicKeyCredential;
+      return new TextDecoder().decode(r.response.clientDataJSON);
+    }, { ch: [...challenge], id: c.id });
+    await approve(async (w) => {
+      await w.getByRole("listitem").filter({ hasText: "framed-user" }).click();
+    });
+    assert.equal(JSON.parse(await got).topOrigin, SITE);
+    // Without the page's permission the browser decides (and refuses), and Warren opens nothing.
+    await loginPage.goto(`${SITE}/pk-frame-denied`);
+    await loginPage.waitForFunction(() => !!document.querySelector("iframe"));
+    await loginPage.frameLocator("#pf").locator("#u").click();
+    const opened: Page[] = [];
+    const watch = (p: Page) => opened.push(p);
+    ctx.on("page", watch);
+    const denied = await frame().evaluate(async (ch) => {
+      try {
+        await navigator.credentials.create({ publicKey: { rp: { name: "Framed" }, user: { id: new Uint8Array([8]), name: "x", displayName: "x" }, challenge: Uint8Array.from(ch), pubKeyCredParams: [{ type: "public-key", alg: -7 }], timeout: 1000 } });
+        return "resolved";
+      } catch (e) {
+        return (e as DOMException).name;
+      }
+    }, [...challenge]);
+    ctx.off("page", watch);
+    assert.notEqual(denied, "resolved");
+    assert.deepEqual(opened.filter((p) => p.url().includes("popup.html?passkey=")), [], "Warren's window opened for a frame the page did not allow");
+    // Clean up: the framed passkey's login.
+    const s = await apiSession(vaultUser);
+    const item = (await s.ciphers()).find((x) => x.login?.fido2Credentials?.[0]?.rpId === "127.0.0.1" && !x.deletedDate);
+    if (item) await call(BASE, "DELETE", `/api/ciphers/${item.id}`, { token: s.token });
+    s.done();
+    if (page.isClosed()) await reopenPopup();
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
+    await loginPage.goto(`${SITE}/login`);
   });
 
   await step("passkeys: an RP ID Warren may not use goes to the browser, with no window", async () => {

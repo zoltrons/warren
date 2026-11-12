@@ -192,6 +192,12 @@ freed rather than zeroed in place.
     (`src/offscreen/passkey-keys.ts`), so a clone does not copy a passkey. A new passkey is put into its item and
     encrypted in the worker (`passkeyCreate` answers with the ciphertext), so its key is never in the service worker.
 
+    A call from an iframe is served only when the page's permissions policy lets that frame use WebAuthn
+    (`document.featurePolicy`, read by the relay in the isolated world); otherwise the browser gets it. The RP ID is
+    checked against the frame's own origin. The relay reports `location.ancestorOrigins`; the worker accepts them only
+    when the last is the tab's origin as the browser reports it, and they decide nothing but `crossOrigin` /
+    `topOrigin` in clientDataJSON, which the RP checks. A conditional create from a cross-origin frame is refused.
+
 11a. **The UV flag is honest.** The RP's `userVerification` is carried, and the authenticator data says "user
     verified" only when the user was verified for that request: the vault was unlocked for it, the master
     password was confirmed in the approval window, or biometric unlock's credential answered for it (the worker checks

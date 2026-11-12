@@ -42,6 +42,8 @@ interface Pending {
   call: Exclude<PasskeyCall, { kind: "details" }>;
   origin: string;
   rpId: string;
+  /** The top-level origin, for a call from a frame not same-origin with its ancestors (clientDataJSON). */
+  topOrigin?: string;
   tabId: number;
   frameId: number;
   /** Conditional mediation: no approval window until the user picks the inline-menu entry. */
@@ -60,11 +62,12 @@ const pending = new Map<string, Pending>();
 /** Idempotent: registered content scripts persist across sessions, so this usually does nothing. */
 export async function ensurePasskeyScripts(): Promise<void> {
   const scripts = await chrome.scripting.getRegisteredContentScripts({ ids: SCRIPT_IDS }).catch(() => []);
-  if (scripts.length === SCRIPT_IDS.length) return;
+  // Older builds registered them for top frames only.
+  if (scripts.length === SCRIPT_IDS.length && scripts.every((x) => x.allFrames)) return;
   await chrome.scripting.unregisterContentScripts({ ids: SCRIPT_IDS }).catch(() => undefined);
   await chrome.scripting.registerContentScripts([
-    { id: SCRIPT_IDS[0]!, js: ["passkey-page.js"], matches: MATCHES, runAt: "document_start", world: "MAIN", persistAcrossSessions: true },
-    { id: SCRIPT_IDS[1]!, js: ["passkey-relay.js"], matches: MATCHES, runAt: "document_start", persistAcrossSessions: true },
+    { id: SCRIPT_IDS[0]!, js: ["passkey-page.js"], matches: MATCHES, runAt: "document_start", world: "MAIN", allFrames: true, persistAcrossSessions: true },
+    { id: SCRIPT_IDS[1]!, js: ["passkey-relay.js"], matches: MATCHES, runAt: "document_start", allFrames: true, persistAcrossSessions: true },
   ]);
 }
 
@@ -143,8 +146,9 @@ async function conditionalCreate(call: Extract<PasskeyCall, { kind: "create" }>,
 export function onPasskeyPort(port: chrome.runtime.Port): void {
   const sender = port.sender;
   const origin = sender?.origin;
-  // Top frames of web pages only; the origin comes from the browser, never from the page.
-  if (sender?.id !== chrome.runtime.id || !sender.tab?.id || sender.frameId !== 0 || !origin?.startsWith("http")) {
+  // Web pages only; the origin comes from the browser, never from the page (a sandboxed frame's is "null").
+  const topUrl = sender?.tab?.url && URL.parse(sender.tab.url);
+  if (sender?.id !== chrome.runtime.id || !sender.tab?.id || sender.frameId === undefined || !origin?.startsWith("http") || !topUrl) {
     port.disconnect();
     return;
   }
@@ -178,10 +182,15 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
       port.disconnect();
       return;
     }
-    void handle(call, origin);
+    // A frame's ancestors end at the tab's own origin (the browser's word for it); the top frame has none.
+    const ancestors = call.kind === "details" ? [] : (call.ancestors ?? []);
+    if (frameId === 0 ? ancestors.length : ancestors.at(-1) !== topUrl.origin) return port.disconnect();
+    // WebAuthn's crossOrigin: not same-origin with every ancestor. Then clientDataJSON names the top origin.
+    const topOrigin = ancestors.some((a) => a !== origin) ? topUrl.origin : undefined;
+    void handle(call, origin, topOrigin);
   });
 
-  async function handle(call: PasskeyCall, origin: string): Promise<void> {
+  async function handle(call: PasskeyCall, origin: string, topOrigin: string | undefined): Promise<void> {
     if (!(await getLocal("account"))) return port.postMessage({ fallback: true });
     const rpId = (call.options.rpId || new URL(origin).hostname).toLowerCase();
     if (!(await rpIdUsable(rpId, origin))) return port.postMessage({ fallback: true });
@@ -197,7 +206,8 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
       return;
     }
     if (call.kind === "create" && call.conditional) {
-      const r = await conditionalCreate(call, origin, rpId, tabId);
+      // WebAuthn: a conditional create from a cross-origin frame is NotAllowedError.
+      const r = topOrigin ? error("NotAllowedError", "The operation either timed out or was not allowed.") : await conditionalCreate(call, origin, rpId, tabId);
       if (!closed) port.postMessage(r);
       return;
     }
@@ -214,6 +224,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
       call,
       origin,
       rpId,
+      ...(topOrigin ? { topOrigin } : {}),
       tabId,
       frameId,
       conditional,
@@ -434,7 +445,7 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       if (!c) throw new UserError("invalid", "Choose one of the passkeys for this site");
       // The window has no password prompt: a flagged item must be confirmed in the popup first (the grant is per item).
       if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: c.itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
-      const { cipher, ...credential } = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv });
+      const { cipher, ...credential } = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) });
       // An imported passkey's raised sign counter (offscreen/vault.ts passkeyAssert) is saved before the site gets it.
       if (cipher)
         await putCipher(cipher as Record<string, unknown>, () => {
@@ -457,7 +468,7 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       // The worker returns the item already encrypted: the new private key never passes through here.
       const r = await coreCall<{ cipher: Record<string, unknown>; response: Record<string, unknown>; undo?: Record<string, unknown> }>({
         op: "passkeyCreate",
-        input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv },
+        input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) },
         ...(itemId ? { itemId } : {}),
       });
       // The page aborted (or the vault locked) before the save went out: the site never gets this credential, so it

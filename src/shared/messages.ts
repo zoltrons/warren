@@ -635,7 +635,7 @@ export type CoreRequest =
   | { op: "removeSend"; id: string }
   // passkeys (all ids and binary values base64url)
   | { op: "passkeyCandidates"; rpId: string; origin: string; ids: string[] }
-  | { op: "passkeyAssert"; itemId: string; credentialId: string; rpId: string; origin: string; challenge: string; uv: boolean }
+  | { op: "passkeyAssert"; itemId: string; credentialId: string; rpId: string; origin: string; challenge: string; uv: boolean; topOrigin?: string }
   /** Result: the item to save, already encrypted (the new private key never leaves the worker), and the page's response. */
   | { op: "passkeyCreate"; input: PasskeyCreateInput; itemId?: string }
   /** signalCurrentUserDetails: the site's new name for one of its accounts. Returns the items to save (encrypted). */
@@ -681,6 +681,7 @@ const passkeyCreateInput: Validator<PasskeyCreateInput> = obj({
   discoverable: bool,
   uv: bool,
   up: opt(bool),
+  topOrigin: opt(str),
 });
 
 const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest, { op: K }>> } = {
@@ -739,7 +740,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   removeSend: obj({ op: literal("removeSend"), id: str }),
   passkeyCandidates: obj({ op: literal("passkeyCandidates"), rpId: str, origin: str, ids: arr(str) }),
   passkeyDetails: obj({ op: literal("passkeyDetails"), rpId: str, origin: str, userHandle: str, name: capped(1024), displayName: capped(1024) }),
-  passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str, uv: bool }),
+  passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str, uv: bool, topOrigin: opt(str) }),
   passkeyCreate: obj({ op: literal("passkeyCreate"), input: passkeyCreateInput, itemId: opt(str) }),
   writeClipboard: obj({ op: literal("writeClipboard"), text: str }),
   clearClipboard: obj({ op: literal("clearClipboard"), hash: opt(str) }),
@@ -766,6 +767,8 @@ interface PasskeyCreateInput {
   uv: boolean;
   /** The UP flag; false only for a conditional create, which by WebAuthn involves no user gesture. Default true. */
   up?: boolean;
+  /** Set for a call from a frame that is not same-origin with its ancestors: the top-level origin. */
+  topOrigin?: string;
 }
 
 /** The RP's `userVerification`. WebAuthn: an unknown value is ignored, which means "preferred". */
@@ -778,14 +781,26 @@ export type PasskeyCall =
       kind: "create";
       /** Conditional create (an automatic passkey upgrade): no UI, only right after Warren signed the user in. */
       conditional?: boolean;
+      ancestors?: string[];
       options: { rpId?: string; rpName: string; user: { id: string; name: string; displayName: string }; challenge: string; exclude: string[]; discoverable: boolean; userVerification: UserVerification };
     }
-  | { kind: "get"; conditional: boolean; options: { rpId?: string; challenge: string; allow: string[]; userVerification: UserVerification } }
+  | { kind: "get"; conditional: boolean; ancestors?: string[]; options: { rpId?: string; challenge: string; allow: string[]; userVerification: UserVerification } }
   /** PublicKeyCredential.signalCurrentUserDetails: the site renamed an account (WebAuthn L3 Signal API). */
   | { kind: "details"; options: { rpId?: string; user: { id: string; name: string; displayName: string } } };
 
 /** Credential fields (base64url) or a reason to let the browser handle the call. */
 export type PasskeyResult = { credential: Record<string, unknown> } | { fallback: true } | { error: { name: string; message: string } };
+
+/**
+ * A frame's `location.ancestorOrigins`, nearest first, as the relay read them (absent in the top frame). The worker
+ * checks the last against the tab's own origin; they decide only crossOrigin / topOrigin in clientDataJSON.
+ */
+const ancestorList = (v: unknown, p: string): string[] | undefined => {
+  if (v === undefined || v === null) return undefined;
+  const list = arr(capped(300))(v, p);
+  if (list.length > 16) throw new ValidationError(`${p}: too many entries`);
+  return list;
+};
 
 export function parsePasskeyCall(v: unknown): PasskeyCall {
   const kind = (v as { kind?: unknown } | null)?.kind;
@@ -793,10 +808,11 @@ export function parsePasskeyCall(v: unknown): PasskeyCall {
     return obj({
       kind: literal("create"),
       conditional: opt(bool),
+      ancestors: ancestorList,
       options: obj({ rpId: opt(rpIdField), rpName: capped(1024), user, challenge: challengeField, exclude: credIdList, discoverable: bool, userVerification: uvField }),
     })(v, "");
   if (kind === "details") return obj({ kind: literal("details"), options: obj({ rpId: opt(rpIdField), user }) })(v, "");
-  return obj({ kind: literal("get"), conditional: bool, options: obj({ rpId: opt(rpIdField), challenge: challengeField, allow: credIdList, userVerification: uvField }) })(v, "");
+  return obj({ kind: literal("get"), conditional: bool, ancestors: ancestorList, options: obj({ rpId: opt(rpIdField), challenge: challengeField, allow: credIdList, userVerification: uvField }) })(v, "");
 }
 
 // ---------- content script (every page) and our menu.html / bar.html iframes -> service worker ----------
