@@ -155,8 +155,8 @@ Public Suffix List (publicsuffix.org), shipped as psl.json
   Source: https://github.com/publicsuffix/list at the commit pinned in upstream.lock.
 
 2factorauth/twofactorauth (2fa.directory), domain list in totp-sites.json
-  Built by tools/totp-sites.mjs from the site's public API (api.2fa.directory/v3/totp.json) on 2026-11-12: the domains
-  whose entry lists "totp". MIT License:
+  Built by tools/totp-sites.mjs from the site's public API (api.2fa.directory/v3/totp.json), read fresh before every release build: the
+  domains whose entry lists "totp". MIT License:
 
   Copyright (c) 2021 2factorauth and Contributors
 

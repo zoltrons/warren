@@ -123,7 +123,7 @@ file over 8 KiB gets a ceiling from its role.
 | `tools/mutate.mjs` | Mutation check for SECURITY.md invariants (docs/VERIFICATION.md). |
 | `tools/icons.mjs` | PNG icons from `brand/*.svg`. |
 | `tools/identity-data.mjs` | Builds `src/ui/identity-data.json` for the identity generator. |
-| `tools/totp-sites.mjs` | Builds `src/shared/totp-sites.json` (domains that offer TOTP, from 2fa.directory) for the security report. |
+| `tools/totp-sites.mjs` | Builds `src/shared/totp-sites.json` (domains that offer TOTP, from 2fa.directory) for the security report; the release workflow refreshes it before every build. |
 | `tools/common-words.mjs` | Builds `src/shared/common-words.json` (base words of the 10 000 most common passwords) for the strength check. |
 | `tools/sync-upstream.mjs` | Read-only diff report of upstream since the pins. |
 | `tools/pack-crx.mjs`, `verify-tag.sh` | Release signing and tag verification. |

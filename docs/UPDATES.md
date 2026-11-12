@@ -9,6 +9,9 @@ tagged commit must also be on `main` with a green run of the `ci` workflow for i
 which runs first: the signer list is only read from a commit it accepted). Check
 a tag before pushing it with `bash tools/verify-tag.sh vX.Y.Z`. To add or replace a signing key, change
 `.github/allowed_signers` on `main` first.
+The build job also runs `node tools/totp-sites.mjs` first, so every release carries the current list of sites that offer
+authenticator-app codes (read from 2fa.directory's public API; the extension itself never contacts it). The tool
+keeps only well-formed domain names and fails the build when the answer is missing or has a different shape.
 The manifest's `update_url` points at `https://github.com/zoltrons/warren/releases/latest/download/updates.xml`,
 which always resolves to the newest release's update manifest:
 

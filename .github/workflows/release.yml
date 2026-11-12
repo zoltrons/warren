@@ -69,6 +69,9 @@ jobs:
       # binaryen (wasm-opt) comes from package-lock.json, integrity-checked like every other tool.
       - run: npm ci && echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
       - run: bash tools/build-wasm.sh --simd
+      # The two-step-code site list (2fa.directory) is read fresh for every release; the committed copy is only the fallback
+      # for local builds. A failed or reshaped answer stops the release (tools/totp-sites.mjs checks it).
+      - run: node tools/totp-sites.mjs
       - run: node tools/fetch-psl.mjs && npm run typecheck && npm test && npm run build && npm run size
       # Advisories warn in ci but block a release: nothing with a known high-severity hole ships.
       - run: npm audit --audit-level=high
