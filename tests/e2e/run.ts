@@ -1420,6 +1420,8 @@ try {
 
   await step("autofill: popup lists site matches and fills the page; TOTP code copied", async () => {
     await unlockIfLocked();
+    // "Local app" was added on the server while locked; an unlock does not sync, so ask for one rather than race the popup's.
+    await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
     await reopenPopup();
     await page.getByRole("heading", { name: "On localhost:8099" }).waitFor();
     // The site section and the vault list both offer Fill: the site section comes first.
