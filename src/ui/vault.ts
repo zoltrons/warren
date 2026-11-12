@@ -240,7 +240,7 @@ function iconUrl(uris: string[]): string | undefined {
 /** A tinted letter tile; logins with a website get the server's favicon, cards their network's mark. */
 export function tile(name: string, type: number, uris: string[] = [], brand = ""): HTMLElement {
   const letter = name.trim().slice(0, 1).toUpperCase();
-  const fallback: IconName = type === 2 ? "note" : type === 3 ? "card" : type === 4 ? "user" : type === 5 ? "key" : "key";
+  const fallback: IconName = type === 2 ? "note" : type === 3 ? "card" : type === 4 ? "user" : type === 5 ? "key" : type === 6 ? "landmark" : type === 7 ? "card" : type === 8 ? "globe" : "key";
   const el = h("span", { class: "tile", style: `--h:${hue(name)}`, "aria-hidden": "true" }, letter || icon(fallback));
   const mark = type === 3 && brand ? cardMark(brand) : undefined;
   if (mark) return (el.classList.add("card-tile"), el.replaceChildren(mark), el);
@@ -540,7 +540,7 @@ function open(ctx: Ctx, route: Route) {
 
 // ---------- list ----------
 
-const TYPE_LABEL: Record<number, string> = { 1: "typeLogin", 2: "typeNote", 3: "typeCard", 4: "typeIdentity", 5: "typeSshKey" };
+const TYPE_LABEL: Record<number, string> = { 1: "typeLogin", 2: "typeNote", 3: "typeCard", 4: "typeIdentity", 5: "typeSshKey", 6: "typeBankAccount", 7: "typeDriversLicense", 8: "typePassport" };
 
 const TYPE_ENGLISH: Record<number, string> = { 1: "login", 2: "note", 3: "card", 4: "identity", 5: "ssh" };
 
@@ -1182,6 +1182,55 @@ const SCHEMA: Record<number, { obj: string; fields: Spec[] }> = {
       { key: "country", icon: "globe" },
     ],
   },
+  6: {
+    obj: "bankAccount",
+    fields: [
+      { key: "bankName", icon: "landmark" },
+      { key: "nameOnAccount", icon: "user" },
+      { key: "accountType", icon: "landmark" },
+      { key: "accountNumber", icon: "key", secret: true, mono: true },
+      { key: "routingNumber", icon: "key", mono: true },
+      { key: "branchNumber", icon: "key", mono: true },
+      { key: "pin", icon: "key", secret: true, mono: true },
+      { key: "swiftCode", icon: "key", mono: true },
+      { key: "iban", icon: "key", secret: true, mono: true },
+      { key: "bankContactPhone", icon: "phone" },
+    ],
+  },
+  7: {
+    obj: "driversLicense",
+    fields: [
+      { key: "firstName", icon: "user" },
+      { key: "middleName", icon: "user" },
+      { key: "lastName", icon: "user" },
+      { key: "dateOfBirth", icon: "calendar" },
+      { key: "licenseNumber", icon: "key", secret: true, mono: true },
+      { key: "issuingCountry", icon: "globe" },
+      { key: "issuingState", icon: "globe" },
+      { key: "issueDate", icon: "calendar" },
+      { key: "expirationDate", icon: "calendar" },
+      { key: "issuingAuthority", icon: "home" },
+      { key: "licenseClass", icon: "card" },
+    ],
+  },
+  8: {
+    obj: "passport",
+    fields: [
+      { key: "givenName", icon: "user" },
+      { key: "surname", icon: "user" },
+      { key: "dateOfBirth", icon: "calendar" },
+      { key: "sex", icon: "user" },
+      { key: "birthPlace", icon: "globe" },
+      { key: "nationality", icon: "globe" },
+      { key: "passportNumber", icon: "key", secret: true, mono: true },
+      { key: "passportType", icon: "card" },
+      { key: "nationalIdentificationNumber", icon: "key", secret: true, mono: true },
+      { key: "issuingCountry", icon: "globe" },
+      { key: "issuingAuthority", icon: "home" },
+      { key: "issueDate", icon: "calendar" },
+      { key: "expirationDate", icon: "calendar" },
+    ],
+  },
   5: {
     obj: "sshKey",
     fields: [
@@ -1653,7 +1702,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
   const inArchive = !inTrash && !!item.archivedDate;
   const summary = [...(st.list?.items ?? []), ...(st.list?.archive ?? []), ...(st.list?.trash ?? [])].find((i) => i.id === id);
   const type = Number(item.type);
-  const editable = !summary?.readOnly && !inTrash && type >= 1 && type <= 5;
+  const editable = !summary?.readOnly && !inTrash && type >= 1 && type <= 8;
   const schema = SCHEMA[type];
   const data = schema ? (obj(item[schema.obj]) ?? {}) : {};
   const rows: Child[] = [];
@@ -1837,7 +1886,7 @@ function itemView(ctx: Ctx, id: string): HTMLElement {
       { class: "group" },
       !inTrash && editable && !item.organizationId && writableOrgs().length ? actionRow("shield", t("moveToOrg"), () => open(ctx, { kind: "org", id })) : null,
       !inTrash && editable && item.organizationId && writableCollections(str(item.organizationId)).length ? actionRow("folder", t("editCollections"), () => open(ctx, { kind: "org", id })) : null,
-      !inTrash && !summary?.readOnly && type >= 1 && type <= 5
+      !inTrash && !summary?.readOnly && type >= 1 && type <= 8
         ? inArchive
           ? actionRow("archive", t("unarchive"), () => void vaultAction(ctx, { type: "unarchiveItem", id }, "unarchived"))
           : actionRow("archive", t("archive"), () => void vaultAction(ctx, { type: "archiveItem", id }, "archived", true, () => void vaultAction(ctx, { type: "unarchiveItem", id }, "unarchived", false)))
@@ -1943,7 +1992,7 @@ function buildItem(d: EditDraft): Json {
   const orNull = (s: string) => (s.trim() ? s : null);
   const item: Json = { ...d.base, type: d.type, name: d.name.trim(), notes: orNull(d.notes), folderId: d.folderId || null, favorite: d.favorite, reprompt: d.reprompt ? 1 : 0 };
   const schema = SCHEMA[d.type];
-  for (const k of ["login", "secureNote", "card", "identity"]) if (k !== schema?.obj) delete item[k];
+  for (const k of ["login", "secureNote", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport"]) if (k !== schema?.obj) delete item[k];
   if (schema) {
     const typed: Json = { ...obj(d.base[schema.obj]) };
     for (const f of schema.fields) typed[f.key] = orNull(d.data[f.key] ?? "");
@@ -2329,7 +2378,7 @@ function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     { class: "page editor", onsubmit },
     topBar(iconButton("back", t("cancel"), back), h("h1", {}, t(isNew ? "newItem" : "editItem")), spacer()),
     errorBox(),
-    isNew ? h("div", { class: "chips", role: "group", "aria-label": t("itemType") }, typeChip(1, "key"), typeChip(3, "card"), typeChip(4, "user"), typeChip(2, "note"), typeChip(5, "server")) : null,
+    isNew ? h("div", { class: "chips", role: "group", "aria-label": t("itemType") }, typeChip(1, "key"), typeChip(3, "card"), typeChip(4, "user"), typeChip(2, "note"), typeChip(5, "server"), typeChip(6, "landmark"), typeChip(7, "card"), typeChip(8, "globe")) : null,
     field("edit-name", t("name"), text(() => d.name, (v) => (d.name = v), { required: true, "data-autofocus": "1" })),
     ...(SCHEMA[d.type]?.fields ?? []).map(specField),
     ...(d.type === 1 ? uriEditor(ctx) : []),

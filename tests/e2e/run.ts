@@ -977,6 +977,34 @@ try {
     s.done();
   });
 
+  await step("editor: bank account and passport are created, shown and stored encrypted", async () => {
+    await page.getByRole("button", { name: "New item" }).click();
+    await page.getByRole("button", { name: "Bank account", exact: true }).click();
+    await fill("Name", "Main bank");
+    await fill("Bank name", "Acme Bank");
+    await fill("Account number", "12345678");
+    await fill("IBAN", "DE89370400440532013000");
+    await page.getByRole("button", { name: "Save" }).click();
+    await rows().filter({ hasText: "Main bank" }).waitFor();
+    await page.getByRole("button", { name: "New item" }).click();
+    await page.getByRole("button", { name: "Passport", exact: true }).click();
+    await fill("Name", "My passport");
+    await fill("Given name", "Ada");
+    await fill("Surname", "Lovelace");
+    await fill("Passport number", "P1234567");
+    await page.getByRole("button", { name: "Save" }).click();
+    // The sub line shows the holder's name; the item page is not opened, so "Recently opened" stays as later steps expect.
+    await rows().filter({ hasText: "Ada Lovelace" }).waitFor();
+    await rows().filter({ hasText: "Acme Bank" }).waitFor();
+    const s = await apiSession(vaultUser);
+    const all = await s.ciphers();
+    s.done();
+    const bank = all.find((x) => x.name === "Main bank");
+    assert.deepEqual([bank?.type, bank?.bankAccount?.bankName, bank?.bankAccount?.iban], [6, "Acme Bank", "DE89370400440532013000"]);
+    const pp = all.find((x) => x.name === "My passport");
+    assert.deepEqual([pp?.type, pp?.passport?.givenName, pp?.passport?.passportNumber], [8, "Ada", "P1234567"]);
+  });
+
   await step("editor: new card with a hidden custom field; clone; favorite", async () => {
     await page.getByRole("button", { name: "New item" }).click();
     await page.getByRole("button", { name: "Card", exact: true }).click();

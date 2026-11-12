@@ -87,6 +87,9 @@ function summary(c: Json): VaultItem {
     : type === 3 ? s(ci(o(ci(c, "card")), "cardholderName"))
     : type === 4 ? [ci(o(ci(c, "identity")), "firstName"), ci(o(ci(c, "identity")), "lastName")].map(s).join(" ").trim()
     : type === 5 ? s(ci(o(ci(c, "sshKey")), "keyFingerprint"))
+    : type === 6 ? s(ci(o(ci(c, "bankAccount")), "bankName"))
+    : type === 7 ? [ci(o(ci(c, "driversLicense")), "firstName"), ci(o(ci(c, "driversLicense")), "lastName")].map(s).join(" ").trim()
+    : type === 8 ? [ci(o(ci(c, "passport")), "givenName"), ci(o(ci(c, "passport")), "surname")].map(s).join(" ").trim()
     : "";
   const uris = (Array.isArray(ci(login, "uris")) ? (ci(login, "uris") as unknown[]) : []).map((u) => s(ci(u, "uri"))).filter(Boolean);
   const time = (v: unknown) => {

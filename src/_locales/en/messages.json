@@ -2180,5 +2180,86 @@
   },
   "reportFailed": {
     "message": "Could not reach the breach service. Try again later."
+  },
+  "field_bankName": {
+    "message": "Bank name"
+  },
+  "field_nameOnAccount": {
+    "message": "Name on account"
+  },
+  "field_accountType": {
+    "message": "Account type"
+  },
+  "field_accountNumber": {
+    "message": "Account number"
+  },
+  "field_routingNumber": {
+    "message": "Routing number"
+  },
+  "field_branchNumber": {
+    "message": "Branch number"
+  },
+  "field_pin": {
+    "message": "PIN"
+  },
+  "field_swiftCode": {
+    "message": "SWIFT code"
+  },
+  "field_iban": {
+    "message": "IBAN"
+  },
+  "field_bankContactPhone": {
+    "message": "Bank phone"
+  },
+  "field_dateOfBirth": {
+    "message": "Date of birth"
+  },
+  "field_issuingCountry": {
+    "message": "Issuing country"
+  },
+  "field_issuingState": {
+    "message": "Issuing state"
+  },
+  "field_issueDate": {
+    "message": "Issue date"
+  },
+  "field_expirationDate": {
+    "message": "Expiration date"
+  },
+  "field_issuingAuthority": {
+    "message": "Issuing authority"
+  },
+  "field_licenseClass": {
+    "message": "License class"
+  },
+  "field_surname": {
+    "message": "Surname"
+  },
+  "field_givenName": {
+    "message": "Given name"
+  },
+  "field_sex": {
+    "message": "Sex"
+  },
+  "field_birthPlace": {
+    "message": "Place of birth"
+  },
+  "field_nationality": {
+    "message": "Nationality"
+  },
+  "field_passportType": {
+    "message": "Passport type"
+  },
+  "field_nationalIdentificationNumber": {
+    "message": "National ID number"
+  },
+  "typeBankAccount": {
+    "message": "Bank account"
+  },
+  "typeDriversLicense": {
+    "message": "Driver's license"
+  },
+  "typePassport": {
+    "message": "Passport"
   }
 }

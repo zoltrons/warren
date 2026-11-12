@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Bank account, driver's license and passport items can be created, viewed and edited (Vaultwarden already stored
+  them; they showed in the list without fields). Their numbers are hidden like card numbers.
 - Security report (a chip in the vault list): reused passwords, weak passwords and sites without https, plus an
   on-demand check of every password against known breaches. Only the first 5 characters of each SHA-1 hash leave
   the device; the worker matches the answers, so the popup never holds a password or a full hash.

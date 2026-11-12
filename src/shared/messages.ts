@@ -245,8 +245,8 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   getItem: obj({ type: literal("getItem"), id: str }),
   saveItem: (v, p) => {
     const s = obj({ type: literal("saveItem"), item: record, collectionIds: opt(collectionIds) })(v, p);
-    // Login, secure note, card, identity, SSH key.
-    if (![1, 2, 3, 4, 5].includes(s.item.type as number)) throw new ValidationError("item.type: this item type cannot be edited");
+    // Login, secure note, card, identity, SSH key, bank account, driver's license, passport.
+    if (![1, 2, 3, 4, 5, 6, 7, 8].includes(s.item.type as number)) throw new ValidationError("item.type: this item type cannot be edited");
     if (typeof s.item.name !== "string" || !s.item.name.trim()) throw new ValidationError("item.name: required");
     if (s.item.organizationId && !s.item.id && !s.collectionIds?.length) throw new ValidationError("collectionIds: a new organization item needs a collection");
     return s;

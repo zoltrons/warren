@@ -296,3 +296,4 @@ table replaces those statements.
 |---|---|---|
 | Item archive | see the server table above | e2e |
 | Security report | "Security report" chip: reused, weak and non-https logins (`securityReport` in the worker), and a breach check of all passwords: the popup fetches HIBP ranges for the 5-digit prefixes the worker lists (6 at a time, padded) and hands each answer back (`exposedRange`); the worker matches suffixes against its own hashes. Inactive-2FA is not offered (needs a domain list) | unit (`pwned-range.test.ts`) + e2e with HIBP stubbed |
+| Bank account / driver's license / passport items | `SCHEMA` entries 6-8 in `ui/vault.ts` with the field names of `bitwarden-vault` (bank_account.rs, drivers_license.rs, passport.rs at the pinned rev); new-item chips, list sub line; no autofill, no filter chip; the core already encrypted `bankAccount`, `driversLicense` and `passport` as containers | e2e (created through the UI, decrypted from the server copy) |
