@@ -6,6 +6,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Security report: "Check e-mail addresses through your server" asks your Vaultwarden, which asks Have I Been
+  Pwned, about the e-mail addresses used as login usernames. It works only when the server admin set an HIBP API key,
+  and the report says so when not.
 - A one-time banner in the vault list offers the "default password manager" setting; "Not now" hides it for good.
 - Optional setting (off by default): a new login password is checked against known breaches when you save it, and a
   toast warns when it was found. Only the first 5 characters of its SHA-1 hash leave the device.

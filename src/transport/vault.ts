@@ -1,5 +1,5 @@
 // Vault endpoints (mirrors vaultwarden src/api/core/ciphers.rs, see upstream-map.yaml).
-import { arr, obj, opt, parse, record, str, unknownValue } from "../shared/validate.ts";
+import { arr, ci, obj, opt, parse, record, str, unknownValue } from "../shared/validate.ts";
 import { ApiError, call, NetworkError, readBytes } from "./http.ts";
 
 const syncResponse = obj({
@@ -154,4 +154,25 @@ export async function deleteSend(base: string, token: string, id: string): Promi
 /** Clears the send's access password (vaultwarden src/api/core/sends.rs, put_remove_password). */
 export async function removeSendPassword(base: string, token: string, id: string): Promise<Record<string, unknown>> {
   return parse(record, await call(base, "PUT", `/api/sends/${encodeURIComponent(id)}/remove-password`, { token }));
+}
+
+/** What the server's HIBP proxy knows about one e-mail address. */
+export type EmailBreaches = { status: "none" | "unconfigured" } | { status: "found"; names: string[] };
+
+/**
+ * GET /api/hibp/breach (Vaultwarden core/mod.rs): the server asks Have I Been Pwned with the admin's HIBP_API_KEY.
+ * 404 = no breach; without a key it answers 200 with one stand-in entry whose dataClasses say so.
+ */
+export async function emailBreaches(base: string, token: string, email: string): Promise<EmailBreaches> {
+  let list: unknown;
+  try {
+    list = await call(base, "GET", `/api/hibp/breach?username=${encodeURIComponent(email)}`, { token });
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return { status: "none" };
+    throw e;
+  }
+  const entries = Array.isArray(list) ? list : [];
+  if (entries.some((b) => Array.isArray(ci(b, "dataClasses")) && (ci(b, "dataClasses") as unknown[]).includes("Error - No API key set!"))) return { status: "unconfigured" };
+  const names = entries.map((b) => String(ci(b, "title") || ci(b, "name") || "")).filter(Boolean).slice(0, 50);
+  return names.length ? { status: "found", names } : { status: "none" };
 }

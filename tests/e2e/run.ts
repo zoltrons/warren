@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import { chromium, type Locator, type Page, type Worker } from "playwright-core";
 import { answerAuthRequest, authRequestStatus, createAuthRequest, passwordToken, pendingAuthRequests, prelogin, refreshToken, revisionDate } from "../../src/transport/auth.ts";
 import { call } from "../../src/transport/http.ts";
+import { emailBreaches } from "../../src/transport/vault.ts";
 
 const BASE = process.env.VW_URL ?? "http://localhost:8080";
 const root = join(import.meta.dirname, "../..");
@@ -117,6 +118,7 @@ async function apiSession(u: TestUser) {
   const userId = JSON.parse(Buffer.from(tok.access_token.split(".")[1]!, "base64url").toString()).sub as string;
   const token = tok.access_token;
   return {
+    token,
     /** `keyed`: with a key of its own, as Warren writes new items; most seeded items stay without, as on Vaultwarden. */
     async create(plain: Record<string, unknown>, keyed = false) {
       const enc = JSON.parse(wasm.encryptCipher(JSON.stringify(plain), keyed));
@@ -946,6 +948,13 @@ try {
     assert.ok(asked.every((p) => /^[0-9A-F]{5}$/.test(p)), "more than a 5-digit prefix left the device");
     await ctx.unroute("https://api.pwnedpasswords.com/range/*");
     await page.getByRole("button", { name: "Back" }).click();
+  });
+
+  await step("server HIBP proxy: without an admin key the extension's lookup says so", async () => {
+    const s = await apiSession(vaultUser);
+    const r = await emailBreaches(BASE, s.token, "someone@example.test");
+    s.done();
+    assert.deepEqual(r, { status: "unconfigured" });
   });
 
   await step("move to trash", async () => {

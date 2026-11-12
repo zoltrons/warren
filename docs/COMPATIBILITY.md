@@ -60,6 +60,14 @@ on 2026-10-29, unless marked otherwise.
   `UserDecryptionOptions.MasterPasswordUnlock` (`kdf{kdfType,iterations,memory,parallelism}`).
   → Validators must be case-insensitive.
 
+## Breach lookups
+
+* `GET /api/hibp/breach?username=<email>` proxies Have I Been Pwned with the admin's `HIBP_API_KEY`. 404 means no
+  breach. **Without a key it answers 200 with one stand-in entry** whose `dataClasses` is
+  `["Error - No API key set!"]`; `emailBreaches` (`src/transport/vault.ts`) turns that into "unconfigured".
+  Verified on 1.37.5 by reading `src/api/core/mod.rs` and by an e2e step against a server without a key (the found
+  and 404 paths are unit tested with a stubbed fetch).
+
 ## Ciphers
 
 * Cipher JSON is camelCase and already includes new item types:

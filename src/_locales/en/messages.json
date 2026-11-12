@@ -2279,5 +2279,23 @@
   },
   "defaultAskLater": {
     "message": "Not now"
+  },
+  "reportCheckEmails": {
+    "message": "Check e-mail addresses through your server"
+  },
+  "reportEmailsNote": {
+    "message": "Your own server asks Have I Been Pwned about each address; it works only when the server's admin has set an HIBP API key."
+  },
+  "reportEmailsUnconfigured": {
+    "message": "Your server has no HIBP API key, so it cannot check addresses."
+  },
+  "reportEmailsNone": {
+    "message": "None of your login e-mail addresses were found in known breaches."
+  },
+  "reportEmailsFound": {
+    "message": "E-mail addresses found in breaches"
+  },
+  "reportEmailsStopped": {
+    "message": "The server stopped answering part-way (HIBP limits requests). The list below is what was checked."
   }
 }

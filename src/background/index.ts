@@ -56,7 +56,7 @@ import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, 
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
 import { AUTOFILL_COMMAND, autofillFromGesture, fillShownTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
 import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
-import { archive, addAttachment, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
+import { archive, addAttachment, breachEmails, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
 async function getState(): Promise<State> {
   const [server, account, session, settings, vault, bio] = await Promise.all([
@@ -121,6 +121,7 @@ async function handle(req: Request): Promise<unknown> {
     case "archiveItem":
     case "securityReport":
     case "exposedRange":
+    case "breachEmails":
     case "unarchiveItem":
     case "purgeItem":
     case "downloadAttachment":
@@ -162,6 +163,7 @@ async function handle(req: Request): Promise<unknown> {
       if (req.type === "deleteItem") return trash(req.id);
       if (req.type === "restoreItem") return restore(req.id);
       if (req.type === "securityReport") return coreCall({ op: "securityReport" });
+      if (req.type === "breachEmails") return breachEmails(req.emails);
       if (req.type === "exposedRange") return coreCall({ op: "exposedRange", prefix: req.prefix, body: req.body });
       if (req.type === "archiveItem" || req.type === "unarchiveItem") return archive(req.id, req.type === "archiveItem");
       if (req.type === "purgeItem") return purge(req.id);

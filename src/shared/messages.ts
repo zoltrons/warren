@@ -113,6 +113,8 @@ export type Request =
   /** The security report's lists (no secrets), then each breach-range answer the popup fetched for it. */
   | { type: "securityReport" }
   | { type: "exposedRange"; prefix: string; body: string }
+  /** E-mail addresses (login usernames) to look up through the user's own server's HIBP proxy. */
+  | { type: "breachEmails"; emails: string[] }
   | { type: "purgeItem"; id: string }
   | { type: "downloadAttachment"; cipherId: string; attachmentId: string }
   | { type: "deleteAttachment"; cipherId: string; attachmentId: string }
@@ -263,6 +265,11 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   unarchiveItem: obj({ type: literal("unarchiveItem"), id: str }),
   securityReport: obj({ type: literal("securityReport") }),
   exposedRange: obj({ type: literal("exposedRange"), prefix: hibpPrefix, body: capped(MAX_RANGE_CHARS) }),
+  breachEmails: obj({ type: literal("breachEmails"), emails: (v, p) => {
+    const l = arr(capped(254))(v, p);
+    if (l.length > 200) throw new ValidationError(`${p}: too many addresses`);
+    return l;
+  } }),
   purgeItem: obj({ type: literal("purgeItem"), id: str }),
   downloadAttachment: obj({ type: literal("downloadAttachment"), cipherId: str, attachmentId: str }),
   deleteAttachment: obj({ type: literal("deleteAttachment"), cipherId: str, attachmentId: str }),
@@ -454,6 +461,13 @@ export interface Collection extends Folder {
   organizationId: string;
   /** The user may not add items to it or take them out. */
   readOnly: boolean;
+}
+
+/** The server's answer for a list of e-mail addresses; `stopped` when it failed or throttled part-way. */
+export interface BreachResults {
+  unconfigured?: true;
+  stopped?: true;
+  results: { email: string; names: string[] }[];
 }
 
 /** Item ids by problem, and what a breach check must ask HIBP for. */

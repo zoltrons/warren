@@ -2,7 +2,7 @@
 // Decryption happens in the offscreen worker; the SW only moves encrypted JSON around.
 import { CLEAR_CLIPBOARD_MS, PIN_KDF } from "../shared/constants.ts";
 import { clipboardDigest } from "../shared/digest.ts";
-import type { CoreRequest, ExportFormat, HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
+import type { BreachResults, CoreRequest, ExportFormat, HistoryEntry, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
 import { safeKdf } from "./kdf.ts";
 import { revisionDate } from "../transport/auth.ts";
 import {
@@ -18,6 +18,7 @@ import {
   purgeCipher,
   removeSendPassword as apiRemoveSendPassword,
   archiveCipher,
+  emailBreaches,
   restoreCipher,
   saveCipher,
   saveFolder as apiSaveFolder,
@@ -396,4 +397,22 @@ export async function deleteSend(id: string): Promise<SendItem[]> {
   await apiDeleteSend(base, token, id);
   await cacheSends(epoch, (s) => s.filter((x) => (x as { id?: unknown }).id !== id), { op: "removeSend", id });
   return sendList();
+}
+
+const MAX_BREACH_EMAILS = 40;
+
+/** Asks the user's own server (which asks HIBP) about each address, one at a time; stops when the server has no key or throttles. */
+export async function breachEmails(emails: string[]): Promise<BreachResults> {
+  const { base, token } = await auth();
+  const results: BreachResults["results"] = [];
+  for (const email of [...new Set(emails)].slice(0, MAX_BREACH_EMAILS)) {
+    try {
+      const r = await emailBreaches(base, token, email);
+      if (r.status === "unconfigured") return { unconfigured: true, results: [] };
+      if (r.status === "found") results.push({ email, names: r.names });
+    } catch {
+      return { results, stopped: true };
+    }
+  }
+  return { results };
 }

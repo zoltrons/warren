@@ -12,7 +12,7 @@ import { byRelevance, type Clause, folded, matchesQuery, parseQuery, type Search
 import { passwordLevel } from "../shared/strength.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
-import type { PageMatches, Response as Reply, SecurityReport, Settings, VaultItem, VaultList } from "../shared/messages.ts";
+import type { BreachResults, PageMatches, Response as Reply, SecurityReport, Settings, VaultItem, VaultList } from "../shared/messages.ts";
 import { type Child, chipRow, enter, h, inPanel, leave, plural, rowOf, send, setUiPref, t, uiPref, when, withChevron } from "./dom.ts";
 import { type GeneratorPick, generatorScreen, resetGenerator, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
@@ -118,7 +118,7 @@ function savedSort(): Sort {
 const st = {
   list: undefined as VaultList | undefined,
   /** The security report screen: the lists, and the breach check's progress and findings. */
-  report: undefined as { data?: SecurityReport; exposed?: Map<string, number>; done: number; running: boolean; failed: boolean } | undefined,
+  report: undefined as { data?: SecurityReport; exposed?: Map<string, number>; done: number; running: boolean; failed: boolean; emails?: BreachResults; emailsRunning?: boolean } | undefined,
   page: undefined as PageMatches | undefined,
   loading: false,
   syncing: false,
@@ -2584,6 +2584,21 @@ async function checkExposed(ctx: Ctx) {
   if (st.route.kind === "report") ctx.rerender();
 }
 
+/** Login usernames that are e-mail addresses. */
+const loginEmails = () => [...new Set((st.list?.items ?? []).filter((i) => i.type === 1 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(i.sub)).map((i) => i.sub))];
+
+async function checkEmails(ctx: Ctx) {
+  const rep = st.report;
+  if (!rep || rep.emailsRunning) return;
+  rep.emailsRunning = true;
+  ctx.rerender();
+  const r = await send<BreachResults>({ type: "breachEmails", emails: loginEmails() });
+  rep.emailsRunning = false;
+  if (!r.ok) st.error = r.error;
+  else rep.emails = r.data;
+  if (st.route.kind === "report") ctx.rerender();
+}
+
 function reportView(ctx: Ctx): HTMLElement {
   const rep = st.report;
   const byId = new Map((st.list?.items ?? []).map((i) => [i.id, i]));
@@ -2613,6 +2628,17 @@ function reportView(ctx: Ctx): HTMLElement {
       : null,
     d && total ? h("p", { class: "caption" }, t("reportExposedNote")) : null,
     rep?.failed ? h("div", { class: "notice warn" }, icon("error"), h("div", {}, t("reportFailed"))) : null,
+    d && loginEmails().length
+      ? h("div", { class: "group" }, h("button", { type: "button", class: "row", disabled: rep!.emailsRunning, onclick: () => void checkEmails(ctx) }, icon("mail"), h("div", { class: "body" }, h("span", { class: "title" }, t("reportCheckEmails")))))
+      : null,
+    d && loginEmails().length ? h("p", { class: "caption" }, t("reportEmailsNote")) : null,
+    rep?.emails?.unconfigured ? h("div", { class: "notice" }, icon("error"), h("div", {}, t("reportEmailsUnconfigured"))) : null,
+    rep?.emails?.stopped ? h("div", { class: "notice warn" }, icon("error"), h("div", {}, t("reportEmailsStopped"))) : null,
+    ...(rep?.emails && !rep.emails.unconfigured
+      ? rep.emails.results.length
+        ? [sectionTitle(`${t("reportEmailsFound")} (${rep.emails.results.length})`), h("div", { class: "group" }, ...rep.emails.results.map((x) => h("div", { class: "row" }, icon("mail"), h("div", { class: "body" }, h("span", { class: "title" }, x.email), h("span", { class: "sub" }, x.names.join(", "))))))]
+        : rep.emails.stopped ? [] : [h("p", { class: "caption" }, t("reportEmailsNone"))]
+      : []),
     ...(rep?.exposed && !rep.running ? (exposedIds.length ? block(t("reportExposed"), exposedIds) : rep.failed ? [] : [h("p", { class: "caption" }, t("reportExposedNone"))]) : []),
   );
 }
