@@ -214,6 +214,9 @@ const pages: Record<string, string> = {
   // A login in a modal <dialog> (everything outside it is inert) and in a focus-trapping ARIA modal.
   "/modal": `<dialog id="d">${LOGIN_FORM}</dialog><script>document.getElementById("d").showModal();</script>`,
   "/trap": `<div id="m" role="dialog" aria-modal="true">${LOGIN_FORM}</div><script>document.addEventListener("focusin", (e) => { if (!document.getElementById("m").contains(e.target)) document.getElementById("u").focus(); });</script>`,
+  // A payment form's one-field iframe (another origin), far too small for the menu.
+  "/card-number": `<input id="cc" autocomplete="cc-number" style="width:280px">`,
+  "/tiny-frame": `<p>Checkout</p><iframe id="f" src="http://127.0.0.1:8099/card-number" style="width:300px;height:44px;border:1px solid #888"></iframe>`,
   "/useronly": `<form onsubmit="return false"><input id="u" name="login" placeholder="Email or phone"><button type="submit">Next</button></form>`,
 };
 const site = createServer((req, res) => {
@@ -1632,6 +1635,22 @@ try {
     await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /^Visa/ }).click();
     await loginPage.waitForFunction(() => (document.getElementById("cc") as HTMLInputElement).value !== "");
     assert.deepEqual(await values(loginPage, ["cn", "cc", "m", "y", "cvc"]), ["Ada L", "4111111111111111", "01", "2030", "123"]);
+  });
+
+  await step("inline menu: a field in a tiny iframe gets its menu drawn by the top page, and the pick fills it", async () => {
+    await loginPage.goto(`${SITE}/tiny-frame`);
+    await loginPage.frameLocator("#f").locator("#cc").click();
+    const option = (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /^Visa/ });
+    await option.waitFor();
+    assert.equal(await loginPage.locator("warren-menu").count(), 1, "the top page drew no menu");
+    const box = await loginPage.evaluate(() => [document.getElementById("f")!.getBoundingClientRect().bottom, document.querySelector("warren-menu")!.getBoundingClientRect().top]);
+    assert.ok(box[1]! >= box[0]! - 44 && box[1]! <= box[0]! + 8, `menu not under the frame's field: ${JSON.stringify(box)}`);
+    await option.click();
+    const f = loginPage.frames().find((x) => x.url().endsWith("/card-number"))!;
+    await f.waitForFunction(() => (document.getElementById("cc") as HTMLInputElement).value !== "");
+    assert.equal((await values(f, ["cc"]))[0], "4111111111111111");
+    await loginPage.waitForTimeout(300);
+    assert.equal(await loginPage.locator("warren-menu").count(), 0, "the top page's menu stayed after the fill");
   });
 
   await step("inline menu: identity fields list identities and fill name, e-mail, phone and address", async () => {

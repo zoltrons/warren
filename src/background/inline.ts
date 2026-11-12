@@ -85,6 +85,7 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
   const tabId = sender.tab?.id;
   if (!url || tabId === undefined || sender.frameId === undefined) return { rows: 0 };
   if (req.type === "fieldPicked") return finishFieldPicker(tabId, req).then(() => null);
+  if (req.type === "inlineRemote") return remoteMenu(req, tabId, sender.frameId);
   if (req.type === "inlineFocus")
     return latestPerTab(
       "focus",
@@ -98,6 +99,29 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
     );
   await loginSubmitted(tabId, url, req.username, req.password);
   return null;
+}
+
+/**
+ * The top frame draws the menu for a child frame that is too small for it (content.ts). The nonce stays between the
+ * worker and our content scripts: the page in either frame never sees it.
+ */
+async function remoteMenu(req: Extract<PageRequest, { type: "inlineRemote" }>, tabId: number, frameId: number): Promise<unknown> {
+  const ctx = await getTabState("inline", tabId);
+  const send = (msg: Record<string, unknown>, to: number) => chrome.tabs.sendMessage(tabId, msg, { frameId: to }).catch(() => undefined);
+  if (req.op === "back") return frameId === 0 && ctx ? send({ type: "inlineBack" }, ctx.frameId).then(() => null) : null;
+  // Only the frame whose field the current menu context is for, and never the top frame itself.
+  if (!ctx || frameId === 0 || ctx.frameId !== frameId) return false;
+  if (req.op === "hide") return send({ type: "inlineHide" }, 0).then(() => null);
+  if (req.op === "focus") return send({ type: "inlineMenuFocus" }, 0).then(() => null);
+  const { rect, height, token } = req;
+  if (!rect || !token || height === undefined || height <= 0 || height > 400) return false;
+  return (await pageDeadline(chrome.tabs.sendMessage(tabId, { type: "inlineShow", token, rect, height, nonce: ctx.nonce }, { frameId: 0 })).catch(() => false)) === true;
+}
+
+/** Before a fill: the field's frame closes its menu, and so does the top frame when it drew it (remoteMenu). */
+async function closeMenu(tabId: number, ctx: InlineContext) {
+  await chrome.tabs.sendMessage(tabId, { type: "inlineClose" }, { frameId: ctx.frameId }).catch(() => undefined);
+  if (ctx.frameId !== 0) await chrome.tabs.sendMessage(tabId, { type: "inlineClose" }, { frameId: 0 }).catch(() => undefined);
 }
 
 const offerCreate = (ctx: InlineContext, logins: number) => ctx.kind === "login" && (ctx.signup || !logins);
@@ -256,7 +280,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     await touchAutoLock();
     // The service is asked for the tab's site (generateAlias reads the active tab), never for a URL from the page.
     const alias = await generateAlias(vendor);
-    await chrome.tabs.sendMessage(tabId, { type: "inlineClose" }, { frameId: ctx.frameId }).catch(() => undefined);
+    await closeMenu(tabId, ctx);
     const res = await fillActiveField(tabId, ctx.frameId, { origin: new URL(ctx.url).origin, value: alias, epoch });
     await setTabState("inline", tabId, undefined);
     return res ?? { filled: false };
@@ -272,7 +296,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     await chrome.action.openPopup().catch(() => undefined);
     throw new Error(REPROMPT_MESSAGE);
   }
-  await chrome.tabs.sendMessage(tabId, { type: "inlineClose" }, { frameId: ctx.frameId }).catch(() => undefined);
+  await closeMenu(tabId, ctx);
   const origin = new URL(ctx.url).origin;
   let res: FillResult | undefined;
   if (ctx.kind === "login") {

@@ -73,6 +73,13 @@ freed rather than zeroed in place.
    closed shadow root; bar: issued by `showBar`): without it the worker refuses, so a copy the page
    frames itself cannot read the list or drive a fill/save.
 
+   A frame too small for the menu (a payment form's one-field iframe) has the top frame draw it (`inlineRemote`,
+   `src/background/inline.ts`). The nonce goes from the worker to the top frame's content script over
+   `chrome.tabs.sendMessage`, never through the page. The top frame finds the asking `<iframe>` by a one-time token
+   the field's frame posts to it (exactly one window must have sent it), and clamps the menu to that iframe's box, so a
+   framed page cannot place the menu over the rest of the page. Only the frame the current menu context belongs to may
+   ask (`ctx.frameId`); what it lists is still matched to that frame's own URL.
+
    **Neither frame takes a click it was not seen for (clickjacking).** A page can lay its own element over the
    menu, or make the menu transparent, and have the user click "through" it into a fill. `guardClicks`
    (`src/ui/dom.ts`) watches each frame with IntersectionObserver v2 (`trackVisibility`): the browser itself reports

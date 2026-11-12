@@ -865,7 +865,13 @@ export type PageRequest =
   /** Sent once per document, when the frame has a password field; the worker decides whether to fill. */
   | { type: "pageLoad" }
   /** The user's pick for a picker the worker started in this tab; an empty name is a cancel. */
-  | { type: "fieldPicked"; name: string; fieldType: string; label?: string; details?: CollectedPageDetails };
+  | { type: "fieldPicked"; name: string; fieldType: string; label?: string; details?: CollectedPageDetails }
+  /**
+   * A menu the top frame draws for the focused field's frame when that frame is too small for it. From the field's
+   * frame: show (the field's box in that frame's viewport, the menu's height), hide, focus (ArrowDown). From the top
+   * frame: back (Escape in the menu). Only the frame the current menu context belongs to may ask.
+   */
+  | { type: "inlineRemote"; op: "show" | "hide" | "focus" | "back"; token?: string; rect?: { x: number; y: number; w: number; h: number }; height?: number };
 
 /** A page-controlled form value: big enough for any real credential, small enough to bound storage. */
 const pageValidators: { [K in PageRequest["type"]]: Validator<Extract<PageRequest, { type: K }>> } = {
@@ -873,6 +879,7 @@ const pageValidators: { [K in PageRequest["type"]]: Validator<Extract<PageReques
   loginSubmitted: obj({ type: literal("loginSubmitted"), username: field, password: field }),
   pageLoad: obj({ type: literal("pageLoad") }),
   fieldPicked: obj({ type: literal("fieldPicked"), name: capped(MAX_PAGE_STRING), fieldType: capped(32), label: pageString, details: opt(collectedPageDetails) }),
+  inlineRemote: obj({ type: literal("inlineRemote"), op: literal("show", "hide", "focus", "back"), token: opt(capped(32)), rect: opt(obj({ x: num, y: num, w: num, h: num })), height: opt(num) }),
 };
 
 /**

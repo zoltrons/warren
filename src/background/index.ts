@@ -405,7 +405,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, sender, reply: (r: Response<
         read = req.type === "inlineList" || req.type === "barInfo";
       } else {
         const req = parsePageRequest(msg);
-        read = req.type === "inlineFocus";
+        read = req.type === "inlineFocus" || req.type === "inlineRemote"; // inlineRemote only relays between our frames
         if (req.type === "loginSubmitted") {
           // A page can fire submits in a loop: keep one queued per tab, carrying the latest values.
           const queued = submits.has(tabId);

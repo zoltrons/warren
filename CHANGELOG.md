@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Card fields in a checkout's small iframes (one field per frame) get a usable inline menu: the page draws it under
+  the field instead of the frame cutting it off.
 - A passkey request for an RP ID Warren may not use (another site's, or one allowed only through the site's related
   origins) goes straight to the browser instead of an approval window that could only fail.
 - "Use another device or browser" in the passkey window hands the request to the browser only once the page has

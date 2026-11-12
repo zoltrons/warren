@@ -4,6 +4,7 @@
 // come from the service worker. It also reports submitted logins so Warren can offer to save or update
 // them (bar.html, top frame only). Bundled as a classic script and kept small.
 import { watchForPasswordField } from "./collector/field-watcher.ts";
+import { deepAll } from "./collector/shadow-dom.ts";
 import type { PageApi } from "./page.ts";
 import { fieldName, fieldOf, picking, startPicker, stopPicker } from "./picker.ts";
 
@@ -47,7 +48,14 @@ function raise(el: HTMLElement) {
 
 let host: HTMLElement | undefined;
 let frame: HTMLIFrameElement | undefined;
-let anchor: HTMLInputElement | undefined;
+/** The field the menu is under; in the top frame, for a menu drawn for a child frame, that frame's <iframe>. */
+let anchor: HTMLElement | undefined;
+/** Top frame only: the field's box inside `anchor` (that frame's own coordinates), for a menu drawn for it. */
+let remote: { x: number; y: number; w: number; h: number } | undefined;
+/** Child frame: the field whose menu the top frame draws (there is no host here then). */
+let drawnAbove: HTMLInputElement | undefined;
+/** Child frame: the last such field, which Escape in the top frame's menu focuses again. */
+let lastAbove: HTMLInputElement | undefined;
 let dismissed: HTMLInputElement | undefined;
 /**
  * Per-document secret handed to the menu frame it opens. The menu is inside a closed shadow root, so
@@ -62,9 +70,22 @@ let focusedLogin: HTMLInputElement | undefined;
 /** The fill itself focuses fields: do not reopen the menu right away. */
 let quietUntil = 0;
 
+/** Where the menu's field is, in this document's viewport. */
+function anchorBox(a: HTMLElement): { left: number; top: number; bottom: number; width: number } {
+  const r = a.getBoundingClientRect();
+  if (!remote) return r;
+  // The child frame's viewport starts inside the <iframe>'s border and padding.
+  const cs = getComputedStyle(a);
+  const [x, y] = [r.left + a.clientLeft + parseFloat(cs.paddingLeft), r.top + a.clientTop + parseFloat(cs.paddingTop)];
+  // A frame cannot put its menu outside its own box (over the rest of the page).
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+  const top = clamp(y + remote.y, r.top, r.bottom);
+  return { left: clamp(x + remote.x, r.left, r.right), top, bottom: clamp(y + remote.y + remote.h, top, r.bottom), width: Math.min(remote.w, r.width) };
+}
+
 function place() {
   if (!host || !anchor) return;
-  const r = anchor.getBoundingClientRect();
+  const r = anchorBox(anchor);
   if (!r.width || r.bottom < 0 || r.top > innerHeight) return close();
   // The host's `all:initial!important` outranks anything set here without !important.
   const set = (name: string, value: string) => host!.style.setProperty(name, value, "important");
@@ -76,29 +97,74 @@ function place() {
   set("width", `${Math.min(Math.max(r.width, 300), 420)}px`);
 }
 
+/** The top frame draws (or drops) the menu for a child frame: see inline.ts `inlineRemote`. */
+const toTop = (msg: Record<string, unknown>) => chrome.runtime.sendMessage({ type: "inlineRemote", ...msg }).catch(() => undefined);
+
+/**
+ * Top frame: which window posted a handshake token. A child frame posts a fresh token to its parent and hands the same
+ * token to the worker, so the top frame can tell which of its <iframe>s asks, without a frame-id API.
+ */
+const frameTokens = new Map<string, Set<MessageEventSource>>();
+if (window === top)
+  addEventListener("message", (e) => {
+    const t = (e.data as { warrenFrame?: unknown } | null)?.warrenFrame;
+    if (typeof t !== "string" || t.length !== 32 || !e.source) return;
+    if (frameTokens.size >= 16) frameTokens.clear(); // a page posting tokens in a loop costs only its own menu
+    frameTokens.set(t, (frameTokens.get(t) ?? new Set()).add(e.source));
+  });
+
 function close() {
   gen++;
+  if (drawnAbove) void toTop({ op: "hide" });
+  drawnAbove = undefined;
   // Fades out like Chrome's dropdown; it takes no clicks while it goes.
   const [h, f] = [host, frame];
   if (h && f && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
     f.style.pointerEvents = "none";
     f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, easing: "cubic-bezier(.3,0,.8,.15)" }).finished.then(() => h.remove(), () => h.remove());
   } else h?.remove();
-  host = frame = anchor = undefined;
+  host = frame = anchor = remote = undefined;
   removeEventListener("scroll", place, true);
   removeEventListener("resize", place);
+}
+
+/** The menu frame under `a` (the field, or a child frame's <iframe>), `height` px tall, for the document with `secret`. */
+function draw(a: HTMLElement, height: number, secret: string) {
+  anchor = a;
+  host = document.createElement("warren-menu");
+  host.popover = "manual";
+  host.style.cssText = "all:initial!important;position:fixed!important;z-index:2147483647!important;display:block!important;opacity:1!important;transform:none!important;filter:none!important";
+  frame = document.createElement("iframe");
+  frame.src = `${chrome.runtime.getURL("menu.html")}#${secret}`;
+  frame.allow = "clipboard-write";
+  // Radius and shadow are Chrome's menu ones (8 px, Material elevation 2).
+  frame.style.cssText = `all:initial;display:block;width:100%;height:${height}px;border:0;border-radius:8px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15);color-scheme:normal`;
+  host.attachShadow({ mode: "closed" }).append(frame);
+  containerOf(a).append(host);
+  raise(host);
+  appear(frame);
+  place();
+  addEventListener("scroll", place, true);
+  addEventListener("resize", place);
 }
 
 /** The field a request is in flight for: the click that focused it must not ask again. */
 let opening: HTMLInputElement | undefined;
 
 async function open(el: HTMLInputElement) {
-  if (anchor === el || opening === el || dismissed === el || Date.now() < quietUntil) return;
+  if (anchor === el || drawnAbove === el || opening === el || dismissed === el || Date.now() < quietUntil) return;
   const mine = ++gen;
   const details = api.collectActive(el);
   opening = el;
+  try {
+    await show(el, mine, details);
+  } finally {
+    if (opening === el) opening = undefined;
+  }
+}
+
+async function show(el: HTMLInputElement, mine: number, details: ReturnType<typeof api.collectActive>) {
   const r = ((await chrome.runtime.sendMessage({ type: "inlineFocus", nonce, details }).catch(() => undefined)) as { data?: { rows: number; footer?: boolean; kind?: string } } | undefined)?.data;
-  if (opening === el) opening = undefined;
   if (r?.kind === "login") api.setFocused((focusedLogin = el)); // read by the fill
   if (mine !== gen) return;
   // rows = 0: nothing to offer (no matches, not logged in, not a field we fill), so stay out of the way.
@@ -108,23 +174,20 @@ async function open(el: HTMLInputElement) {
   }
   if (active() !== el || Date.now() < quietUntil) return;
   close();
-  anchor = el;
-  host = document.createElement("warren-menu");
-  host.popover = "manual";
-  host.style.cssText = "all:initial!important;position:fixed!important;z-index:2147483647!important;display:block!important;opacity:1!important;transform:none!important;filter:none!important";
-  frame = document.createElement("iframe");
-  frame.src = `${chrome.runtime.getURL("menu.html")}#${nonce}`;
-  frame.allow = "clipboard-write";
   // Row metrics come from the menu's own CSS (popup.css, body.frame): 44 px rows, 4 px frame padding, a 45 px footer.
-  // Radius and shadow are Chrome's menu ones (8 px, Material elevation 2).
-  frame.style.cssText = `all:initial;display:block;width:100%;height:${Math.min(r.rows, 5) * 44 + 8 + (r.footer ? 45 : 0)}px;border:0;border-radius:8px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15);color-scheme:normal`;
-  host.attachShadow({ mode: "closed" }).append(frame);
-  containerOf(el).append(host);
-  raise(host);
-  appear(frame);
-  place();
-  addEventListener("scroll", place, true);
-  addEventListener("resize", place);
+  const height = Math.min(r.rows, 5) * 44 + 8 + (r.footer ? 45 : 0);
+  const box = el.getBoundingClientRect();
+  // A frame too small for the menu (a payment form's one-field iframes) has the top frame draw it over the page.
+  if (window !== top && (box.bottom + 4 + height > innerHeight || innerWidth < 300)) {
+    const mine2 = gen;
+    // Only a frame right under the top one: its parent is the top frame, which reads the token's sender.
+    const token = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    if (parent === top) parent.postMessage({ warrenFrame: token }, "*");
+    const shown = parent === top && ((await toTop({ op: "show", token, rect: { x: box.left, y: box.top, w: box.width, h: box.height }, height })) as { data?: unknown } | undefined)?.data === true;
+    if (mine2 !== gen || active() !== el) return void (shown && toTop({ op: "hide" }));
+    if (shown) return void (drawnAbove = lastAbove = el);
+  }
+  draw(el, height, nonce);
 }
 
 /**
@@ -161,8 +224,8 @@ addEventListener(
   "keydown",
   (e) => {
     if (picking()) return;
-    if (e.key === "Escape" && host) {
-      dismissed = anchor;
+    if (e.key === "Escape" && (host || drawnAbove)) {
+      dismissed = drawnAbove ?? (anchor instanceof HTMLInputElement ? anchor : undefined);
       close();
     }
     // The form Enter submits, like a click or a submit event: not a filled form next to it (a password change).
@@ -171,6 +234,11 @@ addEventListener(
     if (e.key === "ArrowDown" && e.isTrusted && frame && field === anchor && !e.altKey) {
       e.preventDefault();
       frame.focus();
+      return;
+    }
+    if (e.key === "ArrowDown" && e.isTrusted && drawnAbove && field === drawnAbove && !e.altKey) {
+      e.preventDefault();
+      void toTop({ op: "focus" });
       return;
     }
     if (e.key === "Enter" && field.type === "password") report(field.form);
@@ -188,7 +256,14 @@ addEventListener("message", (e) => {
   }
   if (!frame || e.source !== frame.contentWindow || e.data !== "warren:back") return;
   const el = anchor;
-  dismissed = el;
+  // A menu drawn for a child frame: focus goes back into that frame, which refocuses its field (inlineBack).
+  if (remote) {
+    close();
+    el?.focus();
+    void toTop({ op: "back" });
+    return;
+  }
+  dismissed = el instanceof HTMLInputElement ? el : undefined;
   close();
   el?.focus();
 });
@@ -268,7 +343,33 @@ function appear(el: HTMLElement) {
   el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 100, easing: "cubic-bezier(.2,0,0,1)" });
 }
 
-chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (name: string) => void) => {
+chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (r: string | boolean) => void) => {
+  // ---- a menu the top frame draws for a child frame's field (inline.ts `inlineRemote`) ----
+  if (msg.type === "inlineShow" && window === top) {
+    const m = msg as unknown as { token: string; rect: { x: number; y: number; w: number; h: number }; height: number; nonce: string };
+    void (async () => {
+      // The frame's handshake (`warrenFrame`) may land a moment after the worker's message.
+      for (let i = 0; i < 20 && !frameTokens.has(m.token); i++) await new Promise((r) => setTimeout(r, 10));
+      const sources = frameTokens.get(m.token);
+      frameTokens.delete(m.token);
+      // Exactly one window sent it, and it is a frame of this document (not a sibling repeating the token).
+      const owner = sources?.size === 1 ? (deepAll(document, "iframe, frame") as HTMLIFrameElement[]).find((f) => sources.has(f.contentWindow!)) : undefined;
+      if (!owner) return reply(false);
+      close();
+      remote = m.rect;
+      draw(owner, m.height, m.nonce);
+      reply(true);
+    })();
+    return true;
+  }
+  // The field's frame lost focus: not when it went to the menu (a click or ArrowDown into it).
+  if (msg.type === "inlineHide" && window === top && remote && document.activeElement !== host) close();
+  if (msg.type === "inlineMenuFocus" && window === top && remote) frame?.focus();
+  if (msg.type === "inlineBack" && lastAbove) {
+    dismissed = lastAbove;
+    lastAbove.focus();
+  }
+
   if (msg.type === "clickedFieldName") {
     const el = fieldOf(rightClicked);
     return void reply(el ? fieldName(el, api) : "");
@@ -287,7 +388,7 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (n
   // A website waiting on a conditional passkey request appeared (or went away): refresh the menu. The
   // field may not have had a menu yet (no matching logins when it was focused), so fall back to it.
   if (msg.type === "passkeyAvailable") {
-    const el = anchor ?? (focusedLogin && active() === focusedLogin ? focusedLogin : undefined);
+    const el = (anchor instanceof HTMLInputElement ? anchor : drawnAbove) ?? (focusedLogin && active() === focusedLogin ? focusedLogin : undefined);
     if (el) {
       close();
       void open(el);
