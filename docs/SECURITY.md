@@ -202,10 +202,10 @@ freed rather than zeroed in place.
     verified" only when the user was verified for that request: the vault was unlocked for it, the master
     password was confirmed in the approval window, or biometric unlock's credential answered for it (the worker checks
     that its PRF output opens the session's own user key, `verifyPrf`, and changes nothing). A click in an already
-    unlocked vault is presence only. When the RP asks for verification (required or preferred) and biometric unlock is
-    set up, the window asks for the biometric first; on preferred a failed one still signs, without UV. When the RP
-    requires verification and nothing verified the user, the window asks for the master password, and the inline
-    menu's one-click sign-in opens the window instead (`src/background/passkey.ts`).
+    unlocked vault is presence only. When the RP requires verification and nothing verified the user, the window asks
+    for the biometric first when biometric unlock is set up, else (or when it fails) for the master password; on
+    preferred it asks for nothing and signs without UV. Required and not yet given, the inline menu's one-click sign-in
+    opens the window instead (`src/background/passkey.ts`).
 
 11b. **A passkey is saved without asking only as an upgrade of a sign-in Warren just did.** Conditional create
     (`mediation: "conditional"`, the automatic passkey upgrade) is the one WebAuthn call that needs no gesture and opens

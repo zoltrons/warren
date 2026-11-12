@@ -523,7 +523,7 @@ export interface PasskeyPrompt {
   /** The site requires user verification and nothing verified the user for this request yet: ask for the master password. */
   verify?: boolean;
   /**
-   * Biometric unlock is set up and the site asks for verification (required or preferred) not yet given: the window
+   * Biometric unlock is set up and the site requires verification not yet given: the window
    * asks the authenticator for this credential's PRF output and sends it with the decision.
    */
   biometric?: { credentialId: string; prfSalt: string };

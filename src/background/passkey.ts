@@ -414,9 +414,13 @@ export async function openConditional(tabId: number, frameId: number): Promise<v
 const verified = (p: Pending) => !!p.confirmed || p.startedLocked;
 const mustVerify = (p: Pending) => p.call.options.userVerification === "required" && !verified(p);
 
-/** Biometric unlock of this account, offered as user verification when the site asks for it and none happened yet. */
+/**
+ * Biometric unlock of this account, offered in place of the master password when the site requires verification and
+ * none happened yet. Not for "preferred", WebAuthn's default: nearly every site sends it, and a fingerprint on every
+ * passkey sign-in is the friction passkeys are meant to remove.
+ */
 async function biometricFor(p: Pending): Promise<{ credentialId: string; prfSalt: string } | undefined> {
-  if (verified(p) || p.call.options.userVerification === "discouraged") return undefined;
+  if (!mustVerify(p)) return undefined;
   const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
   return account && bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
 }

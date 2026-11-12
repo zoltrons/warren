@@ -39,8 +39,8 @@ async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, cre
   pk.busy = true;
   pk.confirm = undefined;
   ctx.rerender();
-  // The site asks for user verification: Touch ID / Windows Hello first when biometric unlock is set up (a typed master
-  // password wins). If it fails, a site that only prefers verification still gets the passkey, without the UV flag.
+  // The site requires user verification: Touch ID / Windows Hello first when biometric unlock is set up (a typed master
+  // password wins). If it fails, the master password field is the way on.
   const bio = action === "use" && !pk.password ? pk.prompt?.biometric : undefined;
   const prf = bio ? await getBiometricPrf(bio.credentialId, bio.prfSalt).catch(() => undefined) : undefined;
   if (pk !== mine) return;
