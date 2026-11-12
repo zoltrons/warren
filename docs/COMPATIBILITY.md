@@ -130,7 +130,9 @@ on 2026-10-29, unless marked otherwise.
   the inline menu. `getClientCapabilities()` reports `conditionalGet`, `passkeyPlatformAuthenticator`,
   `userVerifyingPlatformAuthenticator`, `conditionalCreate` and `extension:credProps` on top of the browser's answer.
   Conditional create (automatic upgrade) is answered only within 5 minutes of a user-picked fill of that login in
-  that tab (SECURITY.md 11b), else NotAllowedError. A call whose RP ID fails Warren's check (not the host or a registrable parent; Related Origin
+  that tab (SECURITY.md 11b), else NotAllowedError.
+  `signalCurrentUserDetails` renames matching passkeys (after the browser's own handling); the other signals are
+  the browser's only. A call whose RP ID fails Warren's check (not the host or a registrable parent; Related Origin
   Requests are not implemented) goes to the browser before any window opens. New passkeys carry Bitwarden's AAGUID (`d548826e-79b4-db40-a3d8-11116f7e8349`) with `none`
   attestation, as the official extension does.
 * **SSO** (`SSO_ENABLED`): `GET /identity/sso/prevalidate` fails when off. `/identity/connect/authorize`

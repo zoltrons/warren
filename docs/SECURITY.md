@@ -209,6 +209,11 @@ freed rather than zeroed in place.
     flagged for re-prompt and without a passkey yet; once per fill. It sets neither UP nor UV, a notification says it
     happened, and every refusal is the same NotAllowedError.
 
+11c. **A page's Signal API call changes names only.** `signalCurrentUserDetails` (no gesture, no window) renames
+    the passkeys of the page's own RP ID (checked like any call) for that user handle, in editable items of an
+    unlocked vault: `userName` and `userDisplayName`, nothing else. `signalUnknownCredential` and
+    `signalAllAcceptedCredentials` reach only the browser: they would let any page script remove or hide passkeys.
+
 12. **Rendered data is text, not markup.** No `innerHTML` anywhere; the `h()` helper sets properties
     from static keys and `textContent` for values, so vault, server and page strings cannot become
     markup. External links are restricted to http(s) (`webUrl`). The extension pages' CSP requires Trusted

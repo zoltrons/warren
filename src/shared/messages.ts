@@ -638,6 +638,8 @@ export type CoreRequest =
   | { op: "passkeyAssert"; itemId: string; credentialId: string; rpId: string; origin: string; challenge: string; uv: boolean }
   /** Result: the item to save, already encrypted (the new private key never leaves the worker), and the page's response. */
   | { op: "passkeyCreate"; input: PasskeyCreateInput; itemId?: string }
+  /** signalCurrentUserDetails: the site's new name for one of its accounts. Returns the items to save (encrypted). */
+  | { op: "passkeyDetails"; rpId: string; origin: string; userHandle: string; name: string; displayName: string }
   // handled by the offscreen document itself, not the worker
   | { op: "writeClipboard"; text: string }
   /** Empties the clipboard, but with a `hash` only while it still holds the text with that clipboardDigest. */
@@ -736,6 +738,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   upsertSend: obj({ op: literal("upsertSend"), send: record }),
   removeSend: obj({ op: literal("removeSend"), id: str }),
   passkeyCandidates: obj({ op: literal("passkeyCandidates"), rpId: str, origin: str, ids: arr(str) }),
+  passkeyDetails: obj({ op: literal("passkeyDetails"), rpId: str, origin: str, userHandle: str, name: capped(1024), displayName: capped(1024) }),
   passkeyAssert: obj({ op: literal("passkeyAssert"), itemId: str, credentialId: str, rpId: str, origin: str, challenge: str, uv: bool }),
   passkeyCreate: obj({ op: literal("passkeyCreate"), input: passkeyCreateInput, itemId: opt(str) }),
   writeClipboard: obj({ op: literal("writeClipboard"), text: str }),
@@ -777,7 +780,9 @@ export type PasskeyCall =
       conditional?: boolean;
       options: { rpId?: string; rpName: string; user: { id: string; name: string; displayName: string }; challenge: string; exclude: string[]; discoverable: boolean; userVerification: UserVerification };
     }
-  | { kind: "get"; conditional: boolean; options: { rpId?: string; challenge: string; allow: string[]; userVerification: UserVerification } };
+  | { kind: "get"; conditional: boolean; options: { rpId?: string; challenge: string; allow: string[]; userVerification: UserVerification } }
+  /** PublicKeyCredential.signalCurrentUserDetails: the site renamed an account (WebAuthn L3 Signal API). */
+  | { kind: "details"; options: { rpId?: string; user: { id: string; name: string; displayName: string } } };
 
 /** Credential fields (base64url) or a reason to let the browser handle the call. */
 export type PasskeyResult = { credential: Record<string, unknown> } | { fallback: true } | { error: { name: string; message: string } };
@@ -790,6 +795,7 @@ export function parsePasskeyCall(v: unknown): PasskeyCall {
       conditional: opt(bool),
       options: obj({ rpId: opt(rpIdField), rpName: capped(1024), user, challenge: challengeField, exclude: credIdList, discoverable: bool, userVerification: uvField }),
     })(v, "");
+  if (kind === "details") return obj({ kind: literal("details"), options: obj({ rpId: opt(rpIdField), user }) })(v, "");
   return obj({ kind: literal("get"), conditional: bool, options: obj({ rpId: opt(rpIdField), challenge: challengeField, allow: credIdList, userVerification: uvField }) })(v, "");
 }
 

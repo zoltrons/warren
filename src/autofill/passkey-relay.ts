@@ -25,9 +25,9 @@ addEventListener("message", (ev: MessageEvent) => {
   // with a flood of open ports) is handled by the browser itself. A get needs no gesture, like the
   // browser's own: sign-in pages (Google's "Verify it's you") ask on load, and the service worker allows
   // one window per tab.
-  // A conditional create needs no gesture either (WebAuthn); the worker saves one only right after it filled that
-  // sign-in, so a forged one gets nothing.
-  if ((d.kind !== "get" && d.conditional !== true && !navigator.userActivation.isActive) || ports.size >= 8) {
+  // A conditional create and a signal (only "details": a new account name for the page's own RP ID) need no gesture
+  // either (WebAuthn); the worker saves a conditional create only right after it filled that sign-in.
+  if ((d.kind === "create" && d.conditional !== true && !navigator.userActivation.isActive) || ports.size >= 8) {
     postMessage({ warren: "res", id: d.id, result: { fallback: true } }, "*");
     return;
   }

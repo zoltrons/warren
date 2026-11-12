@@ -236,7 +236,7 @@ Could be built:
 | Attachments | No delete |
 | Blocked / excluded domains | No editor for "blocked interaction" sites; never-save hosts can only be removed |
 | Inline menu | No SSH key entries (logins, cards and identities only) |
-| Passkey extensions | No `prf` (WebAuthn PRF) for vault passkeys: Bitwarden's `fido2Credentials` model has no field for a per-credential secret, so the official apps could not produce the same output and data a site encrypts with it would be lost. Also no `largeBlob`. Only `credProps` |
+| Passkey extensions | No `prf` (WebAuthn PRF) for vault passkeys: Bitwarden's `fido2Credentials` model has no field for a per-credential secret, so the official apps could not produce the same output and data a site encrypts with it would be lost. Also no `largeBlob`. Only `credProps`. Of the Signal API only `signalCurrentUserDetails`: a site's "unknown" or "all accepted" credential lists are not applied (SECURITY 11c) |
 | Appearance | No extension width, compact mode, badge-counter toggle, animation toggle |
 | Change-password page | No "/.well-known/change-password" shortcut for a login |
 | Account operations | Change master password, rotate the account key, manage 2FA, delete account: web vault only |

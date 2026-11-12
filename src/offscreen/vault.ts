@@ -600,6 +600,33 @@ export async function passkeyAssert(itemId: string, wanted: string, rpId: string
 }
 
 /**
+ * signalCurrentUserDetails: the passkeys of `rpId` for `userHandle` take the site's new account name. Only the name
+ * fields change, in editable items; returns those items, encrypted, for the service worker to save.
+ */
+export async function passkeyDetails(rpId: string, origin: string, userHandle: string, name: string, displayName: string): Promise<Json[]> {
+  if (!ciphers) throw new Error("vault not loaded");
+  await checkRp(rpId, origin);
+  const out: Json[] = [];
+  for (const c of ciphers.values()) {
+    const creds = ci(o(ci(c, "login")), "fido2Credentials");
+    if (Number(ci(c, "type")) !== 1 || !Array.isArray(creds) || summary(c).readOnly) continue;
+    const key = (x: unknown, k: string) => Object.keys(x as Json).find((n) => n.toLowerCase() === k.toLowerCase()) ?? k;
+    let changed = false;
+    const next = creds.map((x) => {
+      if (s(ci(x, "rpId")) !== rpId || s(ci(x, "userHandle")).replace(/=+$/, "") !== userHandle.replace(/=+$/, "")) return x;
+      if (s(ci(x, "userName")) === name && s(ci(x, "userDisplayName")) === displayName) return x;
+      changed = true;
+      return { ...(x as Json), [key(x, "userName")]: name, [key(x, "userDisplayName")]: displayName };
+    });
+    if (!changed) continue;
+    const item = structuredClone(c);
+    o(ci(item, "login"))!.fido2Credentials = next;
+    out.push(prepareSave(item));
+  }
+  return out;
+}
+
+/**
  * A new passkey, saved into the login `itemId` (replacing its passkey) or a new login, and encrypted here: the
  * private key goes to the server only inside the item's ciphertext, never to the service worker. Replacing one also
  * gives `undo`, the item as it is now: if the site never gets the new passkey, the old one goes back.

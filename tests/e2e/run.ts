@@ -2464,6 +2464,20 @@ try {
     await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
   });
 
+  await step("passkeys: signalCurrentUserDetails renames the site's passkey in the vault", async () => {
+    const s = await apiSession(vaultUser);
+    const name = async () => (await s.ciphers()).flatMap((x) => x.login?.fido2Credentials ?? []).find((c: { userHandle: string }) => c.userHandle === "AQIDBA")?.userName;
+    assert.equal(await name(), "pk-user");
+    const signal = (n: string) => loginPage.evaluate((n) => (PublicKeyCredential as unknown as { signalCurrentUserDetails(o: unknown): Promise<void> }).signalCurrentUserDetails({ rpId: "localhost", userId: "AQIDBA", name: n, displayName: n }), n);
+    await signal("pk-renamed");
+    for (let i = 0; i < 50 && (await name()) !== "pk-renamed"; i++) await loginPage.waitForTimeout(100);
+    assert.equal(await name(), "pk-renamed");
+    await signal("pk-user"); // back, for the steps after this one
+    for (let i = 0; i < 50 && (await name()) !== "pk-user"; i++) await loginPage.waitForTimeout(100);
+    assert.equal(await name(), "pk-user");
+    s.done();
+  });
+
   await step("passkeys: an RP ID Warren may not use goes to the browser, with no window", async () => {
     await loginPage.locator("#u").click();
     const opened: Page[] = [];

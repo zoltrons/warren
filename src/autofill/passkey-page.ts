@@ -41,6 +41,21 @@
       // Read-only in this browser: leave its answer alone.
     }
   }
+  // Signal API: the site renamed an account. The browser's own handling runs first (it validates the options and
+  // tells its other providers); Warren's passkeys for that account then take the new name. signalUnknownCredential and
+  // signalAllAcceptedCredentials are left to the browser: a page script could use them to hide vault passkeys.
+  const details = pkc.signalCurrentUserDetails;
+  if (typeof details === "function") {
+    try {
+      pkc.signalCurrentUserDetails = async (o: { rpId: string; userId: string; name: string; displayName: string }) => {
+        const r = await (details as (o: unknown) => Promise<undefined>).call(pkc, o);
+        void ask("details", { rpId: o.rpId, user: { id: o.userId, name: o.name, displayName: o.displayName } }, false).catch(() => undefined);
+        return r;
+      };
+    } catch {
+      // Read-only in this browser.
+    }
+  }
   const b64u = (b: BufferSource) =>
     (ArrayBuffer.isView(b) ? new Uint8Array(b.buffer, b.byteOffset, b.byteLength) : new Uint8Array(b)).toBase64({ alphabet: "base64url", omitPadding: true });
   const buf = (s: string) => Uint8Array.fromBase64(s, { alphabet: "base64url" }).buffer;
@@ -53,7 +68,7 @@
    * One call over the relay. `signal` mirrors the page's AbortSignal: aborting drops the pending
    * request in the service worker (and closes its approval window).
    */
-  const ask = (kind: "create" | "get", options: unknown, conditional: boolean, signal?: AbortSignal | null) =>
+  const ask = (kind: "create" | "get" | "details", options: unknown, conditional: boolean, signal?: AbortSignal | null) =>
     new Promise<Answer>((resolve, reject) => {
       const id = `${Date.now()}-${++next}`;
       const finish = (fn: () => void) => {

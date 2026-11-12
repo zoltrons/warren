@@ -38,7 +38,8 @@ const MATCHES = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"];
 
 interface Pending {
   id: string;
-  call: PasskeyCall;
+  /** A signal ("details") never waits: it is done before a request is registered. */
+  call: Exclude<PasskeyCall, { kind: "details" }>;
   origin: string;
   rpId: string;
   tabId: number;
@@ -184,6 +185,17 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     if (!(await getLocal("account"))) return port.postMessage({ fallback: true });
     const rpId = (call.options.rpId || new URL(origin).hostname).toLowerCase();
     if (!(await rpIdUsable(rpId, origin))) return port.postMessage({ fallback: true });
+    if (call.kind === "details") {
+      // Signal API, no window and no answer the page reads: only an unlocked vault learns the new name.
+      if (await isUnlocked()) {
+        const epoch = lockEpoch();
+        await ensureLoaded();
+        const items = await coreCall<Record<string, unknown>[]>({ op: "passkeyDetails", rpId, origin, userHandle: call.options.user.id, name: call.options.user.name, displayName: call.options.user.displayName }).catch(() => []);
+        for (const item of items) await putCipher(item, () => assertEpoch(epoch)).catch(() => undefined);
+      }
+      if (!closed) port.postMessage({ fallback: true });
+      return;
+    }
     if (call.kind === "create" && call.conditional) {
       const r = await conditionalCreate(call, origin, rpId, tabId);
       if (!closed) port.postMessage(r);

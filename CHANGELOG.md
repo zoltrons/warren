@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- When a site tells the browser you renamed your account there (WebAuthn's signal API), the passkey in Warren takes
+  the new name.
 - Automatic passkey upgrades: right after Warren fills a site's password, a site that offers to switch you to a
   passkey saves it into that same login, without a prompt (a notification says so). Nothing else can save a passkey
   silently.
