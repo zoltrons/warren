@@ -1,4 +1,6 @@
 // Watches a frame for its first password field, which single-page apps render long after load.
+import { shadowOf } from "./shadow-dom.ts";
+
 const SETTLE_MS = 300;
 const MAX_PENDING = 200;
 const PASSWORD = "input[type=password]";
@@ -21,7 +23,8 @@ export function watchForPasswordField(found: () => void): void {
     const els = root instanceof Element ? [root, ...Element.prototype.querySelectorAll.call(root, "*")] : root.querySelectorAll("*");
     for (const el of els) {
       if (Element.prototype.matches.call(el, PASSWORD)) return true;
-      if (el.shadowRoot && (observer.observe(el.shadowRoot, WATCH), scan(el.shadowRoot))) return true;
+      const shadow = shadowOf(el);
+      if (shadow && (observer.observe(shadow, WATCH), scan(shadow))) return true;
     }
     return false;
   };

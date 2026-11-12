@@ -223,6 +223,8 @@ const pages: Record<string, string> = {
   "/tiny-frame": `<p>Checkout</p><iframe id="f" src="http://127.0.0.1:8099/card-number" style="width:300px;height:44px;border:1px solid #888"></iframe>`,
   // A login at the very bottom of the window: no room for the menu under it.
   "/bottom": `<div style="height:calc(100vh - 60px)"></div>${LOGIN_FORM}`,
+  // A web component that keeps its login in a closed shadow root; the page keeps the root for the test to read.
+  "/closed-shadow": `<div id="host"></div><script>window.root = document.getElementById("host").attachShadow({ mode: "closed" }); window.root.innerHTML = ${JSON.stringify(LOGIN_FORM)};</script>`,
   "/useronly": `<form onsubmit="return false"><input id="u" name="login" placeholder="Email or phone"><button type="submit">Next</button></form>`,
 };
 const site = createServer((req, res) => {
@@ -1827,6 +1829,15 @@ try {
     [field, menu] = await boxes();
     assert.ok(Math.abs(menu!.top - (field!.bottom + 4)) < 1, `after the shift: ${JSON.stringify({ field, menu })}`);
     await loginPage.keyboard.press("Escape");
+  });
+
+  await step("inline menu: a login inside a closed shadow root gets the menu and fills", async () => {
+    await loginPage.goto(`${SITE}/closed-shadow`);
+    const r = await loginPage.evaluate(() => { const b = (window as unknown as { root: ShadowRoot }).root.getElementById("u")!.getBoundingClientRect(); return { x: b.left + 5, y: b.top + b.height / 2 }; });
+    await loginPage.mouse.click(r.x, r.y);
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
+    await loginPage.waitForFunction(() => ((window as unknown as { root: ShadowRoot }).root.getElementById("p") as HTMLInputElement).value !== "");
+    assert.equal(await loginPage.evaluate(() => ((window as unknown as { root: ShadowRoot }).root.getElementById("u") as HTMLInputElement).value), "local-user");
   });
 
   await step("inline menu: a login with each input in its own shadow root gets the menu and fills", async () => {

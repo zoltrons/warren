@@ -6,12 +6,26 @@ export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 const isField = (el: Element): el is Field => el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement;
 
-/** Elements matching `sel` under `root`, open shadow roots included, in document order. */
+/** Content scripts only (the fill smoke test runs this file as a plain page script). */
+const openOrClosed = (globalThis as { chrome?: { dom?: { openOrClosedShadowRoot?(el: HTMLElement): ShadowRoot | null } } }).chrome?.dom?.openOrClosedShadowRoot;
+
+/** `el`'s shadow root, also a closed one (a web component's), which content scripts may read. */
+export function shadowOf(el: Element): ShadowRoot | null {
+  if (el.shadowRoot || !openOrClosed || !(el instanceof HTMLElement)) return el.shadowRoot;
+  try {
+    return openOrClosed(el);
+  } catch {
+    return null;
+  }
+}
+
+/** Elements matching `sel` under `root`, shadow roots (open and closed) included, in document order. */
 export function deepAll(root: ParentNode, sel: string, out: Element[] = []): Element[] {
   // A named input ("querySelector") clobbers a form's own methods: call the native ones.
   for (const el of root instanceof Element ? Element.prototype.querySelectorAll.call(root, "*") : root.querySelectorAll("*")) {
     if (Element.prototype.matches.call(el, sel)) out.push(el);
-    if (el.shadowRoot) deepAll(el.shadowRoot, sel, out);
+    const shadow = shadowOf(el);
+    if (shadow) deepAll(shadow, sel, out);
   }
   return out;
 }

@@ -4,7 +4,7 @@
 // come from the service worker. It also reports submitted logins so Warren can offer to save or update
 // them (bar.html, top frame only). Bundled as a classic script and kept small.
 import { watchForPasswordField } from "./collector/field-watcher.ts";
-import { deepAll } from "./collector/shadow-dom.ts";
+import { deepAll, shadowOf, up } from "./collector/shadow-dom.ts";
 import type { PageApi } from "./page.ts";
 import { fieldName, fieldOf, picking, startPicker, stopPicker } from "./picker.ts";
 
@@ -15,11 +15,18 @@ const MENU_TYPES = ["text", "email", "tel", "", "search", "number", "password"];
 /** Only a field that can type a value is worth asking the service worker about. */
 const askable = (el: Element): el is HTMLInputElement => el instanceof HTMLInputElement && !el.disabled && !el.readOnly && MENU_TYPES.includes(el.type);
 
-/** The focused element, looking inside open shadow roots. */
+/** The focused element, looking inside shadow roots (closed ones too). */
 function active(): Element | null {
   let a = document.activeElement;
-  while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement;
+  for (let r = a && shadowOf(a); r?.activeElement; r = shadowOf(a!)) a = r.activeElement;
   return a;
+}
+
+/** The element an event is about: inside a closed shadow root the event shows only its host, so ask the focus. */
+function targetOf(e: Event): Element {
+  const t = e.composedPath()[0] as Element;
+  if (t === host || !(t instanceof Element) || !shadowOf(t) || t.shadowRoot) return t;
+  return active() ?? t;
 }
 
 // ---------- inline menu ----------
@@ -208,13 +215,19 @@ async function show(el: HTMLInputElement, mine: number, details: ReturnType<type
 let gesture: { target: Element | undefined; at: number } = { target: undefined, at: 0 };
 addEventListener("pointerdown", (e) => e.isTrusted && (gesture = { target: e.composedPath()[0] as Element, at: Date.now() }), true);
 addEventListener("keydown", (e) => e.isTrusted && e.key === "Tab" && (gesture = { target: undefined, at: Date.now() }), true);
+/** A press on a closed shadow root reports only its host: it counts for the fields inside that root. */
+const closedHostOf = (a: Element, el: Element) => {
+  if (a.shadowRoot || !shadowOf(a)) return false;
+  for (let n: Element | null = el; n; n = up(n)) if (n === a) return true;
+  return false;
+};
 const userFocused = (el: HTMLInputElement) =>
-  Date.now() - gesture.at < 1000 && (!gesture.target || el.contains(gesture.target) || [...(el.labels ?? [])].some((l) => l.contains(gesture.target!)));
+  Date.now() - gesture.at < 1000 && (!gesture.target || el.contains(gesture.target) || closedHostOf(gesture.target, el) || [...(el.labels ?? [])].some((l) => l.contains(gesture.target!)));
 
 addEventListener(
   "focusin",
   (e) => {
-    const el = e.composedPath()[0] as Element; // fields inside open shadow roots too
+    const el = targetOf(e); // fields inside shadow roots too
     if (el === host || picking()) return; // focus moved into our menu, or the user is pointing at fields
     if (askable(el) && userFocused(el)) void open(el);
     else if (el !== anchor) close();
@@ -240,7 +253,7 @@ addEventListener(
       close();
     }
     // The form Enter submits, like a click or a submit event: not a filled form next to it (a password change).
-    const field = e.composedPath()[0] as HTMLInputElement;
+    const field = targetOf(e) as HTMLInputElement;
     // ArrowDown moves into the open menu, like a native autocomplete list; its first row takes focus (menu.ts).
     if (e.key === "ArrowDown" && e.isTrusted && frame && field === anchor && !e.altKey) {
       e.preventDefault();
@@ -284,7 +297,7 @@ addEventListener(
   "click",
   (e) => {
     if (picking()) return;
-    const el = e.composedPath()[0] as Element;
+    const el = targetOf(e);
     if (el === dismissed && e.isTrusted) {
       dismissed = undefined;
       if (askable(el)) void open(el);

@@ -42,6 +42,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Logins inside web components that close their shadow root get the inline menu and are filled.
 - The inline menu opens above a field near the bottom of the window instead of off screen, stays inside the right
   edge for wide fields, and follows its field when the page shifts it.
 - Sites that ask the newer `getClientCapabilities()` before offering passkeys now see that passkeys and passkey
