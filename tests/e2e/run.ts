@@ -1096,6 +1096,13 @@ try {
     await page.getByRole("button", { name: "Review" }).click();
     await page.getByRole("heading", { name: /Weak passwords/ }).waitFor();
     await back();
+    // "Don't show again" is for good: a reopened popup has no banner until Settings turns it back on.
+    await page.getByRole("button", { name: "Don't show again" }).click();
+    await page.getByText(/Logins need attention/).waitFor({ state: "hidden" });
+    await page.reload();
+    await rows().filter({ hasText: "Quiet save" }).waitFor();
+    assert.equal(await page.getByText(/Logins need attention/).count(), 0);
+    await page.evaluate(() => localStorage.setItem("attentionBanner", "on"));
     await page.evaluate(() => localStorage.setItem("breachSave", "on"));
     await page.getByRole("button", { name: "New item" }).click();
     await fill("Name", "Loud save");

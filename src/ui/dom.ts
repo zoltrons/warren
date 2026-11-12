@@ -41,15 +41,15 @@ export function savedTheme(): string {
 }
 /** Popup width, compact rows and animations: per-device like the theme, as data-* on <html>. */
 export const WIDTHS = ["default", "wide", "extraWide"] as const;
-export function uiPref(key: "theme" | "width" | "compact" | "motion" | "breachSave" | "defaultAsked"): string {
-  const fallback = { theme: "system", width: "default", compact: "off", motion: "on", breachSave: "off", defaultAsked: "no" }[key];
+export function uiPref(key: "theme" | "width" | "compact" | "motion" | "breachSave" | "defaultAsked" | "attentionBanner" | "attentionBanner"): string {
+  const fallback = { theme: "system", width: "default", compact: "off", motion: "on", breachSave: "off", defaultAsked: "no", attentionBanner: "on" }[key];
   try {
     return localStorage.getItem(key) ?? fallback;
   } catch {
     return fallback;
   }
 }
-export function setUiPref(key: "theme" | "width" | "compact" | "motion" | "breachSave" | "defaultAsked", value: string) {
+export function setUiPref(key: "theme" | "width" | "compact" | "motion" | "breachSave" | "defaultAsked" | "attentionBanner" | "attentionBanner", value: string) {
   localStorage.setItem(key, value);
   applyTheme();
 }

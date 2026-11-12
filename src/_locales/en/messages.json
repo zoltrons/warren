@@ -2294,6 +2294,15 @@
   "defaultAskLater": {
     "message": "Not now"
   },
+  "attentionNever": {
+    "message": "Don't show again"
+  },
+  "attentionBanner": {
+    "message": "Weak and reused password banner"
+  },
+  "attentionBannerHint": {
+    "message": "Shows on the vault list when logins need attention. The security report stays under its chip."
+  },
   "reportCheckEmails": {
     "message": "Check e-mail addresses through your server"
   },

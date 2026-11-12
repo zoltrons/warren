@@ -2,6 +2,19 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Added
+
+- The weak and reused password banner has "Don't show again"; Settings → "Weak and reused password banner" brings it
+  back. The security report stays under its chip.
+
+### Changed
+
+- Passkey sign-ins no longer ask for Touch ID / Windows Hello every time: biometric verification is used only when a
+  site requires verification (in place of the master password), not when it merely prefers it, which nearly every
+  site does.
+
 ## 0.0.19 — 2026-11-12
 
 ### Added

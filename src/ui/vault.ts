@@ -1048,7 +1048,7 @@ function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
-    !st.attentionHidden && !st.query && !st.folder && st.list?.items.some((i) => i.reused || i.weak)
+    !st.attentionHidden && uiPref("attentionBanner") === "on" && !st.query && !st.folder && st.list?.items.some((i) => i.reused || i.weak)
       ? h(
           "div",
           { class: "notice warn", role: "region", "aria-label": t("securityReport") },
@@ -1063,6 +1063,8 @@ function listView(ctx: Ctx): HTMLElement {
               { class: "row-actions" },
               h("button", { type: "button", class: "btn tonal small", onclick: () => open(ctx, { kind: "report" }) }, t("attentionReview")),
               h("button", { type: "button", class: "btn text small", onclick: () => ((st.attentionHidden = true), ctx.rerender()) }, t("defaultAskLater")),
+              // For good; Settings → "Weak and reused password banner" brings it back.
+              h("button", { type: "button", class: "btn text small", onclick: () => (setUiPref("attentionBanner", "off"), ctx.rerender()) }, t("attentionNever")),
             ),
           ),
         )
