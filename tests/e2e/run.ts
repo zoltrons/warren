@@ -211,6 +211,9 @@ const pages: Record<string, string> = {
   "/otp": `<form onsubmit="return false"><label for="code">Verification code</label><input id="code" autocomplete="off"><button>Verify</button></form>`,
   "/autosubmit": `<form onsubmit="window.submitted = true; return false"><input id="u" name="username"><input id="p" type="password" name="password"><button>Sign in</button></form>`,
   "/custom": `<form onsubmit="return false"><input id="u" name="username"><input id="p" type="password" name="password"><input id="member" name="member_no"><input id="alias" name="alias"><input type="checkbox" id="terms" name="terms"></form>`,
+  // A login in a modal <dialog> (everything outside it is inert) and in a focus-trapping ARIA modal.
+  "/modal": `<dialog id="d">${LOGIN_FORM}</dialog><script>document.getElementById("d").showModal();</script>`,
+  "/trap": `<div id="m" role="dialog" aria-modal="true">${LOGIN_FORM}</div><script>document.addEventListener("focusin", (e) => { if (!document.getElementById("m").contains(e.target)) document.getElementById("u").focus(); });</script>`,
   "/useronly": `<form onsubmit="return false"><input id="u" name="login" placeholder="Email or phone"><button type="submit">Next</button></form>`,
 };
 const site = createServer((req, res) => {
@@ -1751,6 +1754,27 @@ try {
     assert.ok(Math.abs(menu!.top - field!.bottom - 4) < 1, JSON.stringify({ field, menu }));
     assert.ok(Math.abs(menu!.left - field!.left) < 1, JSON.stringify({ field, menu }));
     await loginPage.keyboard.press("Escape");
+  });
+
+  await step("inline menu: a login inside a modal dialog gets a menu above it that takes the click", async () => {
+    await loginPage.bringToFront();
+    await loginPage.goto(`${SITE}/modal`);
+    await loginPage.click("#u");
+    const option = (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ });
+    await option.waitFor();
+    assert.equal(await loginPage.evaluate(() => !!document.querySelector("dialog warren-menu:popover-open")), true, "menu not in the dialog's top layer");
+    await option.click();
+    await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
+  });
+
+  await step("inline menu: a focus-trapping modal keeps the menu usable from the keyboard", async () => {
+    await loginPage.goto(`${SITE}/trap`);
+    await loginPage.click("#u");
+    await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+    assert.equal(await loginPage.evaluate(() => !!document.querySelector("#m warren-menu")), true, "menu outside the modal");
+    await loginPage.keyboard.press("ArrowDown");
+    await loginPage.keyboard.press("Enter");
+    await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
   });
 
   await step("inline menu: a login with each input in its own shadow root gets the menu and fills", async () => {

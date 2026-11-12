@@ -23,6 +23,28 @@ function active(): Element | null {
 
 // ---------- inline menu ----------
 
+/**
+ * Where the menu goes: inside the modal the field is in, or the page. A modal <dialog> makes everything outside it inert,
+ * and focus-trapping modals pull focus back from anything outside them, so a menu next to them takes no click or key.
+ */
+function containerOf(el: Element): Element {
+  for (let n: Element | null = el; n; n = n.parentElement ?? ((n.getRootNode() as ShadowRoot).host ?? null))
+    if (n.matches('dialog:modal, [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]')) return n;
+  return document.documentElement;
+}
+
+/**
+ * The top layer: above modals, popovers and fullscreen elements, and positioned against the viewport whatever the
+ * page sets on its ancestors (a transform or filter on <html> would otherwise move a fixed element).
+ */
+function raise(el: HTMLElement) {
+  try {
+    if (el.isConnected && !el.matches(":popover-open")) el.showPopover();
+  } catch {
+    // The page removed the popover attribute: the menu stays where z-index puts it.
+  }
+}
+
 let host: HTMLElement | undefined;
 let frame: HTMLIFrameElement | undefined;
 let anchor: HTMLInputElement | undefined;
@@ -88,6 +110,7 @@ async function open(el: HTMLInputElement) {
   close();
   anchor = el;
   host = document.createElement("warren-menu");
+  host.popover = "manual";
   host.style.cssText = "all:initial!important;position:fixed!important;z-index:2147483647!important;display:block!important;opacity:1!important;transform:none!important;filter:none!important";
   frame = document.createElement("iframe");
   frame.src = `${chrome.runtime.getURL("menu.html")}#${nonce}`;
@@ -96,7 +119,8 @@ async function open(el: HTMLInputElement) {
   // Radius and shadow are Chrome's menu ones (8 px, Material elevation 2).
   frame.style.cssText = `all:initial;display:block;width:100%;height:${Math.min(r.rows, 5) * 44 + 8 + (r.footer ? 45 : 0)}px;border:0;border-radius:8px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15);color-scheme:normal`;
   host.attachShadow({ mode: "closed" }).append(frame);
-  document.documentElement.append(host);
+  containerOf(el).append(host);
+  raise(host);
   appear(frame);
   place();
   addEventListener("scroll", place, true);
@@ -278,8 +302,10 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (n
     f.src = `${chrome.runtime.getURL("bar.html")}#${String((msg as { token?: unknown }).token ?? "")}`;
     // Chrome's bubble: 12 px radius, Material elevation 3; the height follows the content (bar.ts).
     f.style.cssText = "all:initial;display:block;width:100%;height:208px;border:0;border-radius:12px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 3px rgba(0,0,0,.3),0 4px 8px 3px rgba(0,0,0,.15);color-scheme:normal";
+    bar.popover = "manual";
     bar.attachShadow({ mode: "closed" }).append(f);
     document.documentElement.append(bar);
+    raise(bar);
     barFrame = f;
     appear(f);
   }

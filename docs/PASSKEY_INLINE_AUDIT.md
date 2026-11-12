@@ -44,6 +44,8 @@ Priority: **P1** breaks a common flow, **P2** loses interop or a feature that si
 
 ## Order of work
 
+Status: I-1, I-2 done (e2e steps "modal dialog", "focus-trapping modal").
+
 1. I-1 + I-2 (top layer and container), one change in `content.ts` `open()`/`place()`. Add an e2e page with a modal
    dialog login and a focus-trap modal.
 2. P-1 and P-2 (focus wait, early RP ID check), small changes in `passkey-page.ts` and `background/passkey.ts`.

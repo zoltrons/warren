@@ -35,6 +35,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- The inline menu works on logins inside a modal dialog or a focus-trapping pop-up: it opens above them (the
+  browser's top layer) and takes clicks and the arrow keys. The save bar sits in the top layer too.
 - An item saved elsewhere (the page's save bar, a passkey, another window) shows up in the open popup or side
   panel at once, and a new login joins "On this site" right after saving.
 - The popup opens a large vault faster after unlock and after a sync: the whole list is built once instead of four
