@@ -2,6 +2,16 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Fixed
+
+- Menus in the popup (More actions, copy and row options) open above their button when there is no room below,
+  instead of being cut off at the bottom of the popup.
+- Menus in the popup follow the keyboard: the arrow keys move between items (wrapping), Home and End jump.
+- The notes field grows with its text up to 40 % of the popup's height, instead of a fixed two-line box.
+- Screen readers announce on/off settings as switches, not checkboxes.
+
 ## 0.0.20 — 2026-11-12
 
 ### Added

@@ -417,7 +417,8 @@ div.logo > svg.i { width: 1.75rem; height: 1.75rem; }
   padding: 2px 0; width: 100%; font-size: var(--fs-body);
 }
 .field select { cursor: pointer; }
-.field textarea { resize: none; min-height: 44px; }
+/* Grows with its text up to 40 % of the popup, then scrolls: no resize handle in a 380 px popup. */
+.field textarea { resize: none; min-height: 44px; field-sizing: content; max-height: 40vh; }
 .field textarea.masked { -webkit-text-security: disc; }
 .field.code input { font-size: var(--fs-title); letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
 
@@ -839,8 +840,11 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 /* ---------- popover menu (Chrome's: 8 px radius, 8 px vertical padding, full-width 32 px items) ---------- */
 
 .menu {
+  /* Anchored to its button (showPopover({ source })): below it, right edges aligned, flipped when it would not fit. */
   position: fixed; inset: auto;
-  margin: 0; padding: 8px 0;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  margin: 6px 0; padding: 8px 0;
   min-width: 190px;
   background: var(--surface-raised); color: var(--text);
   border: 0; border-radius: var(--r-md);

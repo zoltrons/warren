@@ -416,13 +416,21 @@ export function menu(anchor: HTMLElement, label: string, items: MenuItem[], radi
   );
   document.body.append(el);
   openMenuEl = el;
-  const r = anchor.getBoundingClientRect();
-  el.style.top = `${Math.round(r.bottom + 6)}px`;
-  el.style.right = `${Math.round(Math.max(8, window.innerWidth - r.right))}px`;
   el.addEventListener("toggle", (e) => {
     if ((e as ToggleEvent).newState === "closed" && openMenuEl === el) openMenuEl = undefined;
   });
-  el.showPopover();
+  // The ARIA menu contract: arrows move between items (wrapping), Home/End jump; Escape is the popover's own.
+  el.addEventListener("keydown", (e) => {
+    const all = [...el.querySelectorAll<HTMLElement>(".menu-item")];
+    const at = all.indexOf(document.activeElement as HTMLElement);
+    const next = ({ ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: all.length - 1 } as Record<string, number>)[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    all[(next + all.length) % all.length]?.focus();
+  });
+  // `source` makes the button the menu's anchor: popup.css places it under the button and flips it above when it
+  // would not fit (CSS anchor positioning), so a menu near the bottom of the popup is not cut off.
+  el.showPopover({ source: anchor });
   // Keep keyboard users in the menu: focus its first item.
   (el.querySelector("[role=menuitem], [role=menuitemradio]") as HTMLElement | null)?.focus();
 }

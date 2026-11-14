@@ -2,7 +2,7 @@
 // Talks to the service worker only; the link (with its key fragment) is built there.
 import type { SendItem } from "../shared/messages.ts";
 import { ci } from "../shared/validate.ts";
-import { type Child, day, h, plural, send, sessionNow, t, withChevron } from "./dom.ts";
+import { type Child, day, h, plural, send, sessionNow, t, withChevron, switchOf } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { copy, type Ctx, iconButton, tile, toast } from "./vault-shared.ts";
 
@@ -255,7 +255,7 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
             h("input", { type: "file", class: "sr-only", "aria-label": t("sendFile"), onchange: (e: Event) => ((d.file = (e.target as HTMLInputElement).files?.[0]), ctx.rerender()) }),
           )
         : null,
-    d.kind === "text" ? h("label", { class: "row form-row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideText")), h("span", { class: "switch" }, hidden, h("span"))) : null,
+    d.kind === "text" ? h("label", { class: "row form-row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideText")), switchOf(hidden)) : null,
     field(
       "send-days",
       t("deleteAfter"),
@@ -269,11 +269,11 @@ function createView(ctx: Ctx, d: Draft): HTMLElement {
           { class: "row" },
           icon("lock"),
           h("div", { class: "body" }, h("span", { class: "title" }, t("removePassword")), h("span", { class: "sub wrap" }, t("removeSendPasswordHint"))),
-          h("span", { class: "switch" }, h("input", { type: "checkbox", checked: d.removePassword, "aria-label": t("removePassword"), onchange: (e: Event) => ((d.removePassword = (e.target as HTMLInputElement).checked), (d.password = ""), ctx.rerender()) }), h("span")),
+          switchOf(h("input", { type: "checkbox", checked: d.removePassword, "aria-label": t("removePassword"), onchange: (e: Event) => ((d.removePassword = (e.target as HTMLInputElement).checked), (d.password = ""), ctx.rerender()) })),
         )
       : null,
-    isNew ? h("label", { class: "row form-row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideEmail")), h("span", { class: "switch" }, hideEmail, h("span"))) : null,
-    isNew ? null : h("label", { class: "row" }, icon("lock"), h("div", { class: "body" }, t("disableSend")), h("span", { class: "switch" }, disabled, h("span"))),
+    isNew ? h("label", { class: "row form-row" }, icon("eyeOff"), h("div", { class: "body" }, t("hideEmail")), switchOf(hideEmail)) : null,
+    isNew ? null : h("label", { class: "row" }, icon("lock"), h("div", { class: "body" }, t("disableSend")), switchOf(disabled)),
     errorBox(),
     sd.busy ? h("div", { class: "progress" }) : null,
     h("button", { type: "submit", class: "btn filled wide", disabled: sd.busy }, t(isNew ? "createSendCopyLink" : "save")),

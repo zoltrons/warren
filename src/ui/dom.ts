@@ -118,6 +118,12 @@ export const inPanel = document.body.classList.contains("panel");
 
 export type Child = Node | string | false | null | undefined;
 
+/** A checkbox drawn as an on/off switch (`.switch` in popup.css); the role makes screen readers say "switch". */
+export function switchOf(input: HTMLInputElement): HTMLElement {
+  input.setAttribute("role", "switch");
+  return h("span", { class: "switch" }, input, h("span"));
+}
+
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   props: Record<string, unknown> = {},

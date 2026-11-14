@@ -1,6 +1,6 @@
 // Folders, organizations (collections, move to an org) and the security report.
 import type { BreachResults, SecurityReport, VaultItem } from "../shared/messages.ts";
-import { type Child, h, leave, rowOf, send, t, withChevron } from "./dom.ts";
+import { type Child, h, leave, rowOf, send, t, withChevron, switchOf } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { fetchRange } from "./pwned.ts";
 import { type Ctx, st, str, iconButton, errorBox, topBar, sectionTitle, progress, open } from "./vault-shared.ts";
@@ -26,9 +26,7 @@ export function collectionPicker(ctx: Ctx, orgId: string, chosen: string[]): HTM
         { class: "row check-card" },
         icon("folder"),
         h("div", { class: "body" }, h("span", { class: "title" }, c.name)),
-        h(
-          "span",
-          { class: "switch" },
+        switchOf(
           h("input", {
             type: "checkbox",
             checked: chosen.includes(c.id),
@@ -40,7 +38,6 @@ export function collectionPicker(ctx: Ctx, orgId: string, chosen: string[]): HTM
               ctx.rerender();
             },
           }),
-          h("span"),
         ),
       ),
     ),

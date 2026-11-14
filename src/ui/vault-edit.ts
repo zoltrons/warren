@@ -4,7 +4,7 @@ import { cardBrand, luhnValid } from "../shared/card.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import type { VaultList } from "../shared/messages.ts";
-import { type Child, chipRow, enter, h, inPanel, leave, rowOf, send, t, uiPref, withChevron } from "./dom.ts";
+import { type Child, chipRow, enter, h, inPanel, leave, rowOf, send, t, uiPref, withChevron, switchOf } from "./dom.ts";
 import { type GeneratorPick, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -529,12 +529,12 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
       : null,
     isNew && str(d.base.organizationId) ? collectionPicker(ctx, str(d.base.organizationId), d.collectionIds) : null,
     field("edit-folder", t("folder"), select(() => d.folderId, (v) => (d.folderId = v), [["", t("noFolder")], ...(st.list?.folders ?? []).map((f): [string, string] => [f.id, f.name])])),
-    h("label", { class: "row check-card" }, h("div", { class: "body" }, h("span", { class: "title" }, t("favorite"))), h("span", { class: "switch" }, fav, h("span"))),
+    h("label", { class: "row check-card" }, h("div", { class: "body" }, h("span", { class: "title" }, t("favorite"))), switchOf(fav)),
     h(
       "label",
       { class: "row check-card" },
       h("div", { class: "body" }, h("span", { class: "title" }, t("repromptToggle")), h("span", { class: "sub wrap" }, t("repromptToggleHint"))),
-      h("span", { class: "switch" }, h("input", { type: "checkbox", checked: d.reprompt, onchange: (e: Event) => (d.reprompt = (e.target as HTMLInputElement).checked) }), h("span")),
+      switchOf(h("input", { type: "checkbox", checked: d.reprompt, onchange: (e: Event) => (d.reprompt = (e.target as HTMLInputElement).checked) })),
     ),
     st.busy ? progress() : null,
     h("div", { class: "editor-footer" }, h("button", { type: "submit", class: "btn filled wide", disabled: st.busy }, icon("check"), t("save"))),

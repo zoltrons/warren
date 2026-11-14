@@ -136,6 +136,45 @@ await step("item view: reveal password, TOTP matches, hidden field, copy schedul
   await back();
 });
 
+await step("menus: anchored and flipped to fit, arrow keys; notes grow; switches are switches", async () => {
+  await rows().filter({ hasText: "GitHub" }).click();
+  await page.getByRole("heading", { name: "GitHub" }).waitFor();
+  // A popup just tall enough for the "More actions" button: the menu has no room below and must open above it.
+  const more = page.getByRole("button", { name: "More actions" }).first();
+  const b = (await more.boundingBox())!;
+  await page.setViewportSize({ width: 380, height: Math.round(b.y + b.height + 30) });
+  await more.click();
+  const m = page.getByRole("menu");
+  await m.waitFor();
+  const [top, bottom, vh] = await m.evaluate((e) => [e.getBoundingClientRect().top, e.getBoundingClientRect().bottom, innerHeight]);
+  assert.ok(top >= 0 && bottom <= vh, `menu ${top}-${bottom} outside the ${vh} px popup`);
+  assert.ok(bottom <= b.y, "the menu did not flip above its button");
+  const items = m.getByRole("menuitem");
+  const focused = () => page.evaluate(() => document.activeElement?.textContent ?? "");
+  assert.equal(await focused(), await items.first().textContent());
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await focused(), await items.nth(1).textContent());
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowUp"); // wraps to the last item
+  assert.equal(await focused(), await items.last().textContent());
+  await page.keyboard.press("Escape");
+  await m.waitFor({ state: "hidden" });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  // Notes grow with their text instead of scrolling inside a two-line box.
+  await page.getByRole("button", { name: "Edit" }).click();
+  const notes = page.getByLabel("Notes", { exact: true });
+  await notes.fill(Array.from({ length: 8 }, (_, i) => `line ${i}`).join("\n"));
+  const [scroll, client] = await notes.evaluate((e) => [e.scrollHeight, e.clientHeight]);
+  assert.ok(scroll <= client + 1, `notes scroll ${scroll} px inside a ${client} px box`);
+  await notes.fill("");
+  await open();
+  // Every on/off control is announced as a switch.
+  await page.getByRole("navigation").getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("switch").first().waitFor();
+  assert.equal(await page.locator(".switch input:not([role=switch])").count(), 0);
+  await open();
+});
+
 await step("card shown with masked number and editable", async () => {
   await rows().filter({ hasText: "Visa" }).click();
   await page.getByRole("heading", { name: "Visa" }).waitFor();
@@ -637,7 +676,7 @@ await step("organizations: create in a collection, move a personal item in, chan
   // Out of every collection is refused; the item keeps the one it has.
   await page.getByRole("button", { name: "Collections", exact: true }).click();
   await page.getByRole("heading", { name: "Collections" }).waitFor();
-  const eng = page.getByRole("group", { name: "Collections" }).getByRole("checkbox");
+  const eng = page.getByRole("group", { name: "Collections" }).getByRole("switch");
   assert.equal(await eng.isChecked(), true, "current collection not shown as chosen");
   await page.getByRole("group", { name: "Collections" }).getByText("Engineering").click();
   assert.equal(await eng.isChecked(), false);

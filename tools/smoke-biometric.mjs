@@ -90,7 +90,7 @@ try {
   });
 
   await page.getByRole("navigation").getByRole("button", { name: "Settings" }).click();
-  const toggle = page.getByRole("checkbox", { name: "Unlock with biometrics" });
+  const toggle = page.getByRole("switch", { name: "Unlock with biometrics" });
   // The setup is async (WebAuthn + wrapping), so click once instead of `check()`, which would
   // click again while the switch is still unchecked during the round trip.
   await toggle.click();

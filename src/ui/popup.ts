@@ -2,7 +2,7 @@
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, TWO_FACTOR, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
 import type { ExportFormat, LoginRequest, Request, Response, State } from "../shared/messages.ts";
 import { normalizeServerUrl } from "../shared/url.ts";
-import { applyTheme, type Child, h, inPanel, leave, motionOff, newSession, rowOf, savedTheme, send, sessionNow, setUiPref, t, THEMES, plural, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
+import { applyTheme, type Child, h, inPanel, leave, motionOff, newSession, rowOf, savedTheme, send, sessionNow, setUiPref, t, THEMES, plural, uiPref, when, withChevron, WIDTHS, wordsStartWith, switchOf } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvailable } from "./biometric.ts";
 import { passkeyRequestId, passkeyScreen, resetPasskey } from "./passkey.ts";
@@ -505,7 +505,7 @@ function twoFactorView(s: State): HTMLElement {
         })
       : null,
     supported.length
-      ? h("label", { class: "check check-card", for: "remember" }, h("div", { class: "body" }, t("rememberDevice")), h("span", { class: "switch" }, remember, h("span")))
+      ? h("label", { class: "check check-card", for: "remember" }, h("div", { class: "body" }, t("rememberDevice")), switchOf(remember))
       : null,
     errorBox(),
     busyBar(),
@@ -693,7 +693,7 @@ function settingsTab(s: State): HTMLElement {
       h("button", { type: "submit", class: "btn tonal small", disabled: ui.busy }, label),
     );
   const toggle = (label: string, checked: boolean, onchange: (box: HTMLInputElement) => void) =>
-    h("span", { class: "switch" }, h("input", { type: "checkbox", checked, "aria-label": label, onchange: (e: Event) => onchange(e.target as HTMLInputElement) }), h("span"));
+    switchOf(h("input", { type: "checkbox", checked, "aria-label": label, onchange: (e: Event) => onchange(e.target as HTMLInputElement) }));
   const defaultManager = (box: HTMLInputElement) => {
     if (!box.checked) return void act({ type: "setDefaultManager", enabled: false });
     // The optional "privacy" permission must be requested inside the click.
@@ -872,7 +872,7 @@ function settingsTab(s: State): HTMLElement {
           ),
         ),
       ),
-      row(t("lockOnSystemLock"), undefined, h("span", { class: "switch" }, sysLock, h("span"))),
+      row(t("lockOnSystemLock"), undefined, switchOf(sysLock)),
       row(
         t("unlockWithPin"),
         t("unlockWithPinHint"),

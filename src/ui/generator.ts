@@ -10,7 +10,7 @@ import {
   missingAliasFields,
 } from "../shared/alias.ts";
 import type { HistoryEntry } from "../shared/messages.ts";
-import { type Child, h, plural, send, t, when, withChevron } from "./dom.ts";
+import { type Child, h, plural, send, t, when, withChevron, switchOf } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
 import { startEdit, strengthBar } from "./vault-edit.ts";
@@ -324,7 +324,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       "label",
       { class: "row" },
       h("div", { class: "body" }, h("span", { class: "title" }, label)),
-      h("span", { class: "switch" }, h("input", { type: "checkbox", checked: g[k] === true, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).checked) }), h("span")),
+      switchOf(h("input", { type: "checkbox", checked: g[k] === true, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).checked) })),
     );
   const slider = (k: string, label: string, min: number, max: number) => {
     // A number box, not a label: typing 64 beats dragging to it.
@@ -559,7 +559,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
               "label",
               { class: "row" },
               h("div", { class: "body" }, h("span", { class: "title" }, t("aliasWebsitePrefix")), h("span", { class: "sub wrap" }, t("aliasWebsitePrefixHint"))),
-              h("span", { class: "switch" }, h("input", { type: "checkbox", checked: saved?.prefix === true, disabled: !saved, "aria-label": t("aliasWebsitePrefix"), onchange: (e: Event) => save({ prefix: (e.target as HTMLInputElement).checked }) }), h("span")),
+              switchOf(h("input", { type: "checkbox", checked: saved?.prefix === true, disabled: !saved, "aria-label": t("aliasWebsitePrefix"), onchange: (e: Event) => save({ prefix: (e.target as HTMLInputElement).checked }) })),
             )
           : null,
       ),
