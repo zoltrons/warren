@@ -86,7 +86,7 @@ file over 8 KiB gets a ceiling from its role.
 | Shared helpers | `src/shared/{csv,card,qr,search,strength,markdown,linked-fields,pageload,digest}.ts` | All unit-tested. |
 | Constants, server-facing ids | `src/shared/constants.ts` | `CLIENT_NAME`, `DEVICE_TYPE` stay Bitwarden's. |
 | UI shell, auth screens, settings | `src/ui/popup.ts` | |
-| Vault list, item view, editor | `src/ui/vault.ts` | The largest file (~2400 lines): search it, do not read all of it. |
+| Vault tab | `src/ui/vault.ts` picks the screen; `vault-list.ts` list, search, quick actions, "this site"; `vault-item.ts` item view and the per-type field `SCHEMA`; `vault-edit.ts` editor; `vault-tools.ts` folders, organizations, security report; `vault-shared.ts` the shared state `st`, toast, popover menu, list loading | Each 250-800 lines. Cross-file state goes through `st` or a setter (`setCurrentCtx`, `timers`): a module never assigns another module's variable. |
 | Generator, Send, biometric setup | `src/ui/generator.ts`, `send.ts`, `biometric.ts` | |
 | DOM helper, messaging, i18n | `src/ui/dom.ts` (`h`, `send`, `t`, `enter`/`leave` row motion) | No `innerHTML` (invariant 12). |
 | Screen motion | `src/ui/motion.ts` (`navMotion`), `render` in `popup.ts` | View transitions; locks never animate (invariant 8b). |
@@ -228,7 +228,7 @@ Write `docker run … image:tag@sha256:<digest>`. Renovate's regex only updates 
 - An e2e group that runs alone must not lean on state from a group it does not import: start it with
   `ensureSignedIn()`, or import the group that makes the fixture. Check with `verify e2e --only <group>`.
 - Locally the e2e `sso` group is skipped when the mock IdP is down (`up.sh` warns); in CI (`CI=true`) a skip fails.
-- `src/ui/vault.ts`, `docs/SECURITY.md` and `tests/e2e/inline.ts` are long: search them, read only the part you need.
+- `docs/SECURITY.md` and `tests/e2e/inline.ts` are long: search them, read only the part you need.
 - The shell is zsh: an unquoted glob such as `--include=*.ts` fails with "no matches found"; quote it or use `rg -g`.
 - A screen change in the popup lands a frame later (view transition): code that reads the new screen's DOM right
   after `open()`/`goto()` must run in `ctx.afterRender()`.

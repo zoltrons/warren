@@ -3,7 +3,7 @@
 import type { MenuData } from "../shared/messages.ts";
 import { guardClicks, h, send as ask, t } from "./dom.ts";
 import { icon } from "./icons.ts";
-import { tile } from "./vault.ts";
+import { tile } from "./vault-shared.ts";
 
 const app = document.getElementById("app")!;
 /** The secret of the document that opened this menu (see content.ts); the worker checks it. */

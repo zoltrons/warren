@@ -4,7 +4,7 @@ import type { SendItem } from "../shared/messages.ts";
 import { ci } from "../shared/validate.ts";
 import { type Child, day, h, plural, send, sessionNow, t, withChevron } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
-import { copy, type Ctx, iconButton, tile, toast } from "./vault.ts";
+import { copy, type Ctx, iconButton, tile, toast } from "./vault-shared.ts";
 
 const DELETION_DAYS = [1, 2, 3, 7, 14, 30] as const;
 const MAX_FILE_BYTES = 25 * 1024 * 1024; // keep in sync with MAX_SEND_FILE_BYTES in background/vault.ts

@@ -10,7 +10,9 @@ import { resetSend, sendScreen, startTextSend } from "./send.ts";
 import { generatorScreen } from "./generator.ts";
 import { navMotion } from "./motion.ts";
 import { loadCommonWords } from "../shared/strength.ts";
-import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, reloadList, resetVault, setIconBase, setRecentShown, toastEl, uriMatchLabel, vaultRouteKey, vaultScreen } from "./vault.ts";
+import { vaultScreen } from "./vault.ts";
+import { uriMatchLabel } from "./vault-edit.ts";
+import { clearOpened, type Ctx, hasOpened, iconButton, recentShown, refreshPageMatches, reloadList, resetVault, setIconBase, setRecentShown, toastEl, vaultRouteKey } from "./vault-shared.ts";
 
 // ---------- state ----------
 

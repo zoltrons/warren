@@ -3,7 +3,7 @@
 // firefox-relay,forward-email}.ts, pinned in upstream.lock).
 //
 // Pure functions only: no network, no storage. The fetch lives in background/alias.ts, the UI in
-// ui/vault.ts; both go through these builders so what we send matches upstream exactly.
+// ui/generator.ts; both go through these builders so what we send matches upstream exactly.
 import { isLoopback } from "./url.ts";
 
 export const ALIAS_VENDORS = ["simplelogin", "addyio", "duckduckgo", "fastmail", "firefox", "forwardemail"] as const;

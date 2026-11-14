@@ -13,7 +13,9 @@ import type { HistoryEntry } from "../shared/messages.ts";
 import { type Child, h, plural, send, t, when, withChevron } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
-import { actionRow, colorize, copy, copyButton, type Ctx, iconButton, sectionTitle, startEdit, strength, strengthBar, topBar } from "./vault.ts";
+import { startEdit, strengthBar } from "./vault-edit.ts";
+import { actionRow, strength } from "./vault-item.ts";
+import { colorize, copy, copyButton, type Ctx, iconButton, sectionTitle, topBar } from "./vault-shared.ts";
 
 type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : "");

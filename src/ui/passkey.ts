@@ -4,7 +4,7 @@ import type { PasskeyCandidate, PasskeyPrompt } from "../shared/messages.ts";
 import { getBiometricPrf } from "./biometric.ts";
 import { h, send, t } from "./dom.ts";
 import { icon } from "./icons.ts";
-import { type Ctx, tile } from "./vault.ts";
+import { type Ctx, tile } from "./vault-shared.ts";
 
 export const passkeyRequestId = new URLSearchParams(location.search).get("passkey");
 
