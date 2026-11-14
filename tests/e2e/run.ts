@@ -9,7 +9,7 @@
 // ensureSignedIn(). Shared fixtures, the browser and the test site live in harness.ts.
 import { rmSync } from "node:fs";
 
-const GROUPS = ["auth", "webauthn", "send", "vault", "autofill", "inline", "passkeys", "sso"];
+const GROUPS = ["auth", "webauthn", "send", "vault", "autofill", "inline", "passkeys", "vectors", "sso"];
 const at = process.argv.indexOf("--only");
 const only = at > 0 ? (process.argv[at + 1] ?? "").split(",").filter(Boolean) : GROUPS;
 const unknown = only.filter((g) => !GROUPS.includes(g));

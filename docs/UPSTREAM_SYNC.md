@@ -20,5 +20,6 @@ Status: pins, map, report tool and weekly report job exist; pin bumps come as Re
 ## Contract tests
 
 * (a) `crates/core-wasm/tests/vectors.rs` against sdk-internal `test-vectors/` — implemented.
-* (b) Vaultwarden end-to-end (`tests/e2e/run.ts`) plus the
-  official `bw` CLI decrypting what we wrote and vice versa — to do.
+* (b) Vaultwarden end-to-end (`tests/e2e/`), including the `vectors` group: sdk-internal's V1 password accounts are
+  registered as they are and their vaults uploaded through Vaultwarden, then Warren logs in and decrypts them —
+  implemented. The official `bw` CLI decrypting what we wrote — to do.

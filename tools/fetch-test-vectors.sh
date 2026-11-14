@@ -8,6 +8,8 @@ rev=$(awk '/^\[sdk-internal\]/{s=1} s&&/^rev/{gsub(/"/,"",$3); print $3; exit}' 
 out=target/test-vectors
 rm -rf "$out" && mkdir -p "$out"
 gh api "repos/bitwarden/sdk-internal/tarball/$rev" > target/sdk-internal.tar.gz
-tar -xzf target/sdk-internal.tar.gz -C "$out" --strip-components=2 --wildcards '*/test-vectors/*'
+# GNU tar (CI) needs --wildcards for the pattern; macOS bsdtar matches patterns by default and rejects the flag.
+wild=$(tar --version | grep -q GNU && echo --wildcards || true)
+tar -xzf target/sdk-internal.tar.gz -C "$out" --strip-components=2 $wild '*/test-vectors/*'
 rm target/sdk-internal.tar.gz
 echo "test vectors @ $rev -> $out"; ls "$out"
