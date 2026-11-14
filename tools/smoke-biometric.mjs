@@ -18,7 +18,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright-core";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const ext = join(root, "dist/ext");
+const ext = join(root, "dist/ext-e2e");
 const wasmDir = join(root, "dist/wasm-register");
 const email = "biometric-smoke@example.test";
 const password = "correct horse battery staple";

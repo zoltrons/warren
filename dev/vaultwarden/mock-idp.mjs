@@ -1,13 +1,13 @@
 // Minimal OpenID Connect provider for the SSO e2e test. Test-only, no dependencies.
 // It signs in whoever the test names: POST /_next {"email": "..."} sets the identity for the next
 // /authorize, which redirects straight back with a code (no login page).
-// Runs in Vaultwarden's network namespace (docker-compose.yml), so http://localhost:9090 is the same
-// issuer for the server and for the browser.
+// The issuer is the address the request came to: http://localhost:9090 with docker compose (it shares Vaultwarden's
+// network namespace), the IdP container's own address with Apple `container` (up.sh). Either way the server and the
+// browser use the same one, so the discovery document, the redirects and the token's iss agree.
 import { createSign, generateKeyPairSync, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 
 const PORT = 9090;
-const ISSUER = `http://localhost:${PORT}`;
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "k1", use: "sig", alg: "RS256" };
 const codes = new Map(); // code -> { email, nonce, clientId }
@@ -26,6 +26,7 @@ const json = (res, status, body) => {
 };
 
 createServer(async (req, res) => {
+  const ISSUER = `http://${req.headers.host ?? `localhost:${PORT}`}`;
   const url = new URL(req.url, ISSUER);
   let body = "";
   for await (const chunk of req) body += chunk;
@@ -75,4 +76,4 @@ createServer(async (req, res) => {
     default:
       return json(res, 404, { error: "not_found" });
   }
-}).listen(PORT, () => console.log(`mock IdP on ${ISSUER}`));
+}).listen(PORT, () => console.log(`mock IdP on :${PORT}`));

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
-// Builds the extension into dist/ext. Run tools/build-wasm.sh first (dist/wasm).
+// Builds the extension into dist/ext (dist/ext-e2e with --e2e). Run tools/build-wasm.sh first (dist/wasm).
 //   node tools/build.mjs [--watch] [--dev] [--e2e]
-// --e2e compiles in the test-only hooks. Never use it for a release build.
+// --e2e compiles in the test-only hooks, into its own folder so dist/ext always stays a real build.
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const out = join(root, "dist/ext");
 const args = process.argv.slice(2);
 const watch = args.includes("--watch");
 const dev = args.includes("--dev") || watch;
 const e2e = args.includes("--e2e");
+const out = join(root, e2e ? "dist/ext-e2e" : "dist/ext");
 
 const wasmDir = join(root, "dist/wasm");
 if (!existsSync(join(wasmDir, "core_wasm_bg.wasm"))) {
