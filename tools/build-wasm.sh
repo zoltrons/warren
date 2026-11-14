@@ -6,6 +6,8 @@
 # wasm-opt (binaryen). Override binaries with WASM_BINDGEN / WASM_OPT.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# A Homebrew cargo/rustc earlier on PATH has no wasm target: use the rustup toolchain rust-toolchain.toml names.
+if command -v rustup >/dev/null; then PATH="$(dirname "$(rustup which cargo)"):${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"; fi
 
 FEATURES=""
 OUT="dist/wasm"

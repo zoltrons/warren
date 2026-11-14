@@ -15,7 +15,7 @@ wrong, fix it in the same change (see [Keeping this map true](#keeping-this-map-
 | Languages | TypeScript (no framework, esbuild) + Rust compiled to WASM (crypto core, autofill engine). |
 | Where do keys live? | Only in the offscreen worker (`src/offscreen/worker.ts` → `crates/core-wasm`). Never in the service worker, the UI or `storage.*` as plaintext. |
 | Where are messages defined? | `src/shared/messages.ts`: every type, its validator and its size caps. |
-| Fast proof for most changes | `npm run check` (typecheck + unit tests + contrast). |
+| Fast proof for most changes | `npm run check` (typecheck + unit tests + contrast). Everything else: `node tools/verify.mjs <stage>` (section 4). |
 | What must never break? | The numbered invariants in `docs/SECURITY.md`, the size budget, Vaultwarden compatibility. |
 | Browser | Helium, never Chrome (`~/Applications/Helium.app`). |
 
@@ -37,7 +37,7 @@ wrong, fix it in the same change (see [Keeping this map true](#keeping-this-map-
 | SSO callback | `src/autofill/sso-callback.ts` | `sso-callback.js` | iife | no | background |
 
 A new bundle has to be added in two places: the `entryPoints` in `tools/build.mjs` and a budget in
-`tools/size-budget.json` (`npm run size` checks every file listed there). Every shipped code or data file over 8 KiB has a budget
+`tools/size-budget.json` (`node tools/verify.mjs size` checks every file listed there). Every shipped code or data file over 8 KiB has a budget
 (LICENSE and NOTICE excepted).
 Budgets catch accidents (a stray dependency, a module bundled twice, data inlined by mistake), not normal feature
 growth: each is about twice the size at 0.0.14, so features fit without touching them. Released zip at 0.0.14:
@@ -113,11 +113,13 @@ file over 8 KiB gets a ceiling from its role.
 
 | Path | What |
 |---|---|
-| `tools/build.mjs` | Extension bundle → `dist/ext` (`--e2e` adds test hooks and grants optional permissions; `--watch`). |
-| `tools/build-wasm.sh` | Both WASM modules → `dist/wasm` (`--simd`; `--features register --out dist/wasm-register` for the biometric smoke). |
+| `tools/verify.mjs` | **The one entry point for every check**, locally and in CI: stages `quick` (default), `rust`, `ext`, `lint`, `e2e`, `push`, `all`, or single tasks. Puts the rustup toolchain and Helium (`CHROME_PATH`) in front for every child, fetches the PSL and test vectors once. |
+| `tools/release.sh` | `bash tools/release.sh X.Y.Z`: waits for green `ci` on main's HEAD, signs the tag with the CHANGELOG section, verifies and pushes it. |
+| `tools/build.mjs` | Extension bundle → `dist/ext`; `--e2e` (test hooks, optional permissions granted) builds into `dist/ext-e2e`, so `dist/ext` is always a real build; `--watch`. |
+| `tools/build-wasm.sh` | Both WASM modules → `dist/wasm` (`--simd`; `--features register --out dist/wasm-register` for the biometric smoke and e2e). Uses the rustup toolchain even when a Homebrew cargo is first on PATH. |
 | `tools/fetch-psl.mjs` | Downloads the Public Suffix List once (needed before typecheck and build). |
-| `tools/fetch-test-vectors.sh` | sdk-internal test vectors → `target/test-vectors`. |
-| `tools/size-report.mjs`, `size-budget.json` | Size report; fails over budget. |
+| `tools/fetch-test-vectors.sh` | sdk-internal test vectors → `target/test-vectors` (GNU tar or macOS bsdtar). Used by `crates/core-wasm/tests/vectors.rs` and the e2e `vectors` group. |
+| `tools/size-report.mjs`, `size-budget.json` | Size report; fails over budget and says by how much. |
 | `tools/check-contrast.mjs` | WCAG contrast of every token pair, both themes. |
 | `tools/smoke-fill.mjs`, `smoke-passkeys.mjs`, `smoke-biometric.mjs` | Browser smoke tests without a server (`HEADED=1` to watch). |
 | `tools/mutate.mjs` | Mutation check for SECURITY.md invariants (docs/VERIFICATION.md). |
@@ -127,9 +129,9 @@ file over 8 KiB gets a ceiling from its role.
 | `tools/common-words.mjs` | Builds `src/shared/common-words.json` (base words of the 10 000 most common passwords) for the strength check. |
 | `tools/sync-upstream.mjs` | Read-only diff report of upstream since the pins. |
 | `tools/pack-crx.mjs`, `verify-tag.sh` | Release signing and tag verification. |
-| `dev/vaultwarden/` | Local Vaultwarden (latest) + mock IdP + test users, for e2e. |
-| `dev/preview/` | Renders popup/menu/bar against a stubbed worker (`stub.ts`) for screenshots and UI audits. |
-| `tests/e2e/run.ts` | The e2e suite against Vaultwarden: one file of ~100 `await step("…", …)` blocks, run in order. |
+| `dev/vaultwarden/` | Local Vaultwarden (latest) + mock IdP for e2e. `up.sh` starts both with docker compose or Apple `container` (recreated each run, `--pull` for a newer latest). |
+| `dev/preview/` | Renders popup/menu/bar against a stubbed worker (`stub.ts`) for screenshots and UI audits (`shot.mjs --only <scene,...>` for one screen). |
+| `tests/e2e/` | The e2e suite against Vaultwarden. `run.ts` runs the groups in order (`--only` picks some); `harness.ts` holds the browser, the test site, fixtures (`register`, `apiSession`, `ensureSignedIn`) and `step`. One module per group: `auth`, `webauthn`, `send`, `vault`, `autofill`, `inline`, `passkeys`, `vectors`, `sso`. A group imports the groups whose fixtures it uses (ESM runs those first); the others start with `ensureSignedIn()`. |
 | `src/**/*.test.ts` | Unit tests (`node --test`, type stripping, no `@types/node`). They sit next to the module they test. |
 
 ## 3. How to make a change
@@ -162,7 +164,7 @@ file over 8 KiB gets a ceiling from its role.
 2. Add a `case` in `src/offscreen/worker.ts`.
 3. Write the function in `crates/core-wasm/src/api.rs` and export it in `lib.rs`.
 4. Call it from the service worker through `coreCall` (`src/background/core.ts`).
-5. `npm run build:wasm`, then `cargo test -p warren-core-wasm` with the test vectors, then `npm run size`.
+5. `node tools/verify.mjs wasm vectors size` (and `e2e --only vectors` if the change touches what a vault decrypts to).
 6. A check that needs no secrets uses `cipherSummary`, not `getCipher`.
 
 **New page ↔ extension message**
@@ -174,7 +176,7 @@ Frame requests carry the nonce or token (invariant 4).
 1. Rules and weights: `crates/autofill-clue`; pass order and decisions: `crates/autofill-resolver/src/pass/*`; the fill
    plan: `crates/autofill-fill`.
 2. `cargo test -p autofill-…` for the crates you touched (the full list is in the CLAUDE.md commands table).
-3. `npm run build:wasm && npm run build && npm run test:fill`. Add a fixture page to `tools/smoke-fill.mjs` for the
+3. `node tools/verify.mjs wasm build fill`. Add a fixture page to `tools/smoke-fill.mjs` for the
    site shape you fixed.
 4. The engine never receives a value or a key. Page details are capped in `parsePageDetails`.
 
@@ -184,8 +186,8 @@ Frame requests carry the nonce or token (invariant 4).
 3. Colors: add or reuse a token in `src/ui/popup.css`, in the light block and in **both** dark blocks, then
    `npm run check` (contrast).
 4. Icons: add a Lucide glyph to `src/ui/icons.ts` (ISC; keep the credit in NOTICE).
-5. Look at it: `node dev/preview/build.mjs && node dev/preview/shot.mjs` (stubbed, no server), or load `dist/ext` in
-   Helium.
+5. Look at it: `node dev/preview/build.mjs && node dev/preview/shot.mjs [dir] --only <scene>` (stubbed, no server), or
+   load `dist/ext` in Helium.
 6. If the screenshots in `docs/screenshots/` show the changed screen, regenerate them.
 
 **New permission**
@@ -197,7 +199,7 @@ optional, `--e2e` builds grant it: check that the e2e suite still covers the pat
 2. Server-supplied URLs stay on the configured server; `http` only for loopback (invariant 7).
 3. Record the quirk in `docs/COMPATIBILITY.md` under the Vaultwarden version it was verified on, and say how
    (e2e, source reading).
-4. Add or extend an e2e `step` in `tests/e2e/run.ts`.
+4. Add or extend an e2e `step` in the matching group of `tests/e2e/`, then `node tools/verify.mjs e2e --only <group>`.
 
 **Dependency change**
 No new dependency without a written reason (CLAUDE.md). Versions are pinned (`rangeStrategy: pin`); Renovate
@@ -221,30 +223,37 @@ Write `docker run … image:tag@sha256:<digest>`. Renovate's regex only updates 
 - `tools/mutate.mjs` finds its targets by exact text. Edit or move one of those lines and its mutant stops matching:
   update the search string in the same change, then run `node tools/mutate.mjs <id>`.
 - `dev/preview/stub.ts` hard-codes the version and the request types the preview needs.
-- `npm run test:biometric` leaves an `--e2e` build in `dist/ext`: run `npm run build` again before loading it by hand.
-- A Homebrew `cargo` ahead of rustup on PATH breaks the wasm build: put `~/.cargo/bin` first.
-- `src/ui/vault.ts`, `tests/e2e/run.ts` and `docs/SECURITY.md` are long: search them, read only the part you need.
+- Run Rust and browser checks through `tools/verify.mjs`: a bare `cargo` may be Homebrew's (no wasm target) and a bare
+  Playwright launch is not Helium.
+- An e2e group that runs alone must not lean on state from a group it does not import: start it with
+  `ensureSignedIn()`, or import the group that makes the fixture. Check with `verify e2e --only <group>`.
+- Locally the e2e `sso` group is skipped when the mock IdP is down (`up.sh` warns); in CI (`CI=true`) a skip fails.
+- `src/ui/vault.ts`, `docs/SECURITY.md` and `tests/e2e/inline.ts` are long: search them, read only the part you need.
+- The shell is zsh: an unquoted glob such as `--include=*.ts` fails with "no matches found"; quote it or use `rg -g`.
 - A screen change in the popup lands a frame later (view transition): code that reads the new screen's DOM right
   after `open()`/`goto()` must run in `ctx.afterRender()`.
 
 ## 4. Which proof to run
 
+Every row is a `node tools/verify.mjs …` call; CI runs the same tasks (`ci.yml`: `rust`, `wasm quick ext`, `e2e`, and
+the container lint that `lint` runs locally). Before a push, `node tools/verify.mjs push` runs everything CI gates.
+
 | Changed | Run |
 |---|---|
 | TS outside autofill/crypto, docs-adjacent code | `npm run check` |
 | `src/ui/popup.css` tokens | `npm run check` (contrast is part of it) |
-| `src/autofill/*`, `crates/autofill-*` | `cargo test -p <crate>`, `npm run build:wasm && npm run build && npm run test:fill` |
-| `crates/core-wasm` | `bash tools/fetch-test-vectors.sh && WARREN_TEST_VECTORS=target/test-vectors cargo test -p warren-core-wasm`, `npm run size` |
-| Passkeys | `npm run test:passkeys` (+ `fido2.test.ts`) |
-| Biometric unlock | `npm run test:biometric` |
-| Transport, account, sync, server behavior | e2e: start Vaultwarden, `node tools/build.mjs --e2e`, `npm run test:e2e` |
+| `src/autofill/*`, `crates/autofill-*` | `verify autofill wasm build fill` |
+| `crates/core-wasm` | `verify wasm vectors size`, plus `e2e --only vectors` |
+| Passkeys | `verify passkeys` (+ `fido2.test.ts`), `e2e --only passkeys` |
+| Biometric unlock | `verify biometric` |
+| Transport, account, sync, server behavior | `bash dev/vaultwarden/up.sh`, then `verify e2e --only <group>`; the whole suite before a push that touches them |
 | A security check | its unit test + `node tools/mutate.mjs <id>` |
-| Anything that grows a bundle | `npm run build && npm run size` |
-| Rust style | `cargo fmt --check && cargo clippy --all-targets -- -D warnings` (CI runs both) |
-| Workflows | CI runs actionlint and zizmor; keep `permissions: {}` at the top and per-job least privilege |
+| Anything that grows a bundle | `verify build size` |
+| Rust style | `verify fmt clippy` |
+| Workflows | `verify lint` (actionlint, zizmor, gitleaks in ci.yml's images); keep `permissions: {}` at the top and per-job least privilege |
 
-CI (`.github/workflows/ci.yml`) runs all of these on every PR. Only the `ci` fan-in job is required: a new job must be
-added to its `needs`.
+Only the `ci` fan-in job is required: a new job must be added to its `needs`. A new check goes into
+`tools/verify.mjs` as a task, and ci.yml calls it there, so local and CI runs stay the same.
 
 ## 5. Reflecting code in the docs
 
@@ -286,9 +295,11 @@ effect; mention a new permission or dependency explicitly.
 `version` fields), `dev/preview/stub.ts` (`getManifest`), and the dated `## X.Y.Z — YYYY-MM-DD` section in
 `CHANGELOG.md`.
 
-**Release.** Done by the owner, not by an agent: a signed, annotated tag whose message is the version's CHANGELOG
-section (`git tag -s vX.Y.Z --cleanup=verbatim -F notes.md`, checked with `bash tools/verify-tag.sh vX.Y.Z`). The tag
-has to be on `main` with a green `ci`. Never touch `CRX_KEY` or the extension id. Details in `docs/UPDATES.md`.
+**Release.** Only when the owner asks. After the `Version X.Y.Z` commit is pushed to `main`:
+`bash tools/release.sh X.Y.Z`. It waits for that commit's `ci` run, stops if it is red, then makes the signed,
+annotated tag whose message is the version's CHANGELOG section, checks it with `tools/verify-tag.sh` and pushes it.
+Run `node tools/verify.mjs push` before pushing the version commit, so the wait does not end red. Never touch
+`CRX_KEY` or the extension id. Details in `docs/UPDATES.md`.
 
 ## 7. Never
 

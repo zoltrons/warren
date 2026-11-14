@@ -712,7 +712,7 @@ await step("generator history: copied values listed, encrypted at rest, clearabl
   await page.getByRole("button", { name: "Back" }).click();
 });
 
-// Design review screenshots (not assertions): SHOTS=<dir> node --experimental-strip-types tests/e2e/run.ts --only vault
+// Design review screenshots (not assertions): SHOTS=<dir> node tools/verify.mjs e2e --only vault
 if (process.env.SHOTS) {
   for (const scheme of ["dark", "light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });

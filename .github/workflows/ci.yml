@@ -49,12 +49,9 @@ jobs:
         run: |
           rev=$(awk '/^\[sdk-internal\]/{s=1} s&&/^rev/{gsub(/"/,"",$3); print $3; exit}' upstream.lock)
           test "$(grep -c "rev = \"$rev\"" crates/core-wasm/Cargo.toml)" -ge 1
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: bash tools/fetch-test-vectors.sh
+      # Same command as locally (tools/verify.mjs): fmt, clippy, crypto test vectors, autofill engine tests.
+      - run: node tools/verify.mjs rust
         env: { GH_TOKEN: "${{ github.token }}" }
-      - run: WARREN_TEST_VECTORS=target/test-vectors cargo test -p warren-core-wasm
-      - run: cargo test -p autofill-designation -p autofill-cpd -p autofill-clue -p autofill-autocomplete-off -p autofill-resolver -p autofill-autosubmit -p autofill-fill
 
   # RustSec / npm advisories can go red on an unchanged tree when a new advisory lands, so this
   # job stays out of the `ci` gate: it warns, it does not block merges.
@@ -86,23 +83,11 @@ jobs:
       - run: cargo install wasm-bindgen-cli --version "$(sed -n 's/^wasm-bindgen = "\(.*\)".*/\1/p' upstream.lock)" --locked
       # binaryen (wasm-opt) comes from package-lock.json, integrity-checked like every other tool.
       - run: npm ci && echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: bash tools/build-wasm.sh --simd
-      - run: node tools/fetch-psl.mjs && npm run typecheck
-      - name: unit tests with coverage
-        run: npm run test:coverage
-      - run: npm run build
-      - name: size report (fails over budget)
-        shell: bash # explicit bash adds pipefail, so tee does not hide a budget failure
-        run: npm run size | tee -a "$GITHUB_STEP_SUMMARY"
       - run: npx playwright-core install --with-deps chromium
-      - name: autofill field-detection smoke test (no server)
-        run: npm run test:fill
-      - name: biometric smoke test (virtual PRF authenticator, no server)
-        run: |
-          bash tools/build-wasm.sh --features register --out dist/wasm-register
-          npm run test:biometric
-      # test:biometric left an --e2e build (test hooks, optional permissions granted) in dist/ext: upload a real one.
-      - run: npm run build
+      # Same command as locally (tools/verify.mjs): wasm, typecheck, unit tests (with coverage), contrast, build, size
+      # budget (into the step summary), fill/biometric/passkey smoke tests. The e2e builds go to dist/ext-e2e, so the
+      # dist/ext uploaded below is a real build.
+      - run: node tools/verify.mjs wasm quick ext --coverage
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: coverage, path: coverage/lcov.info }
       # The unpacked build of this exact commit, for sideloading when reviewing a PR.
@@ -126,13 +111,12 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version-file: .nvmrc, cache: npm }
       - run: npm ci && npx playwright-core install --with-deps chromium
-      - run: docker compose -f dev/vaultwarden/docker-compose.yml up -d --wait
+      - run: bash dev/vaultwarden/up.sh
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: wasm, path: dist }
-      - run: node tools/fetch-psl.mjs && node tools/build.mjs --e2e
-      - run: bash tools/fetch-test-vectors.sh # the "vectors" group
+      # Same command as locally (tools/verify.mjs): test vectors, dist/ext-e2e, every e2e group.
+      - run: node tools/verify.mjs e2e
         env: { GH_TOKEN: "${{ github.token }}" }
-      - run: npm run test:e2e
       - name: vaultwarden logs
         if: failure()
         run: docker compose -f dev/vaultwarden/docker-compose.yml logs --no-color --tail 200

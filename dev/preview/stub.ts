@@ -1,5 +1,5 @@
 // Preview-only Chrome API stub so the popup/menu/bar UI can be rendered in a plain page
-// (no extension host, no Vaultwarden). Used by `npm run preview`; never shipped.
+// (no extension host, no Vaultwarden). Used by dev/preview/build.mjs; never shipped.
 import messages from "../../src/_locales/en/messages.json";
 import type { MenuData, PageMatches, Request, Response, State, VaultItem, VaultList } from "../../src/shared/messages.ts";
 

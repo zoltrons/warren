@@ -7,7 +7,7 @@
 //  3. Locks, unlocks with the biometric PRF output, and checks that logout removes the wrapped key.
 //
 // The wrap/unwrap primitive itself is also covered by `cargo test -p warren-core-wasm`.
-//   node tools/build.mjs --e2e && node tools/smoke-biometric.mjs
+//   node tools/verify.mjs biometric   (builds dist/ext-e2e, then runs this)
 // Needs dist/wasm-register (tools/build-wasm.sh --features register --out dist/wasm-register).
 // CHROME_PATH=... to use a specific Chromium 156+ build.
 import assert from "node:assert/strict";

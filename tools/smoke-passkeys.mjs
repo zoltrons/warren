@@ -3,7 +3,7 @@
 // always-on wiring (registered content scripts, the navigator.credentials shim, the advertised
 // authenticator, conditional mediation + AbortSignal, the approval window for a plain get, and a clean
 // console). Full passkey round trips need Vaultwarden: see tests/e2e/run.ts.
-//   node tools/build.mjs   (after tools/build-wasm.sh)
+//   node tools/verify.mjs passkeys   (after the build task)
 //   node tools/smoke-passkeys.mjs        HEADED=1 to watch it
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";

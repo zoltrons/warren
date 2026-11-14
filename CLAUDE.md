@@ -8,17 +8,21 @@ change must update, commit/changelog/version rules): **`docs/AGENT_MAP.md`**, re
 
 ## Commands
 
+Every check goes through **`node tools/verify.mjs`** (CI runs the same stages). It picks the rustup toolchain and
+Helium itself, fetches the PSL and test vectors once, times each task and stops at the first failure.
+
 | Task | Command |
 |---|---|
-| Fast loop: types, unit tests (`src/**/*.test.ts`), contrast | `npm run check` (enough for most changes) |
-| WASM (rustup toolchain first on PATH, wasm-bindgen-cli = `upstream.lock`, binaryen) | `npm run build:wasm` |
-| Extension → `dist/ext` | `node tools/fetch-psl.mjs` (once), `npm run build`, `npm run size` |
-| Rust crypto tests | `bash tools/fetch-test-vectors.sh && WARREN_TEST_VECTORS=target/test-vectors cargo test -p warren-core-wasm` |
-| Autofill engine tests | `cargo test -p autofill-designation -p autofill-cpd -p autofill-clue -p autofill-autocomplete-off -p autofill-resolver -p autofill-autosubmit -p autofill-fill` |
-| Smoke, no server | `npm run test:fill` / `test:passkeys` / `test:biometric` |
-| e2e vs. Vaultwarden **latest** (only supported release) on :8080 | `docker compose -f dev/vaultwarden/docker-compose.yml up -d --wait`, `node tools/build.mjs --e2e`, `npm run test:e2e` |
-| UI screenshots, stubbed worker | `node dev/preview/build.mjs && node dev/preview/shot.mjs` |
+| After every change: types, unit tests (`src/**/*.test.ts`), contrast (~10 s) | `npm run check` (= `node tools/verify.mjs`) |
+| Before every push: all CI gates (wasm, rust, build, size, smoke tests, workflow/secret lint) | `node tools/verify.mjs push` |
+| e2e vs. Vaultwarden **latest** (only supported release) + mock IdP | `bash dev/vaultwarden/up.sh` (docker or Apple `container`), then `node tools/verify.mjs e2e [--only vault,inline]` |
+| One task | `node tools/verify.mjs <task>`: `fmt clippy vectors autofill wasm build size fill biometric passkeys lint e2e` |
+| Release, once the `Version X.Y.Z` commit is on main | `bash tools/release.sh X.Y.Z` (waits for green ci, signs, pushes the tag) |
+| UI screenshots, stubbed worker | `node dev/preview/build.mjs && node dev/preview/shot.mjs [dir] [--only list,menu]` |
 | Icons from `brand/icon.svg` + `brand/wordmark.svg` | `node tools/icons.mjs [--sheet out.png]` |
+
+e2e groups (`tests/e2e/<group>.ts`, in order): `auth webauthn send vault autofill inline passkeys vectors sso`; a group
+imports the groups it builds on, so `--only inline` also runs `vault` and `autofill`.
 
 ## Layout
 
@@ -68,8 +72,11 @@ page.js/content.js --CollectedPageDetails--> background/engine.ts --> crates/aut
 - Validate everything crossing a trust boundary (`messages.ts`); cap page-controlled sizes.
 - Server-supplied URLs stay on the configured server; http only for loopback.
 - Lock only through `lockNow()`. The autofill engine never sees a value or a key (`background/engine.ts`).
-- `npm run size` budget (`tools/size-budget.json`); no new dependencies without cause.
+- Size budget (`tools/size-budget.json`, `verify size`); no new dependencies without cause.
 - Vaultwarden mixes PascalCase/camelCase JSON: read with the `ci` helpers.
 - Server-facing ids stay Bitwarden's: `Bitwarden-Client-*` headers, `CLIENT_NAME`, `DEVICE_TYPE` (constants.ts).
+- The shell is zsh: quote globs (`grep --include='*.ts'`) or use `rg -g '*.ts'`. Edit files with the editor tool, not
+  `sed -i` (BSD sed on macOS).
+- A score or "until X" goal moves only with a proof: name the test, step or measurement behind each point.
 - License GPL-3.0-only (`LICENSE`, `NOTICE`, docs/LICENSING.md). Other password managers are idea references only: never copy
   their code, text or assets.

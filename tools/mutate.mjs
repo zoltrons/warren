@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const unit = "npm test";
-const fill = "npm run test:fill";
+const fill = "node tools/verify.mjs fill";
 const preview = "node dev/preview/build.mjs && node dev/preview/shot.mjs";
 const M = [
   // 7a guardKdf

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Screenshots the preview in both themes with Playwright's WebKit.
-//   node dev/preview/build.mjs && node dev/preview/shot.mjs [outDir]
+//   node dev/preview/build.mjs && node dev/preview/shot.mjs [outDir] [--only list,item,menu,...]
+// --only shoots just those scenes (scene names below, plus menu, bar, inline) for a fast UI loop.
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
@@ -11,7 +12,11 @@ import { webkit } from "playwright-core";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = join(here, "out");
-const shots = process.argv[2] ?? join(out, "shots");
+const argv = process.argv.slice(2);
+const at = argv.indexOf("--only");
+const only = at >= 0 ? argv.splice(at, 2)[1]?.split(",") : undefined;
+const want = (name) => !only || only.includes(name);
+const shots = argv[0] ?? join(out, "shots");
 mkdirSync(shots, { recursive: true });
 
 const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".png": "image/png" };
@@ -116,6 +121,7 @@ const scenes = {
 
 for (const scheme of ["light", "dark"]) {
   for (const [name, run] of Object.entries(scenes)) {
+    if (!want(name)) continue;
     const page = await open(name === "passkey" ? "/?scene=passkey&passkey=demo" : `/?scene=${name}`);
     await page.emulateMedia({ colorScheme: scheme });
     await page.waitForTimeout(120);
@@ -129,6 +135,7 @@ for (const scheme of ["light", "dark"]) {
   }
   // Frame sizes as content.ts sets them: the menu for three rows plus its footer, the bar at its fitted height.
   for (const [frame, size] of [["menu", { width: 320, height: 185 }], ["bar", { width: 380, height: 212 }]]) {
+    if (!want(frame)) continue;
     const page = await open(`/${frame}.html`, size);
     await page.emulateMedia({ colorScheme: scheme });
     await page.waitForTimeout(200);
@@ -136,6 +143,7 @@ for (const scheme of ["light", "dark"]) {
     await page.close();
   }
   // The inline menu as it appears on a page: same iframe sizing/offset/shadow as the content script.
+  if (!want("inline")) continue;
   const inline = await open("/inline.html", { width: 720, height: 470 });
   await inline.emulateMedia({ colorScheme: scheme });
   await inline.waitForTimeout(500);
@@ -145,7 +153,7 @@ for (const scheme of ["light", "dark"]) {
 
 // A lock while a screen change is still animating: the item view asked for before it must never land on top of
 // the lock screen (popup.ts render, the renderSeq check).
-{
+if (!only) {
   const page = await open("/?scene=list");
   await page.getByRole("searchbox").waitFor();
   await page.evaluate(() => {

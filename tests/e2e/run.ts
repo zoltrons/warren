@@ -1,8 +1,6 @@
 // End-to-end suite: the real extension in a Chromium-based browser against a local Vaultwarden (latest).
-//   bash dev/vaultwarden/up.sh            (Vaultwarden latest + mock IdP; docker compose or Apple container)
-//   bash tools/build-wasm.sh --features register --out dist/wasm-register   (test-only account setup)
-//   node tools/fetch-psl.mjs && node tools/build.mjs --e2e                  (-> dist/ext-e2e)
-//   CHROME_PATH=<chromium-based browser that honours --load-extension> node --experimental-strip-types tests/e2e/run.ts [--only vault,inline]
+// Run it through `node tools/verify.mjs e2e [--only <group,...>]`, which builds dist/ext-e2e, checks the server and
+// picks the browser. By hand: node --experimental-strip-types tests/e2e/run.ts [--only vault,inline]
 //
 // Each group is a module of `await step("…")` blocks, run in the order below. A group imports the groups whose fixtures
 // it uses (inline imports autofill imports vault), so --only runs those first; the others start on their own with

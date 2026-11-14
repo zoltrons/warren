@@ -26,6 +26,6 @@ for (const f of files) {
   const max = budget[rel];
   const over = max !== undefined && buf.length > max;
   failed ||= over;
-  console.log(rel.padEnd(48), kb(buf.length), kb(gz), kb(br), max ? (over ? ` OVER ${max}` : ` <= ${max}`) : "");
+  console.log(rel.padEnd(48), kb(buf.length), kb(gz), kb(br), max ? (over ? ` OVER ${max} by ${((buf.length - max) / 1024).toFixed(1)} KiB` : ` <= ${max}`) : "");
 }
 if (check && failed) process.exit(1);

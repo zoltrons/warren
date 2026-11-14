@@ -100,10 +100,12 @@ npm ci
 npm run build:wasm          # Rust crypto + autofill engine → dist/wasm
 node tools/fetch-psl.mjs    # public suffix list, once
 npm run build               # → dist/ext, load it unpacked
-npm run check               # types + unit tests
+npm run check               # types + unit tests + contrast
+node tools/verify.mjs push  # everything CI checks, before a push
 ```
 
-More commands (Rust tests, e2e against a real Vaultwarden, UI preview) are in [AGENTS.md](AGENTS.md).
+Every check runs through `tools/verify.mjs` (e2e against a real Vaultwarden: `bash dev/vaultwarden/up.sh`, then
+`node tools/verify.mjs e2e`). The full list is in [AGENTS.md](AGENTS.md).
 How it is put together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). What has to stay true:
 [docs/SECURITY.md](docs/SECURITY.md), checked in [docs/VERIFICATION.md](docs/VERIFICATION.md). Server quirks:
 [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
