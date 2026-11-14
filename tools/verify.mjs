@@ -48,7 +48,6 @@ const sh = (cmd, env = {}) => () => {
   return r.status === 0;
 };
 const have = (bin) => spawnSync("bash", ["-c", `command -v ${bin}`], { stdio: "ignore" }).status === 0;
-const vectors = join(root, "target/test-vectors/users");
 // Downloads are done once per checkout; delete the file or folder to fetch again.
 const psl = () => (existsSync(join(root, "dist/psl.json")) ? "" : "node tools/fetch-psl.mjs && ");
 const wasmRegister = () => (existsSync(join(root, "dist/wasm-register/core_wasm_bg.wasm")) ? "" : "bash tools/build-wasm.sh --features register --out dist/wasm-register && ");
@@ -62,7 +61,8 @@ const tasks = {
   contrast: sh("node tools/check-contrast.mjs"),
   fmt: sh("cargo fmt --check"),
   clippy: sh("cargo clippy --all-targets -- -D warnings"),
-  vectors: sh(`${existsSync(vectors) ? "" : "bash tools/fetch-test-vectors.sh && "}cargo test -p warren-core-wasm`, { WARREN_TEST_VECTORS: "target/test-vectors" }),
+  // fetch-test-vectors.sh downloads only when target/test-vectors is not at upstream.lock's rev.
+  vectors: sh("bash tools/fetch-test-vectors.sh && cargo test -p warren-core-wasm", { WARREN_TEST_VECTORS: "target/test-vectors" }),
   autofill: sh(`cargo test ${AUTOFILL}`),
   wasm: sh("bash tools/build-wasm.sh --simd && bash tools/build-wasm.sh --features register --out dist/wasm-register"),
   build: () => sh(`${psl()}node tools/build.mjs`)(),
@@ -89,8 +89,7 @@ const tasks = {
       console.error("Vaultwarden is not answering on :8080. Start it (docker or Apple container): bash dev/vaultwarden/up.sh");
       return false;
     }
-    const fetch = existsSync(vectors) ? "" : "bash tools/fetch-test-vectors.sh && ";
-    return sh(`${fetch}${wasmRegister()}${psl()}node tools/build.mjs --e2e >/dev/null && node --experimental-strip-types tests/e2e/run.ts${only ? ` --only ${only}` : ""}`)();
+    return sh(`bash tools/fetch-test-vectors.sh && ${wasmRegister()}${psl()}node tools/build.mjs --e2e >/dev/null && node --experimental-strip-types tests/e2e/run.ts${only ? ` --only ${only}` : ""}`)();
   },
 };
 const stages = {

@@ -9,7 +9,7 @@ change must update, commit/changelog/version rules): **`docs/AGENT_MAP.md`**, re
 ## Commands
 
 Every check goes through **`node tools/verify.mjs`** (CI runs the same stages). It picks the rustup toolchain and
-Helium itself, fetches the PSL and test vectors once, times each task and stops at the first failure.
+Helium itself, fetches the PSL once and the test vectors once per sdk-internal rev, times each task and stops at the first failure.
 
 | Task | Command |
 |---|---|

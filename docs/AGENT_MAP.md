@@ -113,7 +113,7 @@ file over 8 KiB gets a ceiling from its role.
 
 | Path | What |
 |---|---|
-| `tools/verify.mjs` | **The one entry point for every check**, locally and in CI: stages `quick` (default), `rust`, `ext`, `lint`, `e2e`, `push`, `all`, or single tasks. Puts the rustup toolchain and Helium (`CHROME_PATH`) in front for every child, fetches the PSL and test vectors once. |
+| `tools/verify.mjs` | **The one entry point for every check**, locally and in CI: stages `quick` (default), `rust`, `ext`, `lint`, `e2e`, `push`, `all`, or single tasks. Puts the rustup toolchain and Helium (`CHROME_PATH`) in front for every child, fetches the PSL once and the test vectors once per sdk-internal rev. |
 | `tools/release.sh` | `bash tools/release.sh X.Y.Z`: waits for green `ci` on main's HEAD, signs the tag with the CHANGELOG section, verifies and pushes it. |
 | `tools/build.mjs` | Extension bundle → `dist/ext`; `--e2e` (test hooks, optional permissions granted) builds into `dist/ext-e2e`, so `dist/ext` is always a real build; `--watch`. |
 | `tools/build-wasm.sh` | Both WASM modules → `dist/wasm` (`--simd`; `--features register --out dist/wasm-register` for the biometric smoke and e2e). Uses the rustup toolchain even when a Homebrew cargo is first on PATH. |
