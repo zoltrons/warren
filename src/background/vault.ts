@@ -117,7 +117,12 @@ export async function sync(force: boolean): Promise<boolean> {
     if (ticket < syncStored) return;
     syncStored = ticket;
     await chrome.storage.local.set({ vault: next, syncedAt: Date.now() });
-    await load(next, epoch);
+    // Locked, the worker cannot load (no key) and the next unlock does. Unlocked, a failed load must not leave the
+    // cache claiming this revision, or every later sync would stop at it while the worker keeps the old vault.
+    await load(next, epoch).catch(async (e: unknown) => {
+      if (await isUnlocked()) await setLocal("vault", { ...next, revision: 0 });
+      throw e;
+    });
   });
   if (again) return sync(true);
   // Forget fill and open stamps of items that no longer exist. Sync also runs locked (no key): skip then.

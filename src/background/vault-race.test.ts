@@ -21,6 +21,8 @@ let offscreen = true;
 const ops: string[] = [];
 const hold: Record<string, Promise<unknown>> = {};
 const reply: Record<string, unknown> = {};
+/** Ops the worker refuses. */
+const fail = new Set<string>();
 const noop = async () => undefined;
 /** The passkey approval window's url: it carries the request id. */
 let windowUrl = "";
@@ -43,6 +45,7 @@ let windowUrl = "";
     sendMessage: async ({ req }: { req: { op: string; ids?: string[] } }) => {
       ops.push(req.op);
       await hold[req.op];
+      if (fail.has(req.op)) return { ok: false, error: "refused" };
       if (req.op in reply) return { ok: true, value: reply[req.op] };
       const value = (
         {
@@ -192,6 +195,19 @@ test("a sync a lock overtook while the server answered writes no cache", async (
   await answer("/api/sync", syncBody([{ id: "item-9" }]));
   await assert.rejects(syncing, /locked meanwhile/);
   assert.equal((local.vault as { revision: number }).revision, 5);
+});
+
+test("an unlocked sync whose vault load fails leaves the cache asking for a full sync again", async () => {
+  local.vault = cache(5);
+  session.session = { unlocked: true, accessToken: "token", accessExpiresAt: Date.now() + 3_600_000 };
+  offscreen = true;
+  fail.add("loadVault");
+  const syncing = sync(true);
+  await answer("/api/accounts/revision-date", 7);
+  await answer("/api/sync", syncBody([{ id: "item-7" }]));
+  await assert.rejects(syncing, /refused/);
+  fail.delete("loadVault");
+  assert.equal((local.vault as { revision: number }).revision, 0, "the next sync(false) must not stop at revision 7");
 });
 
 test("a vault load a lock overtook never reaches the new worker", async () => {
