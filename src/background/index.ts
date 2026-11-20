@@ -590,7 +590,8 @@ chrome.idle.onStateChanged.addListener(async (state) => {
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === AUTOFILL_COMMAND) void autofillFromGesture(tab);
   // No suggested key: the user picks one in the browser's shortcut settings.
-  if (command === "lock-vault") queue = queue.then(() => lockNow()).catch((e: unknown) => console.error(e)).then(updateTabUi);
+  // Like the popup's Lock: never behind a slow server call in the queue.
+  if (command === "lock-vault") void lockNow().then(updateTabUi, (e: unknown) => console.error(e));
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => void onContextMenu(info, tab));

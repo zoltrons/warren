@@ -9,14 +9,20 @@ const area = (data: Record<string, unknown>) => ({
   set: async (values: Record<string, unknown>) => void Object.assign(data, structuredClone(values)),
   remove: async () => undefined,
 });
+const session: Record<string, unknown> = {};
 const noop = async () => undefined;
+/** The tab resumeFill finds, and whether a fill began (it asks for the crypto document first). */
+let tab: { id: number; url: string; active: boolean } | undefined;
+let fillBegan = false;
 (globalThis as { chrome?: unknown }).chrome = {
-  storage: { session: area({}), local: area(local) },
+  storage: { session: area(session), local: area(local) },
   alarms: { create: noop, clear: noop },
   runtime: { id: "warren" },
+  tabs: { get: async () => tab },
+  offscreen: { hasDocument: async () => ((fillBegan = true), false), createDocument: async () => { throw new Error("no worker in this test"); } },
 };
 
-const { pageLoadFill } = await import("./autofill.ts");
+const { pageLoadFill, resumeFill } = await import("./autofill.ts");
 const { pageDeadline } = await import("./engine.ts");
 
 test("page-load fill refuses a frame of another origin than the tab", async () => {
@@ -35,4 +41,20 @@ test("page-load fill refuses a prerendered document", async () => {
 test("a page call that never settles gives up", async () => {
   await assert.rejects(pageDeadline(new Promise(() => undefined), 10), /did not answer/);
   assert.equal(await pageDeadline(Promise.resolve(1), 10), 1);
+});
+
+test("a fill asked for while locked runs after the unlock only in that tab, still active, on that site, within 2 minutes", async () => {
+  const run = async (resume: Record<string, unknown>, shown: typeof tab) => {
+    session.session = { unlocked: true, resume };
+    tab = shown;
+    fillBegan = false;
+    await resumeFill();
+    assert.equal((session.session as { resume?: unknown }).resume, undefined, "used once");
+    return fillBegan;
+  };
+  const now = { tabId: 1, origin: "https://bank.test", at: Date.now() };
+  assert.equal(await run(now, { id: 1, url: "https://evil.test/", active: true }), false, "the tab moved to another site");
+  assert.equal(await run(now, { id: 1, url: "https://bank.test/login", active: false }), false, "the user left the tab");
+  assert.equal(await run({ ...now, at: Date.now() - 3 * 60_000 }, { id: 1, url: "https://bank.test/login", active: true }), false, "too late");
+  assert.equal(await run(now, { id: 1, url: "https://bank.test/login", active: true }), true, "control: the fill begins");
 });

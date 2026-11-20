@@ -639,7 +639,7 @@ export async function logout(): Promise<void> {
   await chrome.storage.local.remove("lastUsed"); // clear-text stamps of older builds
   await clearPendingSaves(true);
   // An SSO login still waiting for its callback ends here too: a late one must not log an account back in.
-  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined, sso: undefined });
+  await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined, sso: undefined, resume: undefined });
   await chrome.scripting.unregisterContentScripts({ ids: [SSO_SCRIPT] }).catch(() => undefined);
 }
 
