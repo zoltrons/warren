@@ -141,6 +141,16 @@ fn decrypt_str(key: &SymmetricCryptoKey, s: &str) -> Result<Option<String>> {
     Ok(Some(plain))
 }
 
+/// Vaultwarden's test for a blob (`format_version` in `data`); it sends `data` as a JSON string, the SDK as an object.
+fn is_blob(data: &Value) -> bool {
+    match data {
+        Value::String(s) => {
+            serde_json::from_str::<Value>(s).is_ok_and(|v| v.get("format_version").is_some())
+        }
+        v => v.get("format_version").is_some(),
+    }
+}
+
 /// Refuses an object holding one name twice in different case (`login` and `Login`), at any depth: this code and
 /// the TypeScript `ci` helper may each pick another one, so what was checked here would not be what is used.
 fn unique_keys(v: &Value) -> Result<()> {
@@ -162,6 +172,14 @@ fn unique_keys(v: &Value) -> Result<()> {
 
 pub fn decrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
+    // A blob-encrypted cipher (Vaultwarden > 1.37.5) keeps all of its content in `data`: without this check it would
+    // decrypt to an empty item, and saving that would overwrite the blob. Undecryptable items stay read-only.
+    if obj
+        .iter()
+        .any(|(k, v)| k.eq_ignore_ascii_case("data") && is_blob(v))
+    {
+        return Err("blob-encrypted cipher, not supported yet".into());
+    }
     // `data` is Vaultwarden's legacy duplicate of the typed fields; drop it from the plaintext view.
     obj.retain(|k, _| !k.eq_ignore_ascii_case("data"));
     unique_keys(cipher)?;
@@ -497,6 +515,17 @@ mod tests {
         decrypt(&s, &mut empty).unwrap();
         assert_eq!(empty["name"], "n");
         assert_eq!(empty["login"]["username"], "");
+
+        // A blob cipher, as Vaultwarden lists it: refused instead of decrypting to an empty, editable item.
+        let blob = r#"{"format_version":1,"wrapped_cek":"7.x","sealed":"y"}"#;
+        assert!(decrypt(&s, &mut json!({ "type": 1, "name": null, "data": blob })).is_err());
+        assert!(
+            decrypt(
+                &s,
+                &mut json!({ "type": 1, "Data": { "format_version": 1 } })
+            )
+            .is_err()
+        );
 
         // A compromised server cannot plant an item it could not encrypt.
         for mut forged in [

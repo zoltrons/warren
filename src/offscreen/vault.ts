@@ -80,7 +80,7 @@ export function upsertCipher(enc: Json): void {
 
 export const loaded = (): boolean => ciphers !== undefined;
 
-function summary(c: Json): VaultItem {
+export function summary(c: Json): VaultItem {
   const type = Number(ci(c, "type"));
   const login = o(ci(c, "login"));
   const sub =
@@ -105,7 +105,8 @@ function summary(c: Json): VaultItem {
     uris,
     folderId: s(ci(c, "folderId")) || undefined,
     favorite: ci(c, "favorite") === true,
-    readOnly: ci(c, "edit") === false,
+    // An undecryptable item (e.g. a blob cipher) must never be re-encrypted from its empty placeholder.
+    readOnly: ci(c, "edit") === false || c.failed === true,
     hasTotp: !!s(ci(login, "totp")),
     ...(type === 1 && !s(ci(login, "password")) ? { noPassword: true } : {}),
     ...(Array.isArray(ci(login, "fido2Credentials")) && (ci(login, "fido2Credentials") as unknown[]).length ? { hasPasskey: true } : {}),

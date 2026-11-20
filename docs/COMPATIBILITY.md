@@ -1,6 +1,8 @@
 # Compatibility notes
 
-Warren supports **only the latest Vaultwarden release**; CI runs every e2e step against `vaultwarden/server:latest`.
+Warren supports **only the latest Vaultwarden release**; CI runs every e2e step against `ghcr.io/dani-garcia/vaultwarden:latest`
+and, because development targets the next release, against `ghcr.io/dani-garcia/vaultwarden:testing` (Vaultwarden main), on every
+push and daily.
 Older releases are neither tested nor supported. The notes below record what was verified and on which release.
 
 Facts verified against **Vaultwarden 1.37.4** (`vaultwarden/server@sha256:efb3cde9…`, local Docker)
@@ -202,9 +204,20 @@ on 2026-10-29, unless marked otherwise.
 ## Not yet verified
 
 * Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions, `viewPassword: false` and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.
-* V2 "blob" ciphers (`data` = `{"format_version":1,"wrapped_cek":...}`): present in sdk-internal test vectors;
-  whether Vaultwarden stores and returns them is unknown. (Cipher key encryption, a `key` on new, cloned and imported
-  items, is covered by the e2e suite.)
+* V2 "blob" ciphers (`data` = `{"format_version":1,"wrapped_cek":...}`): Vaultwarden main after 1.37.5 stores and
+  returns them (dani-garcia/vaultwarden#7764): `data` is the blob as a JSON string, `name` is null and the typed
+  fields are absent. Warren does not decrypt them yet: `decrypt` (`crates/core-wasm/src/cipher.rs`) refuses one, so it
+  is listed as undecryptable and read-only instead of an empty item whose save would overwrite the blob. Decrypting
+  them needs `bitwarden_crypto::safe::DataEnvelope` (in the pinned rev) and the `CipherBlob` v1 schema. (Cipher key
+  encryption, a `key` on new, cloned and imported items, is covered by the e2e suite.)
+* V2 encryption accounts (Vaultwarden main after 1.37.5, behind `pm-27278-v2-password-registration` /
+  `enable-account-encryption-v2-jit-password-registration`): every login needs `Bitwarden-Client-Version`, and a V2
+  account at least 2026.10.1 (`version_header_missing` / an outdated-client error otherwise). Warren sends exactly
+  2026.10.1, so this constant must not fall behind the server's minimum. V2 unlock is covered by the crate's test
+  vectors only; e2e `vectors` registers V1 accounts, because 1.37.5 cannot register a V2 one.
+* Attachments in sync and cipher responses (Vaultwarden main after 1.37.5, #7963) carry an unsigned `url` that is not
+  served without a token. Warren never reads it: it downloads through `GET /api/ciphers/<id>/attachment/<attId>`,
+  which returns a signed URL.
 * Round-trip with the official `bw` CLI (contract test b): not done.
 
 ## Chromium 156 (verified in Playwright Chromium 156.0.8078.4)

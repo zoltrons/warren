@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { passkeyAssert, passkeyCreate, sendEdit } from "./vault.ts";
+import { passkeyAssert, passkeyCreate, sendEdit, summary } from "./vault.ts";
 
 test("a send edit replaces stored fields in any casing and never sends the stored password hash back", () => {
   const stored = { Id: "s", Key: "wrapped", Name: "old", Text: { Text: "old", Hidden: false }, Password: "server-hash" };
@@ -21,4 +21,9 @@ test("passkeys: the worker checks the RP ID against the origin before it signs o
   await assert.rejects(passkeyAssert("item", "cred", "bank.test", "https://evil.test", "Y2g", false), /SecurityError/);
   const user = { id: "dQ", name: "u", displayName: "u" };
   await assert.rejects(passkeyCreate({ origin: "https://evil.test", rpId: "bank.test", rpName: "b", challenge: "Y2g", user, discoverable: true, uv: false }), /SecurityError/);
+});
+
+test("an undecryptable item is read-only, so its empty placeholder is never saved over the real item", () => {
+  assert.equal(summary({ id: "x", type: 0, name: "", failed: true }).readOnly, true);
+  assert.equal(summary({ id: "y", type: 2, name: "n", edit: true }).readOnly, false);
 });
