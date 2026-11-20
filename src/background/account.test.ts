@@ -17,6 +17,8 @@ const area = (data: Record<string, unknown>) => ({
 });
 
 let offscreen = false;
+/** The worker refuses every PIN while set. */
+let wrongPin = false;
 const coreOps: string[] = [];
 const noop = async () => undefined;
 (globalThis as { chrome?: unknown }).chrome = {
@@ -34,6 +36,7 @@ const noop = async () => undefined;
     // The crypto worker, scripted: every op succeeds.
     sendMessage: async ({ req }: { req: { op: string } }) => {
       coreOps.push(req.op);
+      if (req.op === "unlockPin" && wrongPin) return { ok: false, error: "wrong PIN" };
       const value = req.op === "prepareKey" ? { handle: 1, authHash: "hash" } : req.op === "encryptText" ? (req as { values?: string[] }).values : null;
       return { ok: true, value };
     },
@@ -61,7 +64,7 @@ const jwt = (sub: string) => `h.${Buffer.from(JSON.stringify({ sub, email: "a@b.
 const tokens = (sub: string, refresh: string) => ({ access_token: jwt(sub), expires_in: 3600, refresh_token: refresh, Key: "2.k|k|k" });
 const KDF = { kdf: 0, kdfIterations: 600_000 };
 
-const { auth, confirmReprompt, finishSso, login, logout, unlock, unlockWithBiometric } = await import("./account.ts");
+const { auth, confirmReprompt, finishSso, login, logout, unlock, unlockWithBiometric, unlockWithPin } = await import("./account.ts");
 const { lockNow } = await import("./lock.ts");
 const { repromptGranted } = await import("./reprompt.ts");
 
@@ -317,4 +320,18 @@ test("KDF floor: kept per account whatever case the server writes the email in",
   await ssoLogin(" Floor@b.test", argon2(19, 2));
   assert.equal(local.account, undefined, "an Argon2id 19 MiB x 2 KDF was stored for an account seen with 64 MiB x 3");
   assert.match(String((session.session as { ssoError?: string }).ssoError), /much weaker/);
+});
+
+test("PIN-only: wrong PINs are counted on disk, so a browser restart does not reset the cap", async () => {
+  local.account = { email: "p@b.test", userId: "user-p", kdf: { type: 0, iterations: 600_000, memory: 0, parallelism: 0 }, protectedUserKey: "2.k|k|k", protectedPin: "2.p|p|p", pinKey: "2.pk|pk|pk" };
+  session.session = { unlocked: false };
+  wrongPin = true;
+  for (let i = 1; i <= 4; i++) {
+    await assert.rejects(unlockWithPin("00000000a"), /Wrong PIN/);
+    session.session = { unlocked: false }; // a browser restart empties the session
+    assert.equal((local.account as { pinAttempts?: number }).pinAttempts, i);
+  }
+  await assert.rejects(unlockWithPin("00000000a"), /Too many wrong PINs/);
+  assert.equal(local.account, undefined, "logged out at the fifth");
+  wrongPin = false;
 });

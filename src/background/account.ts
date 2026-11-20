@@ -384,6 +384,11 @@ async function afterUnlock(account: Account, epoch: number): Promise<void> {
     const fresh = await getLocal("account");
     if (fresh?.pinKey === account.pinKey) await checkEpoch(epoch, () => setLocal("account", { ...fresh, pinKey: key, pinKdf: PIN_KDF }));
   } else if (pin?.attempts) await checkEpoch(epoch, () => updateSession({ pin: { ...pin, attempts: 0 } }));
+  const counted = await getLocal("account");
+  if (counted?.pinAttempts) {
+    const { pinAttempts: _, ...rest } = counted;
+    await checkEpoch(epoch, () => setLocal("account", rest));
+  }
   // Older builds kept never-save hosts and fill stamps in clear text; a failed move is retried next unlock.
   await migratePrivate().catch(() => undefined);
   await resealLegacy().catch(() => undefined);
@@ -598,11 +603,12 @@ export async function unlockWithPin(pin: string): Promise<void> {
   const account = await getLocal("account");
   const { pin: s } = await getSession();
   // A key armed this session is always PIN_KDF; one on disk records its KDF (older builds: the account's).
+  const onDisk = account?.pinKey ? (account.pinAttempts ?? 0) : 0;
   const p =
     s && s.email === account?.email
-      ? { ...s, kdf: s.kdf ?? PIN_KDF }
+      ? { ...s, attempts: Math.max(s.attempts, onDisk), kdf: s.kdf ?? PIN_KDF }
       : account?.pinKey
-        ? { email: account.email, key: account.pinKey, attempts: 0, kdf: account.pinKdf ?? account.kdf }
+        ? { email: account.email, key: account.pinKey, attempts: onDisk, kdf: account.pinKdf ?? account.kdf }
         : undefined;
   if (!account?.protectedPin || !p) throw new UserError("wrongPhase", "Unlock with the master password");
   try {
@@ -617,6 +623,8 @@ export async function unlockWithPin(pin: string): Promise<void> {
     // Counted across a lock (one would otherwise reset the cap), never into the session of a later login.
     assertOwner(owner);
     await updateSession({ pin: { ...p, attempts: p.attempts + 1 } });
+    // PIN-only: the session count goes with a browser restart, so the cap would reset with it.
+    if (account.pinKey) await setLocal("account", { ...account, pinAttempts: p.attempts + 1 });
     throw new UserError("wrongPassword", "Wrong PIN");
   }
   await afterUnlock(account, epoch); // also resets the wrong-PIN count

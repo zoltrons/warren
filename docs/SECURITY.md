@@ -338,8 +338,9 @@ short on purpose. Either way the reason is given here or in Known gaps.
   (256 MiB, 3 passes, `src/shared/constants.ts`) whatever the account KDF is, so guessing is slow and memory-bound,
   but a short numeric PIN would fall and the whole vault with it. So PIN-only needs at least 8 characters and one
   that is not a digit (`pinOnlyStrong`, `src/background/kdf.ts`); a weaker PIN-only key from an older build is
-  removed from disk on the next unlock (the PIN keeps working until the browser restarts). The default keeps the
-  cap real. Keys from builds before `PIN_KDF` are re-wrapped on the next unlock.
+  removed from disk on the next unlock (the PIN keeps working until the browser restarts). In PIN-only mode the
+  wrong-PIN count is kept on disk with the key (`pinAttempts`), so restarting the browser between tries does not
+  reset the cap of 5. The default keeps the cap real. Keys from builds before `PIN_KDF` are re-wrapped on the next unlock.
 - **Plain text passes through the service worker and the popup in a few places.** The fill data, a TOTP code and the
   full item for the popup go through the service worker in transit; it does not keep them. A password changed from
   the save bar, a new passkey and an attachment's name are handled in the worker (`preparePassword`,

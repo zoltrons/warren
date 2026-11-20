@@ -30,6 +30,8 @@ export interface Account {
   pinKey?: string;
   /** The KDF `pinKey` was made with; absent for keys of older builds (made with `kdf`). */
   pinKdf?: KdfParams;
+  /** PIN-only mode: wrong PINs since the last unlock, kept on disk so a browser restart does not reset the cap. */
+  pinAttempts?: number;
 }
 
 interface PendingLogin {
