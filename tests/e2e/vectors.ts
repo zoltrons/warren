@@ -66,6 +66,7 @@ for (const name of ["v1-pbkdf2-password", "v1-argon2id-password", ...(v2Server ?
     const got = (await rows().allTextContents()).map((t) => want.find((n: string) => t.includes(n)) ?? t).sort();
     assert.deepEqual(got, want);
     for (const f of v.vault.folders) await page.getByRole("button", { name: f.decrypted.name, exact: true }).waitFor();
+    const synced = async () => ((await call(BASE, "GET", "/api/sync?excludeDomains=true", { token: tok.access_token })) as { ciphers: { data?: unknown; name?: unknown }[] }).ciphers;
     for (const c of personal) {
       const d = c.decrypted;
       await rows().filter({ hasText: d.name }).first().click();
@@ -74,12 +75,19 @@ for (const name of ["v1-pbkdf2-password", "v1-argon2id-password", ...(v2Server ?
       await page.getByText(d.login.password, { exact: true }).waitFor();
       const text = await page.locator("#app").innerText();
       assert.ok(text.includes(d.login.username) && (!d.notes || text.includes(d.notes)), `${d.name}: username or notes missing`);
-      // A blob item is read-only until Warren writes the format, and says why.
+      // A blob item (a V2 account's) is edited like any other, and saved as a blob again, as the SDK writes it.
       if (c.blobEncrypted) {
-        assert.ok(text.includes("newer format"), `${d.name}: no read-only note`);
-        assert.equal(await page.getByRole("button", { name: "Edit" }).count(), 0, `${d.name}: offered for editing`);
+        await page.getByRole("button", { name: "Edit" }).click();
+        await page.getByLabel("Notes", { exact: true }).fill(`${d.name}: edited in Warren`);
+        await page.getByRole("button", { name: "Save" }).click();
+        await page.getByText(`${d.name}: edited in Warren`).waitFor();
       }
       await back();
+    }
+    if (V2) {
+      const stored = await synced();
+      assert.equal(stored.length, personal.length);
+      for (const c of stored) assert.ok(c.name === null && String(c.data).includes('"format_version":1'), "a V2 item was not saved as a blob");
     }
   });
 }

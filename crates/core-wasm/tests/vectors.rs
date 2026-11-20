@@ -213,11 +213,15 @@ fn user_vectors_unlock_and_decrypt() {
                 .insert("key".into(), c["encrypted"]["key"].clone());
             let reenc = api::encrypt_cipher(&reenc_in.to_string(), false).unwrap();
             let back: Value = serde_json::from_str(&api::decrypt_cipher(&reenc).unwrap()).unwrap();
-            // Warren writes the legacy format, so a blob item comes back as a legacy one, without the marker.
-            let mut want = out.clone();
-            want.as_object_mut().unwrap().remove("blob");
+            // A V2 account's personal item goes back as a blob (`reenc` holds `data`), a V1 one field by field.
+            let reenc: Value = serde_json::from_str(&reenc).unwrap();
+            assert_eq!(
+                reenc.get("data").is_some(),
+                c["blobEncrypted"] == true,
+                "{name}/{id}: written format"
+            );
             let mut errs = Vec::new();
-            compare(&back, &want, "roundtrip", &mut errs);
+            compare(&back, &out, "roundtrip", &mut errs);
             assert!(
                 errs.is_empty(),
                 "{name}/{id} roundtrip:\n{}",

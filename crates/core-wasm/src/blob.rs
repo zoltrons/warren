@@ -153,25 +153,94 @@ pub(crate) fn open(key: &SymmetricCryptoKey, data: &Value) -> Result<Map<String,
     to_legacy(unseal(key, data)?)
 }
 
+/// The reverse of `to_legacy`: a `CipherBlobV1` from a plaintext cipher's fields. Only the schema's fields go in
+/// (bitwarden-vault `cipher/blob/v1.rs`): a URI's checksum and the legacy single `uri` have no place in a blob.
+fn from_legacy(cipher: &Map<String, Value>) -> Result<Value> {
+    let get = |k: &str| {
+        cipher
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(k))
+            .map(|(_, v)| v.clone())
+            .filter(|v| !v.is_null())
+    };
+    let kind = get("type")
+        .and_then(|t| t.as_u64())
+        .ok_or("cipher has no type")?;
+    let &(tag, _, container) = TYPES
+        .iter()
+        .find(|(_, n, _)| u64::from(*n) == kind)
+        .ok_or_else(|| format!("blob: no blob form for item type {kind}"))?;
+    let mut data = match get(container) {
+        Some(Value::Object(o)) => o,
+        _ => Map::new(),
+    };
+    match kind {
+        2 => rename(&mut data, "type", "secureNoteType"),
+        5 => rename(&mut data, "keyFingerprint", "fingerprint"),
+        1 => {
+            data.remove("uri");
+            if let Some(Value::Array(uris)) = data.get_mut("uris") {
+                for u in uris.iter_mut().filter_map(Value::as_object_mut) {
+                    u.remove("uriChecksum");
+                }
+            }
+            if let Some(Value::Array(creds)) = data.get_mut("fido2Credentials") {
+                for c in creds.iter_mut().filter_map(Value::as_object_mut) {
+                    // As the SDK's conversion: an unreadable counter is 0, `discoverable` is the string "true".
+                    let counter = c
+                        .get("counter")
+                        .and_then(Value::as_str)
+                        .and_then(|n| n.parse::<u64>().ok());
+                    c.insert("counter".into(), json!(counter.unwrap_or(0)));
+                    let discoverable =
+                        c.get("discoverable").and_then(Value::as_str) == Some("true");
+                    c.insert("discoverable".into(), json!(discoverable));
+                }
+            }
+        }
+        _ => {}
+    }
+    data.insert("type".into(), json!(tag));
+    let mut blob = Map::new();
+    blob.insert("name".into(), get("name").unwrap_or(json!("")));
+    blob.insert("notes".into(), get("notes").unwrap_or(Value::Null));
+    blob.insert("typeData".into(), Value::Object(data));
+    for k in ["fields", "passwordHistory"] {
+        if let Some(v) = get(k) {
+            blob.insert(k.into(), v);
+        }
+    }
+    Ok(Value::Object(blob))
+}
+
+/// Seals a plaintext cipher's fields into a blob (`data`, as a JSON string) under `key`, its cipher key.
+pub(crate) fn seal(key: &SymmetricCryptoKey, cipher: &Map<String, Value>) -> Result<String> {
+    seal_content(key, from_legacy(cipher)?)
+}
+
+fn seal_content(key: &SymmetricCryptoKey, content: Value) -> Result<String> {
+    let store = KeyStore::<Ids>::default();
+    let mut ctx = store.context_mut();
+    let wrapping = ctx.add_local_symmetric_key(key.clone());
+    let (envelope, wrapped_cek) = DataEnvelope::seal_with_wrapping_key(
+        CipherBlob::from(CipherBlobV1(content)),
+        &wrapping,
+        &mut ctx,
+    )
+    .map_err(err)?;
+    Ok(json!({ "format_version": 1, "wrapped_cek": wrapped_cek.to_string(), "envelope": String::from(envelope) })
+        .to_string())
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
-    use bitwarden_crypto::{KeyStoreContext, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::SymmetricKeyAlgorithm;
 
     use super::*;
 
     /// Seals `content` like bitwarden-vault does, under `key`.
     pub(crate) fn seal(key: &SymmetricCryptoKey, content: Value) -> String {
-        let store = KeyStore::<Ids>::default();
-        let mut ctx: KeyStoreContext<Ids> = store.context_mut();
-        let wrapping = ctx.add_local_symmetric_key(key.clone());
-        let (envelope, wrapped_cek) = DataEnvelope::seal_with_wrapping_key(
-            CipherBlob::from(CipherBlobV1(content)),
-            &wrapping,
-            &mut ctx,
-        )
-        .unwrap();
-        json!({ "format_version": 1, "wrapped_cek": wrapped_cek.to_string(), "envelope": String::from(envelope) })
-            .to_string()
+        seal_content(key, content).unwrap()
     }
 
     // Envelopes and their content-encryption keys recorded by bitwarden-vault (cipher/blob/v1.rs test vectors at the
@@ -246,6 +315,26 @@ pub(crate) mod tests {
             panic!("not an object")
         };
         to_legacy(c).unwrap()
+    }
+
+    /// The SDK's own content, unsealed raw: what Warren writes back from its legacy view must be exactly it.
+    fn recorded_content((cek, envelope): (&str, &str)) -> Value {
+        let store = KeyStore::<Ids>::default();
+        let mut ctx = store.context_mut();
+        let cek =
+            ctx.add_local_symmetric_key(SymmetricCryptoKey::try_from(cek.to_string()).unwrap());
+        let env: DataEnvelope = envelope.parse().unwrap();
+        let CipherBlob::CipherBlobV1(CipherBlobV1(c)) = env.unseal(cek, &mut ctx).unwrap();
+        c
+    }
+
+    #[test]
+    fn writes_back_exactly_what_the_sdk_wrote() {
+        for v in [SECURE_NOTE, LOGIN, SSH_KEY] {
+            let sdk = recorded_content(v);
+            let legacy = to_legacy(sdk.as_object().unwrap().clone()).unwrap();
+            assert_eq!(from_legacy(&legacy).unwrap(), sdk);
+        }
     }
 
     #[test]

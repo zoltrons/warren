@@ -17,9 +17,11 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Menus in the popup follow the keyboard: the arrow keys move between items (wrapping), Home and End jump.
 - The notes field grows with its text up to 40 % of the popup's height, instead of a fixed two-line box.
 - Screen readers announce on/off settings as switches, not checkboxes.
-- Items saved in the Bitwarden apps' newer "blob" format (accounts with the new encryption, from the next Vaultwarden
-  release) are shown and filled like any other item, instead of appearing empty and being overwritten if edited. Warren
-  cannot edit them yet: they are read-only, with a note saying so.
+- Accounts with the new encryption (V2, from the next Vaultwarden release) work like any other: their items, which the
+  Bitwarden apps save in a newer "blob" format, are shown, filled and edited, and Warren saves them in that format too.
+  Before, they appeared empty and an edit would have overwritten them.
+- New items, attachments and moves to an organization wrap their keys the way the Bitwarden apps read them on V2
+  accounts.
 
 ## 0.0.20 — 2026-11-12
 

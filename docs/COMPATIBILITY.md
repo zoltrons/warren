@@ -210,8 +210,13 @@ on 2026-10-29, unless marked otherwise.
   account; organization items stay legacy). Warren reads them (`crates/core-wasm/src/blob.rs`): the content-encryption
   key is unwrapped with the cipher key (or the user/organization key), the `VaultItem` data envelope is opened, and
   `CipherBlobV1` is mapped onto the legacy field names; attachment names stay field-encrypted. Covered by the
-  `v2-*-blob` test vectors (`tests/vectors.rs`) and the SDK's recorded envelopes (`blob.rs` tests). Blob items are
-  read-only in Warren until it writes the format. (Cipher key encryption, a `key` on new, cloned and imported items,
+  `v2-*-blob` test vectors (`tests/vectors.rs`) and the SDK's recorded envelopes (`blob.rs` tests). Warren writes them
+  by the SDK's rule too (`cipher.rs` `encrypt`): a personal item with its own key, on an account whose verified security
+  version is 2 or higher, goes out as `data` (the blob) with `name: null` and no typed fields; Vaultwarden then stores
+  only the blob. Organization items, folder names and older keyless items stay field-encrypted (the SDK would give a
+  keyless item a key first). Cipher keys are wrapped and unwrapped through the SDK's key store, so under a V2 user key
+  they carry the content format its clients expect (`7.` with `legacy-key`). e2e `vectors` edits each V2 vector's
+  items in the popup and checks that the server still holds blobs. (Cipher key encryption, a `key` on new, cloned and imported items,
   is covered by the e2e suite.)
 * V2 encryption accounts (Vaultwarden main after 1.37.5): `POST /identity/accounts/register/finish` takes
   `accountKeys {userKeyEncryptedAccountPrivateKey, accountPublicKey, publicKeyEncryptionKeyPair{wrappedPrivateKey,

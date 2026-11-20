@@ -389,16 +389,32 @@ fn with_session_mut<T>(f: impl FnOnce(&mut Session) -> Result<T>) -> Result<T> {
     SESSION.with_borrow_mut(|s| f(s.as_mut().ok_or("locked")?))
 }
 
-/// Decrypts an EncString that wraps a raw symmetric key (cipher key, attachment key).
+/// Unwraps a symmetric key (cipher key, attachment key) as the SDK does, which reads the content format a V2
+/// (type 7) wrapping carries as well as the legacy bytes of a type 2 one.
 pub(crate) fn decrypt_symmetric_key(
     wrapping: &SymmetricCryptoKey,
     enc: &str,
 ) -> Result<SymmetricCryptoKey> {
-    let bytes: Vec<u8> = EncString::from_str(enc)
-        .map_err(err)?
-        .decrypt_with_key(wrapping)
+    let store = KeyStore::<Ids>::default();
+    let mut ctx = store.context_mut();
+    let w = ctx.add_local_symmetric_key(wrapping.clone());
+    let k = ctx
+        .unwrap_symmetric_key(w, &EncString::from_str(enc).map_err(err)?)
         .map_err(err)?;
-    SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(bytes)).map_err(err)
+    #[allow(deprecated)] // the key goes into the session's own cipher code, not out of the core
+    Ok(ctx.dangerous_get_symmetric_key(k).map_err(err)?.clone())
+}
+
+/// Wraps `key` with `wrapping` as the SDK does: under a V2 user key with the content format its clients expect.
+pub(crate) fn wrap_symmetric_key(
+    wrapping: &SymmetricCryptoKey,
+    key: &SymmetricCryptoKey,
+) -> Result<String> {
+    let store = KeyStore::<Ids>::default();
+    let mut ctx = store.context_mut();
+    let w = ctx.add_local_symmetric_key(wrapping.clone());
+    let k = ctx.add_local_symmetric_key(key.clone());
+    Ok(ctx.wrap_symmetric_key(w, k).map_err(err)?.to_string())
 }
 
 pub fn decrypt_cipher_list(ciphers_json: &str) -> Result<String> {

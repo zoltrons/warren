@@ -442,8 +442,6 @@ export interface VaultItem {
   /** Card only: the network, from the brand field or worked out from the number's leading digits. */
   brand?: string;
   failed?: boolean;
-  /** Blob-encrypted (the SDK's format for a V2 account): read, but Warren cannot write it yet. */
-  blob?: true;
 }
 
 /** Logins matching the active tab. `host` is absent when the tab is not an http(s) page. */

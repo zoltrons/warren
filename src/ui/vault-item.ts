@@ -667,7 +667,7 @@ export function itemView(ctx: Ctx, id: string): HTMLElement {
     ),
     quickActions(ctx, id, uris, type === 1 && !inTrash),
     errorBox(),
-    inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : inArchive ? h("div", { class: "notice" }, icon("archive"), h("div", {}, t("inArchive"))) : summary?.readOnly && !summary.failed ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t(summary.blob ? "blobReadOnly" : "readOnlyItem"))) : null,
+    inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : inArchive ? h("div", { class: "notice" }, icon("archive"), h("div", {}, t("inArchive"))) : summary?.readOnly && !summary.failed ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("readOnlyItem"))) : null,
     rows.length ? h("div", { class: "group" }, ...rows) : null,
     type === 4 ? identityActions(data) : null,
     reused

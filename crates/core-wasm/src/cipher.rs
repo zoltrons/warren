@@ -28,7 +28,7 @@ use serde_json::{Map, Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    api::{Result, Session, decrypt_symmetric_key, err},
+    api::{Result, Session, decrypt_symmetric_key, err, wrap_symmetric_key},
     blob,
 };
 
@@ -244,10 +244,7 @@ pub fn add_key(s: &Session, cipher: &mut Value) -> Result<()> {
     obj.retain(|k, _| !k.eq_ignore_ascii_case("key"));
     let (base, _) = cipher_keys(s, obj)?;
     let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-    let wrapped = (&OctetStreamBytes::from(key.to_encoded().to_vec()))
-        .encrypt_with_key(base)
-        .map_err(err)?;
-    obj.insert("key".into(), wrapped.to_string().into());
+    obj.insert("key".into(), wrap_symmetric_key(base, &key)?.into());
     Ok(())
 }
 
@@ -277,27 +274,46 @@ pub fn move_to_org(s: &Session, cipher: &mut Value, org: &str) -> Result<()> {
             SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac)
         }
     };
-    let wrapped = (&OctetStreamBytes::from(item.to_encoded().to_vec()))
-        .encrypt_with_key(org_key)
-        .map_err(err)?;
+    let wrapped = wrap_symmetric_key(org_key, &item)?;
     obj.retain(|k, _| !k.eq_ignore_ascii_case("key") && !k.eq_ignore_ascii_case("organizationId"));
     obj.insert("organizationId".into(), org.into());
-    obj.insert("key".into(), wrapped.to_string().into());
+    obj.insert("key".into(), wrapped.into());
     encrypt(s, cipher)
 }
 
 pub fn encrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
-    // decrypt's marker for a blob item: Warren's own, never sent (this writes the legacy format).
+    // decrypt's marker for a blob item: Warren's own, never sent.
     obj.remove("blob");
+    obj.retain(|k, _| !k.eq_ignore_ascii_case("data"));
     let (base, item) = cipher_keys(s, obj)?;
     let key = item.as_ref().unwrap_or(base);
-    set_uri_checksums(obj);
-    apply(obj, &mut |v| {
+    let enc = &mut |v: &str| {
         let enc: EncString = v.encrypt_with_key(key).map_err(err)?;
         Ok(Some(enc.to_string()))
-    })
+    };
+    // As the SDK's `should_use_blob_encryption`: a personal item of an account at security version 2 or higher is
+    // written as one blob. Only an item with its own key (every one Warren creates has one; folder names and older
+    // keyless items stay field-encrypted, which the SDK reads too).
+    if let Some(item) = item.as_ref().filter(|_| {
+        s.security_version >= BLOB_SECURITY_VERSION && str_ci(obj, "organizationId").is_none()
+    }) {
+        let data = blob::seal(item, obj)?;
+        obj.retain(|k, _| {
+            let k = k.to_ascii_lowercase();
+            k != "name" && k != "notes" && !CONTAINERS.contains(&k.as_str())
+        });
+        apply(obj, enc)?; // attachment names stay field-encrypted, as in the SDK
+        obj.insert("name".into(), Value::Null);
+        obj.insert("data".into(), data.into());
+        return Ok(());
+    }
+    set_uri_checksums(obj);
+    apply(obj, enc)
 }
+
+/// bitwarden-core's `BLOB_SECURITY_VERSION`.
+const BLOB_SECURITY_VERSION: u64 = 2;
 
 /// Decrypts a downloaded attachment body (EncArrayBuffer). `cipher` may be the decrypted or the
 /// encrypted cipher JSON: only `organizationId` and the wrapped keys are read.
@@ -332,9 +348,7 @@ pub fn encrypt_attachment(
     let (base, item) = cipher_keys(s, obj)?;
     let wrapping = item.as_ref().unwrap_or(base);
     let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-    let wrapped = (&OctetStreamBytes::from(key.to_encoded().to_vec()))
-        .encrypt_with_key(wrapping)
-        .map_err(err)?;
+    let wrapped = wrap_symmetric_key(wrapping, &key)?;
     let name: EncString = file_name
         .to_owned()
         .encrypt_with_key(wrapping)
@@ -557,6 +571,59 @@ mod tests {
         assert!(c.get("card").is_none() && c.get("data").is_none() && c["blob"] == true);
         encrypt(&s, &mut c).unwrap();
         assert!(c.get("blob").is_none());
+        // A V1 account writes it back field by field.
+        assert!(
+            c.get("data").is_none() && c["login"]["username"].as_str().unwrap().starts_with("2.")
+        );
+
+        // A V2 account (security version 2) writes a personal item with its own key as one blob, which reads back;
+        // an organization item and a keyless one (folder names) stay field-encrypted, as in the SDK.
+        let v2 = Session {
+            security_version: 2,
+            ..session(HashMap::from([(
+                "org-1".to_string(),
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            )]))
+        };
+        let mut item = json!({ "type": 1, "name": "n", "notes": "x", "login": { "username": "u", "uris": [{ "uri": "https://a.test", "match": null }] },
+            "attachments": [{ "id": "a", "fileName": "f.txt", "key": "k" }] });
+        add_key(&v2, &mut item).unwrap();
+        let mut written = item.clone();
+        encrypt(&v2, &mut written).unwrap();
+        assert!(
+            written["name"].is_null()
+                && written.get("login").is_none()
+                && written.get("notes").is_none()
+        );
+        assert!(written["data"].as_str().unwrap().contains("format_version"));
+        assert!(
+            written["attachments"][0]["fileName"]
+                .as_str()
+                .unwrap()
+                .starts_with("2.")
+        );
+        decrypt(&v2, &mut written).unwrap();
+        assert_eq!(
+            (
+                written["name"].clone(),
+                written["login"]["uris"][0]["uri"].clone()
+            ),
+            (json!("n"), json!("https://a.test"))
+        );
+        assert_eq!(
+            (
+                written["attachments"][0]["fileName"].clone(),
+                written["blob"].clone()
+            ),
+            (json!("f.txt"), json!(true))
+        );
+        let mut org = json!({ "type": 2, "name": "o", "organizationId": "org-1" });
+        add_key(&v2, &mut org).unwrap();
+        encrypt(&v2, &mut org).unwrap();
+        assert!(org.get("data").is_none() && org["name"].as_str().unwrap().starts_with("2."));
+        let mut folder = json!({ "type": 2, "name": "folder" });
+        encrypt(&v2, &mut folder).unwrap();
+        assert!(folder.get("data").is_none() && folder["name"].as_str().unwrap().starts_with("2."));
 
         // A compromised server cannot plant an item it could not encrypt.
         for mut forged in [
