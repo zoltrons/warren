@@ -8,6 +8,7 @@ into `dist/ext`, so every `.zip` and `.crx` carries them.
 | Upstream | License | How we use it |
 |---|---|---|
 | bitwarden/sdk-internal (`bitwarden-crypto`) | GPL-3.0-only OR Bitwarden SDK License | Cargo **git dependency pinned to a rev**; we take it under the **GPL-3.0-only** option. Not vendored. |
+| bitwarden/sdk-internal (`bitwarden-vault` `cipher/blob`) | same | Not a dependency (it pulls an HTTP client and runtime). `crates/core-wasm/src/blob.rs` reads its sealed-blob format (container fields, versioned `CipherBlobV1` content, the renamed fields) under the **GPL-3.0-only** option, and its tests use three envelopes recorded in `cipher/blob/v1.rs`. |
 | bitwarden/sdk-internal `test-vectors/` | same | Downloaded at test time by `tools/fetch-test-vectors.sh` into `target/` (gitignored). Not committed. |
 | bitwarden/clients | GPL-3.0-only | Read as reference only. No source copied. |
 | publicsuffix/list | MPL-2.0 | Data file fetched at build time (`tools/fetch-psl.mjs`, pinned in `upstream.lock`) and shipped as `psl.json`. MPL-2.0 is GPL-compatible; ship its notice with releases. |

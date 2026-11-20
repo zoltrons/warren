@@ -163,12 +163,6 @@ fn user_vectors_unlock_and_decrypt() {
 
         for c in v["vault"]["ciphers"].as_array().unwrap() {
             let id = c["encrypted"]["id"].as_str().unwrap();
-            if c["blobEncrypted"].as_bool() == Some(true) {
-                report.push(format!(
-                    "{name}/{id}: skipped (blob-encrypted cipher, not implemented)"
-                ));
-                continue;
-            }
             let out: Value =
                 serde_json::from_str(&api::decrypt_cipher(&c["encrypted"].to_string()).unwrap())
                     .unwrap();
@@ -193,8 +187,11 @@ fn user_vectors_unlock_and_decrypt() {
                 .insert("key".into(), c["encrypted"]["key"].clone());
             let reenc = api::encrypt_cipher(&reenc_in.to_string(), false).unwrap();
             let back: Value = serde_json::from_str(&api::decrypt_cipher(&reenc).unwrap()).unwrap();
+            // Warren writes the legacy format, so a blob item comes back as a legacy one, without the marker.
+            let mut want = out.clone();
+            want.as_object_mut().unwrap().remove("blob");
             let mut errs = Vec::new();
-            compare(&back, &out, "roundtrip", &mut errs);
+            compare(&back, &want, "roundtrip", &mut errs);
             assert!(
                 errs.is_empty(),
                 "{name}/{id} roundtrip:\n{}",

@@ -315,6 +315,9 @@
   "readOnlyItem": {
     "message": "You only have view access to this item."
   },
+  "blobReadOnly": {
+    "message": "This item is saved in a newer format that Warren can read but not edit yet. Edit it in another Bitwarden app."
+  },
   "websites": {
     "message": "Websites"
   },

@@ -26,4 +26,5 @@ test("passkeys: the worker checks the RP ID against the origin before it signs o
 test("an undecryptable item is read-only, so its empty placeholder is never saved over the real item", () => {
   assert.equal(summary({ id: "x", type: 0, name: "", failed: true }).readOnly, true);
   assert.equal(summary({ id: "y", type: 2, name: "n", edit: true }).readOnly, false);
+  assert.deepEqual([summary({ id: "z", type: 2, name: "n", blob: true }).readOnly, summary({ id: "z", type: 2, name: "n", blob: true }).blob], [true, true]);
 });

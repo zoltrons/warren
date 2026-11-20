@@ -9,11 +9,15 @@
 - repo: sdk-internal
   path: test-vectors
   local: crates/core-wasm/tests/vectors.rs
-  sync: New vector files or fields must pass; blob-encrypted ciphers are currently skipped.
+  sync: New vector files or fields must pass; only vectors without a master password (TDE, Key Connector) are skipped.
 - repo: sdk-internal
   path: crates/bitwarden-vault/src/cipher
   local: crates/core-wasm/src/cipher.rs
-  sync: Encrypted field list (CONTAINERS / PLAIN_KEYS); new cipher types; cipher key and blob ("data") formats.
+  sync: Encrypted field list (CONTAINERS / PLAIN_KEYS); new cipher types; cipher key format.
+- repo: sdk-internal
+  path: crates/bitwarden-vault/src/cipher/blob
+  local: crates/core-wasm/src/blob.rs
+  sync: Sealed container (format_version), CipherBlob versions, CipherBlobV1 fields and the conversions' renames, should_use_blob_encryption.
 - repo: sdk-internal
   path: crates/bitwarden-vault/src/totp.rs
   local: crates/core-wasm/src/totp.rs

@@ -204,12 +204,15 @@ on 2026-10-29, unless marked otherwise.
 ## Not yet verified
 
 * Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions, `viewPassword: false` and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.
-* V2 "blob" ciphers (`data` = `{"format_version":1,"wrapped_cek":...}`): Vaultwarden main after 1.37.5 stores and
-  returns them (dani-garcia/vaultwarden#7764): `data` is the blob as a JSON string, `name` is null and the typed
-  fields are absent. Warren does not decrypt them yet: `decrypt` (`crates/core-wasm/src/cipher.rs`) refuses one, so it
-  is listed as undecryptable and read-only instead of an empty item whose save would overwrite the blob. Decrypting
-  them needs `bitwarden_crypto::safe::DataEnvelope` (in the pinned rev) and the `CipherBlob` v1 schema. (Cipher key
-  encryption, a `key` on new, cloned and imported items, is covered by the e2e suite.)
+* V2 "blob" ciphers (`data` = `{"format_version":1,"wrapped_cek":...,"envelope":...}`): Vaultwarden main after 1.37.5
+  stores and returns them (dani-garcia/vaultwarden#7764): `data` is the blob as a JSON string, `name` is null and the
+  typed fields are absent. The SDK writes every personal item this way once the account's security version is 2 (a V2
+  account; organization items stay legacy). Warren reads them (`crates/core-wasm/src/blob.rs`): the content-encryption
+  key is unwrapped with the cipher key (or the user/organization key), the `VaultItem` data envelope is opened, and
+  `CipherBlobV1` is mapped onto the legacy field names; attachment names stay field-encrypted. Covered by the
+  `v2-*-blob` test vectors (`tests/vectors.rs`) and the SDK's recorded envelopes (`blob.rs` tests). Blob items are
+  read-only in Warren until it writes the format. (Cipher key encryption, a `key` on new, cloned and imported items,
+  is covered by the e2e suite.)
 * V2 encryption accounts (Vaultwarden main after 1.37.5, behind `pm-27278-v2-password-registration` /
   `enable-account-encryption-v2-jit-password-registration`): every login needs `Bitwarden-Client-Version`, and a V2
   account at least 2026.10.1 (`version_header_missing` / an outdated-client error otherwise). Warren sends exactly

@@ -27,7 +27,10 @@ use bitwarden_crypto::{
 use serde_json::{Map, Value, json};
 use sha2::{Digest, Sha256};
 
-use crate::api::{Result, Session, decrypt_symmetric_key, err};
+use crate::{
+    api::{Result, Session, decrypt_symmetric_key, err},
+    blob,
+};
 
 const CONTAINERS: &[&str] = &[
     "login",
@@ -141,16 +144,6 @@ fn decrypt_str(key: &SymmetricCryptoKey, s: &str) -> Result<Option<String>> {
     Ok(Some(plain))
 }
 
-/// Vaultwarden's test for a blob (`format_version` in `data`); it sends `data` as a JSON string, the SDK as an object.
-fn is_blob(data: &Value) -> bool {
-    match data {
-        Value::String(s) => {
-            serde_json::from_str::<Value>(s).is_ok_and(|v| v.get("format_version").is_some())
-        }
-        v => v.get("format_version").is_some(),
-    }
-}
-
 /// Refuses an object holding one name twice in different case (`login` and `Login`), at any depth: this code and
 /// the TypeScript `ci` helper may each pick another one, so what was checked here would not be what is used.
 fn unique_keys(v: &Value) -> Result<()> {
@@ -172,20 +165,31 @@ fn unique_keys(v: &Value) -> Result<()> {
 
 pub fn decrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
-    // A blob-encrypted cipher (Vaultwarden > 1.37.5) keeps all of its content in `data`: without this check it would
-    // decrypt to an empty item, and saving that would overwrite the blob. Undecryptable items stay read-only.
-    if obj
+    // `data` is Vaultwarden's legacy duplicate of the typed fields, or, for a blob-encrypted cipher, all of its
+    // content (blob.rs). Either way it leaves the plaintext view.
+    let data = obj
         .iter()
-        .any(|(k, v)| k.eq_ignore_ascii_case("data") && is_blob(v))
-    {
-        return Err("blob-encrypted cipher, not supported yet".into());
-    }
-    // `data` is Vaultwarden's legacy duplicate of the typed fields; drop it from the plaintext view.
+        .find(|(k, _)| k.eq_ignore_ascii_case("data"))
+        .map(|(_, v)| v.clone())
+        .filter(blob::is_blob);
     obj.retain(|k, _| !k.eq_ignore_ascii_case("data"));
     unique_keys(cipher)?;
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
     let (base, item) = cipher_keys(s, obj)?;
     let key = item.as_ref().unwrap_or(base);
+    if let Some(data) = data {
+        // Only the blob counts: legacy fields next to it are dropped, not decrypted and mixed in.
+        obj.retain(|k, _| {
+            let k = k.to_ascii_lowercase();
+            k != "name" && k != "notes" && k != "type" && !CONTAINERS.contains(&k.as_str())
+        });
+        apply(obj, &mut |v| decrypt_str(key, v))?; // attachment names stay field-encrypted
+        obj.extend(blob::open(key, &data)?);
+        // Marks the item for the worker: read-only until Warren writes blobs (docs/COMPATIBILITY.md).
+        obj.insert("blob".into(), Value::Bool(true));
+        // The blob is authenticated as a whole, and its URIs carry no checksum.
+        return Ok(());
+    }
     apply(obj, &mut |v| decrypt_str(key, v))?;
     // As upstream: with a cipher key, a URI must carry its own checksum, so a server cannot swap in
     // another ciphertext from the same item (e.g. the username) to point the login at a new site.
@@ -284,6 +288,8 @@ pub fn move_to_org(s: &Session, cipher: &mut Value, org: &str) -> Result<()> {
 
 pub fn encrypt(s: &Session, cipher: &mut Value) -> Result<()> {
     let obj = cipher.as_object_mut().ok_or("cipher is not an object")?;
+    // decrypt's marker for a blob item: Warren's own, never sent (this writes the legacy format).
+    obj.remove("blob");
     let (base, item) = cipher_keys(s, obj)?;
     let key = item.as_ref().unwrap_or(base);
     set_uri_checksums(obj);
@@ -516,7 +522,7 @@ mod tests {
         assert_eq!(empty["name"], "n");
         assert_eq!(empty["login"]["username"], "");
 
-        // A blob cipher, as Vaultwarden lists it: refused instead of decrypting to an empty, editable item.
+        // A blob that does not open is refused, never decrypted to an empty item.
         let blob = r#"{"format_version":1,"wrapped_cek":"7.x","sealed":"y"}"#;
         assert!(decrypt(&s, &mut json!({ "type": 1, "name": null, "data": blob })).is_err());
         assert!(
@@ -526,6 +532,30 @@ mod tests {
             )
             .is_err()
         );
+
+        // A blob item opens with its cipher key; legacy fields beside the blob are dropped, not mixed in, and
+        // the marker it gets never goes back to the server.
+        let mut keyed = json!({ "type": 2, "name": "x" });
+        add_key(&s, &mut keyed).unwrap();
+        let item_key = decrypt_symmetric_key(&s.user, keyed["key"].as_str().unwrap()).unwrap();
+        let data = crate::blob::tests::seal(
+            &item_key,
+            json!({ "name": "from blob", "typeData": { "type": "login", "username": "u" } }),
+        );
+        let mut c = json!({ "type": 2, "name": null, "key": keyed["key"], "data": data,
+            "card": { "number": "2.forged|forged|forged" } });
+        decrypt(&s, &mut c).unwrap();
+        assert_eq!(
+            (
+                c["type"].clone(),
+                c["name"].clone(),
+                c["login"]["username"].clone()
+            ),
+            (json!(1), json!("from blob"), json!("u"))
+        );
+        assert!(c.get("card").is_none() && c.get("data").is_none() && c["blob"] == true);
+        encrypt(&s, &mut c).unwrap();
+        assert!(c.get("blob").is_none());
 
         // A compromised server cannot plant an item it could not encrypt.
         for mut forged in [

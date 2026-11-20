@@ -4,6 +4,7 @@
 //! stays tiny and the whole vault is decrypted in a single call.
 
 pub mod api;
+mod blob;
 mod cipher;
 mod generator;
 mod send;

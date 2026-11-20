@@ -26,6 +26,8 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 hmac = "0.13.0"
 # URI "Regular expression" matching: no backtracking, so a saved pattern cannot hang the worker on a long URL.
 regex-lite.workspace = true
+# serde is in the tree through bitwarden-crypto; derive reads the sealed blob container (blob.rs).
+serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 sha1 = "0.11.0"
 sha2 = "0.11.0"

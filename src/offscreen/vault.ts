@@ -105,8 +105,9 @@ export function summary(c: Json): VaultItem {
     uris,
     folderId: s(ci(c, "folderId")) || undefined,
     favorite: ci(c, "favorite") === true,
-    // An undecryptable item (e.g. a blob cipher) must never be re-encrypted from its empty placeholder.
-    readOnly: ci(c, "edit") === false || c.failed === true,
+    // An undecryptable item must never be re-encrypted from its empty placeholder, and a blob item would be written
+    // back in the legacy format, which Warren does not do yet.
+    readOnly: ci(c, "edit") === false || c.failed === true || c.blob === true,
     hasTotp: !!s(ci(login, "totp")),
     ...(type === 1 && !s(ci(login, "password")) ? { noPassword: true } : {}),
     ...(Array.isArray(ci(login, "fido2Credentials")) && (ci(login, "fido2Credentials") as unknown[]).length ? { hasPasskey: true } : {}),
@@ -116,6 +117,7 @@ export function summary(c: Json): VaultItem {
     creationDate: time(ci(c, "creationDate")),
     ...(type === 3 ? { brand: s(ci(o(ci(c, "card")), "brand")) || cardBrand(s(ci(o(ci(c, "card")), "number"))) } : {}),
     ...(c.failed ? { failed: true } : {}),
+    ...(c.blob === true ? { blob: true as const } : {}),
   };
 }
 
