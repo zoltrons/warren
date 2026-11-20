@@ -145,7 +145,7 @@ function passwordField(autocomplete: string) {
   return field({ label: t("masterPassword"), input, trailing: toggle });
 }
 
-function errorBox(): Child {
+export function errorBox(): Child {
   return ui.error ? h("div", { class: "error", role: "alert" }, icon("error"), h("div", {}, ui.error)) : null;
 }
 

@@ -5,8 +5,8 @@ import type { ExportFormat, Request, State } from "../shared/messages.ts";
 import { applyTheme, type Child, h, inPanel, leave, plural, rowOf, savedTheme, send, sessionNow, setUiPref, switchOf, t, THEMES, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { uriMatchLabel } from "./vault-edit.ts";
-import { clearOpened, errorBox, hasOpened, iconButton, recentShown, resetVault, setRecentShown } from "./vault-shared.ts";
-import { act, armedLogout, busyBar, disableBiometric, draft, host, inTab, render, setupBiometric, stateRequest, ui, windowId } from "./popup.ts";
+import { clearOpened, hasOpened, iconButton, recentShown, resetVault, setRecentShown } from "./vault-shared.ts";
+import { act, armedLogout, busyBar, disableBiometric, draft, errorBox, host, inTab, render, setupBiometric, stateRequest, ui, windowId } from "./popup.ts";
 
 let pinLock = true; // PIN setup: ask for the master password after a browser restart
 
