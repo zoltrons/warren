@@ -320,8 +320,11 @@ addEventListener("submit", (e) => report(e.composedPath()[0] as HTMLFormElement)
 /** The service worker decides whether anything is filled (setting, lock, matches). */
 const offerPageLoad = () => void chrome.runtime.sendMessage({ type: "pageLoad" }).catch(() => undefined);
 
-// Once per document, when its first password field exists, however late a single-page app renders it.
-watchForPasswordField(offerPageLoad);
+// Once per document, when its first password field exists, however late a single-page app renders it. A
+// prerendered page (speculation rules) is not shown yet: nothing is filled before the user sees it.
+const prerendering = (document as { prerendering?: boolean }).prerendering;
+if (prerendering) document.addEventListener("prerenderingchange", () => watchForPasswordField(offerPageLoad), { once: true });
+else watchForPasswordField(offerPageLoad);
 // bfcache returns, like the official autofiller.
 addEventListener("pageshow", (e) => {
   if ((e as PageTransitionEvent).persisted && api.hasPasswordField()) offerPageLoad();
@@ -437,13 +440,26 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (r
     barFrame = f;
     appear(f);
   }
-  if (msg.type === "barHide") {
-    // Fades out as it faded in (appear); it takes no clicks while it goes.
-    const [b, f] = [bar, barFrame];
-    bar = barFrame = undefined;
-    if (b && f && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      f.style.pointerEvents = "none";
-      f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, easing: "cubic-bezier(.3,0,.8,.15)" }).finished.then(() => b.remove(), () => b.remove());
-    } else b?.remove();
-  }
+  if (msg.type === "barHide") hideBar();
+});
+
+function hideBar() {
+  // Fades out as it faded in (appear); it takes no clicks while it goes.
+  const [b, f] = [bar, barFrame];
+  bar = barFrame = undefined;
+  if (b && f && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    f.style.pointerEvents = "none";
+    f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, easing: "cubic-bezier(.3,0,.8,.15)" }).finished.then(() => b.remove(), () => b.remove());
+  } else b?.remove();
+}
+
+// A page kept in the back/forward cache misses a lock's teardown (invariant 14): its menu and bar, which show item
+// names, go before it is stored.
+addEventListener("pagehide", (e) => {
+  if (!(e as PageTransitionEvent).persisted) return;
+  const h = host;
+  if (h) close();
+  h?.remove(); // now, not after the fade: an animation in a cached page would finish only on its return
+  bar?.remove();
+  bar = barFrame = undefined;
 });

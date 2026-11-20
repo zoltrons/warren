@@ -26,6 +26,12 @@ test("page-load fill refuses a frame of another origin than the tab", async () =
   assert.deepEqual(await pageLoadFill(frame("https://victim.test/")), { filled: false, reason: "locked" });
 });
 
+test("page-load fill refuses a prerendered document", async () => {
+  const sender = (documentLifecycle: string) => ({ tab: { id: 1, url: "https://victim.test/" }, frameId: 0, url: "https://victim.test/login", documentLifecycle }) as chrome.runtime.MessageSender;
+  assert.deepEqual(await pageLoadFill(sender("prerender")), { filled: false, reason: "noFields" });
+  assert.deepEqual(await pageLoadFill(sender("active")), { filled: false, reason: "locked" });
+});
+
 test("a page call that never settles gives up", async () => {
   await assert.rejects(pageDeadline(new Promise(() => undefined), 10), /did not answer/);
   assert.equal(await pageDeadline(Promise.resolve(1), 10), 1);

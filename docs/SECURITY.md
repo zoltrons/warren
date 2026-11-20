@@ -242,7 +242,8 @@ freed rather than zeroed in place.
 
 14. **Locking tears down in-page UI.** Auto-lock, logout and login call `lockNow`, which closes the
     inline menu and save bar in every tab: those frames show decrypted item names, so they must not
-    survive the lock. The popup/side panel follow the session in `chrome.storage.session` and drop their
+    survive the lock. A page going into the back/forward cache, which that message cannot reach, removes both on
+    `pagehide` (`src/autofill/content.ts`). The popup/side panel follow the session in `chrome.storage.session` and drop their
     decrypted state on the same event.
 
 ## Cryptography direction

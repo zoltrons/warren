@@ -52,6 +52,8 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   const frameId = sender.frameId;
   const url = httpUrl(sender);
   if (!settings.autofillOnPageLoad || tabId === undefined || frameId === undefined || !url) return { filled: false, reason: "noFields" };
+  // A prerendered or cached document is one the user does not see.
+  if (sender.documentLifecycle && sender.documentLifecycle !== "active") return { filled: false, reason: "noFields" };
   // A gesture-free fill goes only into the site the user opened: any page can frame another site's login
   // form (made invisible from outside, where the frame's own visibility checks cannot see it).
   if (frameId !== 0 && url.origin !== httpUrl(sender.tab)?.origin) return { filled: false, reason: "noMatch" };

@@ -22,6 +22,10 @@ All notable changes to Warren. Versions match the `v*` release tags.
   Before, they appeared empty and an edit would have overwritten them.
 - New items, attachments and moves to an organization wrap their keys the way the Bitwarden apps read them on V2
   accounts.
+- Autofill on page load waits until a prerendered page is actually shown, instead of filling a page the user may
+  never open.
+- The inline menu and save bar are removed when a page goes into the back/forward cache, so a page restored after
+  the vault locked no longer shows item names.
 - Saving a new organization item without picking a collection shows the error and keeps the Save button usable,
   instead of leaving it disabled until the popup is reopened.
 
