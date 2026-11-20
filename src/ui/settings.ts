@@ -1,9 +1,5 @@
 // Settings tab of the popup / side panel: its rows, search, export and import. The shell (popup.ts) owns the state
-// and the request bus and binds them in with bindSettings.
-export function row(title: string, sub?: string, trailing?: Child, extra: Record<string, unknown> = {}, tag: "div" | "button" = "div") {
-  return h(tag, { class: "row", ...extra }, h("div", { class: "body" }, h("span", { class: "title" }, title), sub ? h("span", { class: "sub wrap" }, sub) : null), trailing);
-}
-
+// and the request bus; this module imports them from it (and popup.ts imports settingsTab and row from here).
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
 import type { ExportFormat, Request, State } from "../shared/messages.ts";
 import { applyTheme, type Child, h, inPanel, leave, plural, rowOf, savedTheme, send, sessionNow, setUiPref, switchOf, t, THEMES, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
@@ -13,6 +9,10 @@ import { clearOpened, errorBox, hasOpened, iconButton, recentShown, resetVault, 
 import { act, armedLogout, busyBar, disableBiometric, draft, host, inTab, render, setupBiometric, stateRequest, ui, windowId } from "./popup.ts";
 
 let pinLock = true; // PIN setup: ask for the master password after a browser restart
+
+export function row(title: string, sub?: string, trailing?: Child, extra: Record<string, unknown> = {}, tag: "div" | "button" = "div") {
+  return h(tag, { class: "row", ...extra }, h("div", { class: "body" }, h("span", { class: "title" }, title), sub ? h("span", { class: "sub wrap" }, sub) : null), trailing);
+}
 
 function autoLockLabel(m: number): string {
   if (m < 0) return t("autoLockRestart");
