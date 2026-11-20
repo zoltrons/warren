@@ -944,6 +944,8 @@ export type FrameRequest =
   /** Opens the popup: to unlock, or from the menu's "Manage passwords" row. */
   | { type: "inlineOpen"; nonce: string }
   | { type: "inlineNewLogin"; nonce: string }
+  /** "Use a strong password" on a registration form. */
+  | { type: "inlineGenerate"; nonce: string }
   /** "Don't show on this site": the field's site joins the blocked list. */
   | { type: "inlineBlock"; nonce: string }
   /** "New e-mail alias": made by the first configured alias service and filled into the registration field. */
@@ -961,6 +963,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineAlias: obj({ type: literal("inlineAlias"), nonce: secret }),
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   inlineBlock: obj({ type: literal("inlineBlock"), nonce: secret }),
+  inlineGenerate: obj({ type: literal("inlineGenerate"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
   barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close", "unlock"), token: secret, username: opt(field), itemId: opt(secret) }),
 };
@@ -993,6 +996,8 @@ export interface MenuData {
   create: boolean;
   /** A registration form and an alias service is set up: offer "New e-mail alias". */
   alias: boolean;
+  /** A registration form: offer "Use a strong password" (generated, filled into the new and confirm fields). */
+  generate: boolean;
 }
 
 export interface BarInfo {

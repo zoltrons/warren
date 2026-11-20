@@ -31,7 +31,8 @@ the parity commit `8010209` (inline menu, save bar, editing, trash, folders).
 | Context-menu submenu | "Fill with Warren" lists the tab's logins; locked or no match: the bare entry opens the popup | e2e (via the click handler; Chrome has no API to open a context menu) |
 | Send edit / disable | Edit name, deletion date, max access count, new password, disabled; same key so the link keeps working | e2e (recipient flow with node:crypto) |
 | Username generator | Random word (EFF list, capitalize, 4 digits), plus-addressed email (account email by default), catch-all | e2e |
-| Generator history | Copied generator values, encrypted with the user key, newest 100, clearable; removed on logout | e2e (incl. "not in clear in storage") |
+| Inline "Use a strong password" | Registration forms: the inline menu generates a password with the user's generator settings and fills the new and confirm fields of that frame (`inlineGenerate`, background/inline.ts); the submit then offers to save it | unit (inline-auth.test.ts) |
+| Generator history | Copied generator values and passwords the inline menu generated, encrypted with the user key, newest 100, clearable; removed on logout | e2e (incl. "not in clear in storage") |
 | PIN unlock | bitwarden-crypto `PinKey` over the account KDF; wrapped key in `storage.session`, PIN itself encrypted with the user key so the first master-password unlock after a restart re-arms it; 5 wrong PINs log out | Rust unit + e2e |
 | Attachments | List, download (decrypted in the worker, saved through a blob link), upload for personal items | Rust unit + e2e (server copy checked) |
 | Organization / collection names | Item details show them; collection names decrypted with the org key | e2e with an org created through the API using node:crypto |

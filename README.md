@@ -61,7 +61,8 @@ Rendered from the popup with a stubbed worker (`node dev/preview/build.mjs && no
   page-load fill, TOTP code copied after a fill, and autosubmit that never presses a destructive button.
   `Ctrl+Shift+Y` (`⌘⇧Y`) opens Warren; "Lock Warren" can be given a shortcut in the browser's settings.
 - The inline menu also works inside modal dialogs, closed shadow roots and a checkout's one-field iframes (a card
-  pick fills every frame of the payment form), and offers a new e-mail alias on registration forms.
+  pick fills every frame of the payment form), and offers a strong generated password and a new e-mail alias on
+  registration forms.
 - Offers to save or update a login after you sign in, also on two-step sign-ins; "Change password on this site"
   opens the site's own page.
 - Blocked sites (no inline menu, page-load fill or passkey prompt) and never-save sites you can list by hand.

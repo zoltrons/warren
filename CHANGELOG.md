@@ -26,6 +26,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 - Two-step sign-ins (the account name on one page, the password on the next, as on Google, Microsoft or Okta) save the
   new login with its username: Warren remembers the name the first page took, for that site and tab, for 5 minutes.
+- On sign-up forms the inline menu offers "Use a strong password": Warren generates one with your generator settings,
+  fills the new and confirm password fields, keeps it in the generator history, and offers to save the login when the
+  form is sent.
 - A new password on a site with several saved logins (none with that password) is offered for update with a choice
   of which login it belongs to, instead of nothing happening.
 - The inline menu has a "Don't show on this site" button next to "Manage passwords"; Settings → Blocked websites

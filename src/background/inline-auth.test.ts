@@ -58,7 +58,7 @@ test("sender: the inline menu belongs to the frame the browser reports, not to t
 test("frame secret: a menu without this document's nonce cannot list", async () => {
   await assert.rejects(handleFrame(parseFrameRequest({ type: "inlineList", nonce: "guessed" }), 1), /not the one opened/);
   // The right nonce gets as far as the lock check.
-  assert.deepEqual(await handleFrame(parseFrameRequest({ type: "inlineList", nonce: "n1" }), 1), { kind: "login", locked: true, items: [], passkey: false, create: false, alias: false });
+  assert.deepEqual(await handleFrame(parseFrameRequest({ type: "inlineList", nonce: "n1" }), 1), { kind: "login", locked: true, items: [], passkey: false, create: false, alias: false, generate: false });
 });
 
 test("frame secret: a save bar without the token of the bar this tab was shown cannot read or save", async () => {
@@ -146,4 +146,26 @@ test("several logins, none with the typed password: the update bar offers them, 
   const info = (await handleFrame(parseFrameRequest({ type: "barInfo", token: p.token }), 1)) as { choices?: unknown[] };
   assert.equal(info.choices?.length, 2);
   await assert.rejects(handleFrame(parseFrameRequest({ type: "barAction", action: "save", token: p.token, itemId: "not-offered" }), 1), /Pick the login/);
+});
+
+test("Use a strong password: only on a registration form, filled into the menu's own frame as a password only", async () => {
+  session.session = { unlocked: true };
+  offscreen = true;
+  const c = chrome as unknown as { runtime: { sendMessage: (m: { req: { op: string } }) => Promise<unknown> }; scripting?: unknown };
+  const worker = c.runtime.sendMessage;
+  c.runtime.sendMessage = async (m) => (m.req.op === "generate" ? { ok: true, value: "Gen-pw" } : m.req.op === "encryptText" ? { ok: true, value: ["2.e|e|e"] } : worker(m));
+  const injected: { target: { frameIds?: number[] }; args?: unknown[] }[] = [];
+  c.scripting = { executeScript: async (i: { target: { frameIds?: number[] }; args?: unknown[] }) => (injected.push(i), []) };
+  try {
+    session["inline:1"] = { frameId: 3, url: "https://evil.test/login", kind: "login", nonce: "g1", signup: false };
+    await assert.rejects(handleFrame(parseFrameRequest({ type: "inlineGenerate", nonce: "g1" }), 1), /registration/);
+    assert.equal(injected.length, 0);
+    session["inline:1"] = { frameId: 3, url: "https://evil.test/signup", kind: "login", nonce: "g1", signup: true };
+    await handleFrame(parseFrameRequest({ type: "inlineGenerate", nonce: "g1" }), 1);
+    assert.ok(injected.length > 0 && injected.every((i) => JSON.stringify(i.target.frameIds) === "[3]"), "only the menu's frame");
+    assert.equal((local.genHistory as unknown[]).length, 1, "kept in the generator history");
+  } finally {
+    c.runtime.sendMessage = worker;
+    delete c.scripting;
+  }
 });

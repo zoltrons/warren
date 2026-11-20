@@ -15,8 +15,8 @@ import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSessio
 import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/alias.ts";
 import { generateAlias, getAliasSettings } from "./alias.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
-import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
-import { hostOf, isBlocked, readPrivate, updatePrivate } from "./private.ts";
+import { addGeneratorHistory, copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
+import { generatorPrefs, hostOf, isBlocked, readPrivate, updatePrivate, withWordlist } from "./private.ts";
 
 export interface InlineContext {
   frameId: number;
@@ -140,6 +140,7 @@ async function aliasVendor(): Promise<AliasVendor | undefined> {
 }
 
 /** A new alias is offered on a registration form's fields, once a service is set up. */
+const offerGenerate = (ctx: InlineContext) => ctx.kind === "login" && ctx.signup;
 const offerAlias = async (ctx: InlineContext) => ctx.kind === "login" && ctx.signup && !!(await aliasVendor());
 
 async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
@@ -152,7 +153,7 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
   // A website waiting on a conditional passkey request gets one extra row for it.
   const passkey = kind === "login" && (await conditionalReady(tabId, frameId));
   // footer: the menu's "Manage passwords" row under the list, as in Chrome's own autofill dropdown.
-  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) + ((await offerAlias(ctx)) ? 1 : 0), footer: true };
+  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) + (offerGenerate(ctx) ? 1 : 0) + ((await offerAlias(ctx)) ? 1 : 0), footer: true };
 }
 
 /** `resumed`: replayed after an unlock (resumeSaves); a lock meanwhile ends it instead of keeping the password again. */
@@ -316,7 +317,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     await openConditional(tabId, ctx.frameId);
     return null;
   }
-  if (!(await isUnlocked())) return { kind: ctx.kind, locked: true, items: [], passkey: false, create: false, alias: false } satisfies MenuData;
+  if (!(await isUnlocked())) return { kind: ctx.kind, locked: true, items: [], passkey: false, create: false, alias: false, generate: false } satisfies MenuData;
   if (req.type === "inlineBlock") {
     const host = hostOf(ctx.url);
     if (host) await updatePrivate((d) => (d.blocked = [...d.blocked.filter((h) => h !== host), host]));
@@ -329,9 +330,25 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     await chrome.action.openPopup().catch(() => updateSession({ newLogin: undefined }));
     return null;
   }
+  if (req.type === "inlineGenerate") {
+    if (!offerGenerate(ctx)) throw new Error("not a registration form");
+    await touchAutoLock();
+    // The user's own password or passphrase settings; a username-generator setting gets a default password.
+    const { options } = await generatorPrefs();
+    const password = await coreCall<string>({ op: "generate", options: await withWordlist(options.type === "passphrase" ? options : { ...options, type: "password" }) });
+    // Kept like any generated value, so it is not lost if the page never submits.
+    await addGeneratorHistory(password);
+    await closeMenu(tabId, ctx);
+    const origin = new URL(ctx.url).origin;
+    // The new and confirm fields of this frame's form; no username, no submit.
+    const [res] = await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "login", origin, username: "", password, passwordOnly: true, epoch });
+    await setTabState("inline", tabId, undefined);
+    return res?.result ?? { filled: false };
+  }
+
   const available = await items(ctx.kind, ctx.url);
   const passkey = ctx.kind === "login" && (await conditionalReady(tabId, ctx.frameId));
-  if (req.type === "inlineList") return { kind: ctx.kind, locked: false, items: available, passkey, create: offerCreate(ctx, available.length), alias: await offerAlias(ctx) } satisfies MenuData;
+  if (req.type === "inlineList") return { kind: ctx.kind, locked: false, items: available, passkey, create: offerCreate(ctx, available.length), alias: await offerAlias(ctx), generate: offerGenerate(ctx) } satisfies MenuData;
 
   if (req.type === "inlineAlias") {
     const vendor = (await offerAlias(ctx)) ? await aliasVendor() : undefined;

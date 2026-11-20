@@ -701,6 +701,12 @@
   "createAccount": {
     "message": "Create account"
   },
+  "inlineGenerate": {
+    "message": "Use a strong password"
+  },
+  "inlineGenerateSub": {
+    "message": "Fills new and confirm password"
+  },
   "inlineMenuOpened": {
     "message": "Warren suggestions available. Press Down arrow to choose one."
   },

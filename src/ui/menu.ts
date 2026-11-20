@@ -34,6 +34,12 @@ async function render() {
       )
     : null;
   const create = d.create ? row(icon("plus"), t("createAccount"), t("appName"), () => void ask({ type: "inlineNewLogin", nonce }), t("createAccount"), "option") : null;
+  const generate = d.generate
+    ? row(icon("generator"), t("inlineGenerate"), t("inlineGenerateSub"), async () => {
+        const r = await ask({ type: "inlineGenerate", nonce });
+        if (!r.ok) app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), r.error));
+      }, t("inlineGenerate"), "option")
+    : null;
   const alias = d.alias
     ? row(icon("mail"), t("inlineAlias"), t("appName"), async () => {
         const r = await ask({ type: "inlineAlias", nonce });
@@ -45,6 +51,7 @@ async function render() {
       "div",
       { class: "group", role: "listbox", "aria-label": t("appName") },
       passkey,
+      generate,
       create,
       alias,
       ...d.items.map((i) => {

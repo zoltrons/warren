@@ -145,6 +145,10 @@ const menuData: MenuData = {
     { id: "2", type: 1, name: "Google", sub: "ada@gmail.com", uris: ["https://accounts.google.com"] },
     { id: "10", type: 1, name: "Zendesk", sub: "ada@example.com", uris: ["https://zendesk.com"] },
   ],
+  passkey: false,
+  create: false,
+  alias: false,
+  generate: true,
 };
 
 function respond(req: Request): Response<unknown> {
