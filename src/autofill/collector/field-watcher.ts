@@ -2,6 +2,8 @@
 import { shadowOf } from "./shadow-dom.ts";
 
 const SETTLE_MS = 300;
+/** A busy page (a feed, a chat) that keeps overflowing gets its whole-document walks this far apart at most. */
+const MAX_SETTLE_MS = 5000;
 const MAX_PENDING = 200;
 const PASSWORD = "input[type=password]";
 const WATCH = { childList: true, subtree: true };
@@ -11,6 +13,7 @@ export function watchForPasswordField(found: () => void): void {
   let pending: Element[] = [];
   let overflow = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let delay = SETTLE_MS;
   const hit = () => {
     observer.disconnect();
     if (timer !== undefined) clearTimeout(timer);
@@ -30,14 +33,17 @@ export function watchForPasswordField(found: () => void): void {
   };
   const settle = () => {
     timer = undefined;
-    const roots = overflow ? [document] : pending;
+    const full = overflow;
+    const roots = full ? [document] : pending;
     pending = [];
     overflow = false;
-    if (roots.some(scan)) hit();
+    if (roots.some(scan)) return hit();
+    // Each fruitless walk of the whole document doubles the wait before the next one.
+    delay = full ? Math.min(delay * 2, MAX_SETTLE_MS) : SETTLE_MS;
   };
   const observer = new MutationObserver((records) => {
     for (const r of records) for (const n of r.addedNodes) if (n instanceof Element) pending.length < MAX_PENDING ? pending.push(n) : (overflow = true);
-    if ((pending.length || overflow) && timer === undefined) timer = setTimeout(settle, SETTLE_MS);
+    if ((pending.length || overflow) && timer === undefined) timer = setTimeout(settle, delay);
   });
   const start = () => {
     observer.observe(document, WATCH);
