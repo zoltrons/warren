@@ -182,6 +182,13 @@ freed rather than zeroed in place.
     Every item Warren creates gets a fresh key of its own (`add_key`, used by `prepareSave` for new items, clones and a
     passkey's new login, and by imports). An item another client made without one keeps none when edited here:
     adding one would mean re-wrapping its attachment keys, so its URIs stay unbound.
+    A URI's match type is not encrypted in the protocol, and the checksum covers only the URI, so a server can turn
+    `https://bank.test` into an unanchored regular expression that matches any page containing that text. A login
+    matched only through a regular-expression URI is therefore flagged (`regexOnly`, `loginMatch` in
+    `src/offscreen/vault.ts`; a null match falls back to the default, so a regular-expression default counts too): it
+    is still listed in the popup and the context menu for the user to pick, but the inline menu (which the page
+    opens), page-load autofill, "fill the first match" (shortcut, context menu parent entry), the save/update bar and
+    the passkey upgrade after a fill never use it. The other match types cannot reach another site (StartsWith ends at a URL boundary).
 
 10b. **A V2 account's state is verified, and cannot be downgraded.** As the SDK's `set_to_context`: a V2
     (XAES-256-GCM) user key opens a session only with its signing key, signed public key and signed security state,

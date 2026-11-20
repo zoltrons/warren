@@ -11,6 +11,10 @@ All notable changes to Warren. Versions match the `v*` release tags.
   by about 100 KiB for the signature checks.
 - After "Fill anyway" puts a login into another site, that site can no longer add a passkey to the login through
   the automatic passkey upgrade.
+- A login matched on a page only through a regular-expression URI is no longer filled on page load or by the
+  shortcut, not offered in the inline menu, and never updated from the save bar: the match type is not encrypted, so
+  a compromised server could turn a bank's URI into a pattern that matches any site. It is still offered in the popup
+  and the context menu.
 - With PIN-only unlock, restarting the browser no longer resets the count of wrong PINs: the fifth wrong PIN logs
   out however many restarts happened in between.
 - An open popup or side panel no longer keeps the vault from auto-locking when it refreshes because of a pushed

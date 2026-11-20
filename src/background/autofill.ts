@@ -60,7 +60,7 @@ export async function pageLoadFill(sender: chrome.runtime.MessageSender): Promis
   if (!(await isUnlocked())) return { filled: false, reason: "locked" };
   if (await isBlocked(url.href, true)) return { filled: false, reason: "noMatch" };
   // Items flagged for a master-password re-prompt never fill on page load (no user to ask).
-  const pick = pickPageLoadLogin((await matches(url)).filter((i) => !i.reprompt), settings.autofillOnPageLoadDefault, (await readPrivate()).lastUsed);
+  const pick = pickPageLoadLogin((await matches(url)).filter((i) => !i.reprompt && !i.regexOnly), settings.autofillOnPageLoadDefault, (await readPrivate()).lastUsed);
   if (!pick) return { filled: false, reason: "noMatch" };
   const { username, password } = await coreCall<{ username: string; password: string }>({ op: "fillData", id: pick.id });
   const customFields = await customFieldsOf(pick.id);
@@ -118,14 +118,15 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
     if (repromptPending(cipher)) throw new UserError("reprompt", REPROMPT_MESSAGE);
     const type = cipher.type;
     if (type === 1) {
-      matched = (await matches(url)).some((i) => i.id === id);
-      if (!anyway && !matched) return { filled: false, reason: "noMatch" };
+      const hit = (await matches(url)).find((i) => i.id === id);
+      if (!anyway && !hit) return { filled: false, reason: "noMatch" };
+      matched = !!hit && !hit.regexOnly;
     } else if (type === 3 || type === 4) {
       values = await coreCall<Record<string, string>>({ op: "formValues", id });
     } else return { filled: false, reason: "noMatch" };
   } else {
     // "Fill the first match" is a fill nobody confirmed: skip items that need a re-prompt.
-    item = (await matches(url)).filter((i) => !i.reprompt)[0];
+    item = (await matches(url)).filter((i) => !i.reprompt && !i.regexOnly)[0];
     if (!item) return { filled: false, reason: "noMatch" };
     id = item.id;
   }

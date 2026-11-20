@@ -9,7 +9,7 @@ import { parseRange, sha1Hex } from "../shared/pwned-range.ts";
 import { isInsecureUri } from "../shared/uri-tools.ts";
 import { loadTotpSites, offersTotp } from "../shared/totp-sites.ts";
 import { asObject as o, asString as s, ci, ciKey } from "../shared/validate.ts";
-import { Psl, uriMatches } from "../autofill/match.ts";
+import { MATCH, Psl, uriMatches } from "../autofill/match.ts";
 import { b64u } from "../shared/url.ts";
 import * as fido2 from "./fido2.ts";
 import { restorePasskeyKeys, withoutPasskeyKeys } from "./passkey-keys.ts";
@@ -333,13 +333,21 @@ export async function matchUri(url: string, defaultMatch: number): Promise<Vault
   await getPsl();
   const page = new URL(url);
   return [...ciphers.values()]
-    .filter((c) => Number(ci(c, "type")) === 1)
-    .filter((c) => {
-      const uris = ci(o(ci(c, "login")), "uris");
-      return Array.isArray(uris) && uris.some((u) => uriMatches(s(ci(u, "uri")), ci(u, "match") as number | null, page, psl!, defaultMatch, core.regexTest));
-    })
-    .map(summary)
+    .flatMap((c) => loginMatch(c, page, psl!, defaultMatch, core.regexTest) ?? [])
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The login's summary when one of its URIs matches `page`. */
+export function loginMatch(c: Json, page: URL, psl: Psl, defaultMatch: number, regexTest?: (pattern: string, text: string) => boolean): VaultItem | undefined {
+  if (Number(ci(c, "type")) !== 1) return undefined;
+  const uris = ci(o(ci(c, "login")), "uris");
+  const hits = Array.isArray(uris) ? uris.filter((u) => uriMatches(s(ci(u, "uri")), ci(u, "match") as number | null, page, psl, defaultMatch, regexTest)) : [];
+  if (!hits.length) return undefined;
+  // A URI's match type is not encrypted: a server can turn "https://bank.test" into an unanchored regular
+  // expression that matches any page. A login only such a URI matches is offered, but never filled unasked.
+  // A null match is the server's to set too: it falls back to the default, which may be a regular expression.
+  const regexOnly = hits.every((u) => ((ci(u, "match") as number | null | undefined) ?? defaultMatch) === MATCH.RegularExpression);
+  return { ...summary(c), ...(regexOnly ? { regexOnly: true as const } : {}) };
 }
 
 /** User-key strings (a failed one comes back empty). */

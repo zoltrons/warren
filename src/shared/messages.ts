@@ -443,6 +443,9 @@ export interface VaultItem {
   /** Card only: the network, from the brand field or worked out from the number's leading digits. */
   brand?: string;
   failed?: boolean;
+  /** matchUri only: matched only through a URI whose (unencrypted) match type is a regular expression. Never
+   * filled without the user picking it, never updated from a page (SECURITY.md invariant 10a). */
+  regexOnly?: true;
 }
 
 /** Logins matching the active tab. `host` is absent when the tab is not an http(s) page. */

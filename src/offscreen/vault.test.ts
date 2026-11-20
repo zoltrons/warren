@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { passkeyAssert, passkeyCreate, sendEdit, summary } from "./vault.ts";
+import { Psl } from "../autofill/match.ts";
+import { loginMatch, passkeyAssert, passkeyCreate, sendEdit, summary } from "./vault.ts";
 
 test("a send edit replaces stored fields in any casing and never sends the stored password hash back", () => {
   const stored = { Id: "s", Key: "wrapped", Name: "old", Text: { Text: "old", Hidden: false }, Password: "server-hash" };
@@ -26,4 +27,18 @@ test("passkeys: the worker checks the RP ID against the origin before it signs o
 test("an undecryptable item is read-only, so its empty placeholder is never saved over the real item", () => {
   assert.equal(summary({ id: "x", type: 0, name: "", failed: true }).readOnly, true);
   assert.equal(summary({ id: "y", type: 2, name: "n", edit: true }).readOnly, false);
+});
+
+test("a login matched only by a regular-expression URI is flagged: its match type is not encrypted", () => {
+  const psl = new Psl(["test"]);
+  const login = (...uris: { uri: string; match: number | null }[]) => ({ id: "b", type: 1, name: "bank", login: { uris } });
+  const evil = new URL("https://evil.test/#https://bank.test");
+  // The server flipped the bank's URI to a regex: it now matches any page that contains it.
+  assert.equal(loginMatch(login({ uri: "https://bank.test", match: 4 }), evil, psl, 0)?.regexOnly, true);
+  // A URI that matches on its own (domain) keeps the item fillable.
+  const both = login({ uri: "https://bank.test", match: 4 }, { uri: "bank.test", match: null });
+  assert.equal(loginMatch(both, new URL("https://bank.test/login"), psl, 0)?.regexOnly, undefined);
+  assert.equal(loginMatch(login({ uri: "bank.test", match: null }), evil, psl, 0), undefined);
+  // A null match falls back to the user's default: a regular-expression default is as unanchored.
+  assert.equal(loginMatch(login({ uri: "https://bank.test", match: null }), evil, psl, 4)?.regexOnly, true);
 });

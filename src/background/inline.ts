@@ -48,7 +48,8 @@ async function items(kind: FieldKind, url: string): Promise<MenuItem[]> {
   if (kind === "login") {
     await ensureLoaded();
     const { defaultUriMatch } = await getSettings();
-    return (await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: defaultUriMatch })).map(pick);
+    // The page opens this menu itself: a login it matched only through a regular expression would be a lure (VaultItem.regexOnly).
+    return (await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: defaultUriMatch })).filter((m) => !m.regexOnly).map(pick);
   }
   const settings = await getSettings();
   if (kind === "card" && !settings.inlineMenuCards) return [];
@@ -154,7 +155,8 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   const host = new URL(url).hostname.replace(/\.$/, ""); // no port or trailing dot: the form hostOf gives the settings list
   if (!settings.savePrompt || !(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
   await ensureLoaded();
-  const matches = await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch });
+  // A page never updates a login it matched only through a regular expression (VaultItem.regexOnly).
+  const matches = (await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch })).filter((m) => !m.regexOnly);
   // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com"). A page
   // without one (the password step of a two-step sign-in) may be any of the site's logins.
   const sameUser = username ? matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase()) : matches;
