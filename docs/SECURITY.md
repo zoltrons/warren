@@ -218,9 +218,10 @@ freed rather than zeroed in place.
     (`mediation: "conditional"`, the automatic passkey upgrade) is the one WebAuthn call that needs no gesture and opens
     no window, so any page script can make it. `conditionalCreate` (`src/background/passkey.ts`) accepts it only within
     5 minutes of a login fill the user asked for in that tab (popup, shortcut, context menu, inline menu; a page-load
-    fill does not count), for the same origin, the same username, into that very login, which must be editable, not
+    fill and a "Fill anyway" of another site's login do not count), for the same origin, the same username, into that very login, which must be editable, not
     flagged for re-prompt and without a passkey yet; once per fill. It sets neither UP nor UV, a notification says it
-    happened, and every refusal is the same NotAllowedError.
+    happened, and every refusal is the same NotAllowedError. Any passkey request that fails inside Warren (locked,
+    offline, a server error) answers the page with that same message, never the reason.
 
 11c. **A page's Signal API call changes names only.** `signalCurrentUserDetails` (no gesture, no window) renames
     the passkeys of the page's own RP ID (checked like any call) for that user handle, in editable items of an

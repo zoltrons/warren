@@ -109,6 +109,8 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   if (!url || tab?.id === undefined) throw new UserError("invalid", "This page cannot be filled");
   let item: VaultItem | undefined;
   let values: Record<string, string> | undefined;
+  // A login filled with "Fill anyway" is not this site's: it must not count as a recent fill here (passkey upgrades).
+  let matched = true;
   if (id) {
     // The "On this site" list may offer a card or identity: fill it by its own field map.
     const cipher = await coreCall<VaultItem>({ op: "cipherSummary", id }).catch(() => undefined);
@@ -116,7 +118,8 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
     if (repromptPending(cipher)) throw new UserError("reprompt", REPROMPT_MESSAGE);
     const type = cipher.type;
     if (type === 1) {
-      if (!anyway && !(await matches(url)).some((i) => i.id === id)) return { filled: false, reason: "noMatch" };
+      matched = (await matches(url)).some((i) => i.id === id);
+      if (!anyway && !matched) return { filled: false, reason: "noMatch" };
     } else if (type === 3 || type === 4) {
       values = await coreCall<Record<string, string>>({ op: "formValues", id });
     } else return { filled: false, reason: "noMatch" };
@@ -138,7 +141,7 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   }
   if (r.filled) {
     await markUsed(id);
-    if (!values) await rememberFill(tab.id, url.origin, id);
+    if (!values && matched) await rememberFill(tab.id, url.origin, id);
     // Not onto the clipboard of a vault that locked after the fill.
     if (totp && (await getSettings()).autoCopyTotp && epoch === lockEpoch()) await copyToClipboard(totp);
   }

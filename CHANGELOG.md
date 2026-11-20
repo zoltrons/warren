@@ -9,6 +9,10 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Accounts with the new encryption (V2) open only when their signed account state verifies, as in the Bitwarden apps:
   a server cannot leave it out, swap in another account's, or lower its security version. The WebAssembly core grows
   by about 100 KiB for the signature checks.
+- After "Fill anyway" puts a login into another site, that site can no longer add a passkey to the login through
+  the automatic passkey upgrade.
+- A passkey request that fails inside Warren tells the site only "not allowed", never why (vault locked, offline, the
+  server's error text).
 
 ### Fixed
 

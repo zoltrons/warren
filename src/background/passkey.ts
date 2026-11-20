@@ -27,6 +27,9 @@ import { ensureLoaded, isUnlocked, putCipher, requireUnlocked, sync } from "./va
 import { Psl } from "../autofill/match.ts";
 import { checkRpId } from "../offscreen/fido2.ts";
 
+/** WebAuthn's own wording for a refusal, the same for every reason. */
+const NOT_ALLOWED = "The operation either timed out or was not allowed.";
+
 const SCRIPT_IDS = ["warren-passkey-page", "warren-passkey-relay"];
 /**
  * A conditional (passkey-autofill) request is kept open by the page pinging the port, which also keeps
@@ -134,7 +137,7 @@ export const rememberFill = (tabId: number, origin: string, itemId: string) => s
 const upgrading = new Set<number>();
 
 async function conditionalCreate(call: Extract<PasskeyCall, { kind: "create" }>, origin: string, rpId: string, tabId: number): Promise<PasskeyResult> {
-  if (upgrading.has(tabId)) return error("NotAllowedError", "The operation either timed out or was not allowed.");
+  if (upgrading.has(tabId)) return error("NotAllowedError", NOT_ALLOWED);
   upgrading.add(tabId);
   try {
     return await upgrade(call, origin, rpId, tabId);
@@ -145,7 +148,7 @@ async function conditionalCreate(call: Extract<PasskeyCall, { kind: "create" }>,
 
 async function upgrade(call: Extract<PasskeyCall, { kind: "create" }>, origin: string, rpId: string, tabId: number): Promise<PasskeyResult> {
   const epoch = lockEpoch();
-  const refuse = error("NotAllowedError", "The operation either timed out or was not allowed.");
+  const refuse = error("NotAllowedError", NOT_ALLOWED);
   const o = call.options;
   if (o.userVerification === "required" || !(await isUnlocked()) || (await isBlocked(origin, true))) return refuse;
   const filled = await getTabState("filled", tabId);
@@ -237,7 +240,7 @@ export function onPasskeyPort(port: chrome.runtime.Port): void {
     }
     if (call.kind === "create" && call.conditional) {
       // WebAuthn: a conditional create from a cross-origin frame is NotAllowedError.
-      const r = topOrigin ? error("NotAllowedError", "The operation either timed out or was not allowed.") : await conditionalCreate(call, origin, rpId, tabId);
+      const r = topOrigin ? error("NotAllowedError", NOT_ALLOWED) : await conditionalCreate(call, origin, rpId, tabId);
       if (!closed) port.postMessage(r);
       return;
     }
@@ -523,7 +526,9 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
     }
   } catch (e) {
     if (e instanceof UserError && (e.code === "invalid" || e.code === "reprompt")) throw e;
-    p.done(error("NotAllowedError", e instanceof Error ? e.message : String(e)));
+    // The site learns nothing of why (locked, offline, the server's text): the reason stays in the console.
+    console.warn("passkey request failed", e);
+    p.done(error("NotAllowedError", NOT_ALLOWED));
   }
   return null;
 }
