@@ -2,86 +2,86 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.21 — 2026-11-20
 
 ### Security
 
 - Accounts with the new encryption (V2) open only when their signed account state verifies, as in the Bitwarden apps:
   a server cannot leave it out, swap in another account's, or lower its security version. The WebAssembly core grows
-  by about 100 KiB for the signature checks.
+  by about 100 KiB for the signature checks. ([ce939a7](https://github.com/zoltrons/warren/commit/ce939a7b359cbfc4272ee067c83873804a99b8f8))
 - After "Fill anyway" puts a login into another site, that site can no longer add a passkey to the login through
-  the automatic passkey upgrade.
+  the automatic passkey upgrade. ([7b4e5ee](https://github.com/zoltrons/warren/commit/7b4e5ee5cc972d513c431c9b04de5e307038cf02))
 - A login matched on a page only through a regular-expression URI is no longer filled on page load or by the
   shortcut, not offered in the inline menu, and never updated from the save bar: the match type is not encrypted, so
   a compromised server could turn a bank's URI into a pattern that matches any site. It is still offered in the popup
-  and the context menu.
+  and the context menu. ([aacf04d](https://github.com/zoltrons/warren/commit/aacf04dfd9b4392068572898fad4917c0a49da6f))
 - With PIN-only unlock, restarting the browser no longer resets the count of wrong PINs: the fifth wrong PIN logs
-  out however many restarts happened in between.
+  out however many restarts happened in between. ([c3a38a4](https://github.com/zoltrons/warren/commit/c3a38a44b962d8b1dfdba53d3cc2404ce24fcb21))
 - An open popup or side panel no longer keeps the vault from auto-locking when it refreshes because of a pushed
-  login request: anyone who knows the account's email can send those. At most 20 pending requests are kept.
+  login request: anyone who knows the account's email can send those. At most 20 pending requests are kept. ([90c683d](https://github.com/zoltrons/warren/commit/90c683d502de9ca91ae738e097b21f51037f1b3a))
 - A passkey request that fails inside Warren tells the site only "not allowed", never why (vault locked, offline, the
-  server's error text).
+  server's error text). ([7b4e5ee](https://github.com/zoltrons/warren/commit/7b4e5ee5cc972d513c431c9b04de5e307038cf02))
 
 ### Added
 
 - Two-step sign-ins (the account name on one page, the password on the next, as on Google, Microsoft or Okta) save the
-  new login with its username: Warren remembers the name the first page took, for that site and tab, for 5 minutes.
+  new login with its username: Warren remembers the name the first page took, for that site and tab, for 5 minutes. ([f7c8c49](https://github.com/zoltrons/warren/commit/f7c8c49b8bac2a9fc6f030e5e77ef62caa258402))
 - On sign-up forms the inline menu offers "Use a strong password": Warren generates one with your generator settings,
   fills the new and confirm password fields, keeps it in the generator history, and offers to save the login when the
-  form is sent.
+  form is sent. ([8d52eb4](https://github.com/zoltrons/warren/commit/8d52eb4f0a76cb583165de7f9b5915eb4d619fb7))
 - A new password on a site with several saved logins (none with that password) is offered for update with a choice
-  of which login it belongs to, instead of nothing happening.
+  of which login it belongs to, instead of nothing happening. ([541c81a](https://github.com/zoltrons/warren/commit/541c81a994b985ca5fb57fa1e41bb83f7c73985a))
 - The inline menu has a "Don't show on this site" button next to "Manage passwords"; Settings → Blocked websites
-  undoes it.
+  undoes it. ([9a9d2d5](https://github.com/zoltrons/warren/commit/9a9d2d5cc00de7905c81ed427a16825005e1df51))
 - Keyboard shortcuts: Ctrl+Shift+Y (Command+Shift+Y on a Mac) opens Warren, and a "Lock Warren" command can be given a
-  key in the browser's extension shortcut settings.
-- Screen readers announce the inline menu when it opens on a field, and how to reach it (Down arrow).
-- The save bar's username can be corrected before a new login is saved.
+  key in the browser's extension shortcut settings. ([3b4fb06](https://github.com/zoltrons/warren/commit/3b4fb0626d7e2ed9462e71469976a92de8b246cc))
+- Screen readers announce the inline menu when it opens on a field, and how to reach it (Down arrow). ([11a1eb9](https://github.com/zoltrons/warren/commit/11a1eb98c67e532b02fac89f6ddf910bf53ef8b5))
+- The save bar's username can be corrected before a new login is saved. ([f7c8c49](https://github.com/zoltrons/warren/commit/f7c8c49b8bac2a9fc6f030e5e77ef62caa258402))
 - Signing in to a site while Warren is locked shows "Unlock Warren to save this login?"; after the unlock the usual
-  save or update prompt follows. The typed password waits in memory only, for 5 minutes at most.
+  save or update prompt follows. The typed password waits in memory only, for 5 minutes at most. ([1b804a3](https://github.com/zoltrons/warren/commit/1b804a3d66bc60d036ca6e061826875f3f47a802))
 - A fill asked for while locked (shortcut, context menu, the inline menu's "Unlock to fill") happens right after the
-  unlock, if it comes within 2 minutes and the tab still shows that site.
+  unlock, if it comes within 2 minutes and the tab still shows that site. ([1b804a3](https://github.com/zoltrons/warren/commit/1b804a3d66bc60d036ca6e061826875f3f47a802))
 
 ### Changed
 
 - Passkeys no longer ask for the master password, Touch ID or Windows Hello in an unlocked vault, even when the site
   requires verification: unlocking the vault is the verification, as in Bitwarden's own apps and extension. An item
-  with master password reprompt still asks for it.
+  with master password reprompt still asks for it. ([3e447ae](https://github.com/zoltrons/warren/commit/3e447aef4bdc081141f4de6a64d68ffa6b137a8d))
 
 ### Fixed
 
 - Menus in the popup (More actions, copy and row options) open above their button when there is no room below,
-  instead of being cut off at the bottom of the popup.
-- Menus in the popup follow the keyboard: the arrow keys move between items (wrapping), Home and End jump.
-- The notes field grows with its text up to 40 % of the popup's height, instead of a fixed two-line box.
-- Screen readers announce on/off settings as switches, not checkboxes.
+  instead of being cut off at the bottom of the popup. ([1c01920](https://github.com/zoltrons/warren/commit/1c01920b0ab915a3efaf8bef7c80f5f4d5946449))
+- Menus in the popup follow the keyboard: the arrow keys move between items (wrapping), Home and End jump. ([1c01920](https://github.com/zoltrons/warren/commit/1c01920b0ab915a3efaf8bef7c80f5f4d5946449))
+- The notes field grows with its text up to 40 % of the popup's height, instead of a fixed two-line box. ([1c01920](https://github.com/zoltrons/warren/commit/1c01920b0ab915a3efaf8bef7c80f5f4d5946449))
+- Screen readers announce on/off settings as switches, not checkboxes. ([1c01920](https://github.com/zoltrons/warren/commit/1c01920b0ab915a3efaf8bef7c80f5f4d5946449))
 - Accounts with the new encryption (V2, from the next Vaultwarden release) work like any other: their items, which the
   Bitwarden apps save in a newer "blob" format, are shown, filled and edited, and Warren saves them in that format too.
-  Before, they appeared empty and an edit would have overwritten them.
+  Before, they appeared empty and an edit would have overwritten them. ([5b3c82e](https://github.com/zoltrons/warren/commit/5b3c82edb8584aa3f3e586f93dd25ce6f8648511))
 - New items, attachments and moves to an organization wrap their keys the way the Bitwarden apps read them on V2
-  accounts.
+  accounts. ([5b3c82e](https://github.com/zoltrons/warren/commit/5b3c82edb8584aa3f3e586f93dd25ce6f8648511))
 - "Log out" on the lock screen asks for a second click like the one in Settings, since it removes the local vault,
-  PIN and biometric unlock.
+  PIN and biometric unlock. ([efb74fe](https://github.com/zoltrons/warren/commit/efb74feaac2fd8c29ef40b624c7eee1bfd22ac08))
 - A proxy or login gateway in front of the server that answers a token refresh with its own 401 page no longer logs
-  Warren out (which removed the PIN, biometric unlock and local settings); only the server's own refusal does.
+  Warren out (which removed the PIN, biometric unlock and local settings); only the server's own refusal does. ([d439402](https://github.com/zoltrons/warren/commit/d4394026d2394aebcbcb992d8790b08188f2eda3))
 - Changes made on other devices while the push connection was down (network drop, browser restart, a server or
   proxy without WebSockets) now reach an unlocked vault: Warren syncs after every reconnect and at least every 30
-  minutes, instead of only when the popup is opened.
+  minutes, instead of only when the popup is opened. ([b50315c](https://github.com/zoltrons/warren/commit/b50315c3fd83f65732ebb04872e54c26856d154b))
 - Clearer errors while setting up a server: an address that redirects (http to https, another host or path) says so
   instead of "Cannot reach the server", and a proxy's error page reads "The server answered with an error (HTTP 502)…"
-  instead of a bare "HTTP 502".
+  instead of a bare "HTTP 502". ([8f902ed](https://github.com/zoltrons/warren/commit/8f902edf6a74418506e9f6ff558e1276f6f90a7f))
 - Saving an item that was changed on another device while it was open no longer fails over and over: Warren
-  fetches the newer copy and says so, and saving again replaces that change with yours (or cancel to keep it).
+  fetches the newer copy and says so, and saving again replaces that change with yours (or cancel to keep it). ([e762045](https://github.com/zoltrons/warren/commit/e7620450f39df08060e11c6964855735b9ac57cb))
 - Searching a vault of thousands of items stays quick: the list sorts with one shared collator, waits for a pause in
-  the typing in vaults over 1,000 items, and draws the first 200 results with a "Show all" button for the rest.
+  the typing in vaults over 1,000 items, and draws the first 200 results with a "Show all" button for the rest. ([c325b28](https://github.com/zoltrons/warren/commit/c325b28ce895a4e2b679a1c9fdf2c247967bd446))
 - The "Fill with Warren" context menu lists at most 20 logins and a "more in Warren…" entry that opens the popup,
-  instead of one entry per login on sites that match hundreds.
+  instead of one entry per login on sites that match hundreds. ([dee8155](https://github.com/zoltrons/warren/commit/dee81554a955aad36edf7e6a1244ed2e2ded07b8))
 - Autofill on page load waits until a prerendered page is actually shown, instead of filling a page the user may
-  never open.
+  never open. ([4138cb3](https://github.com/zoltrons/warren/commit/4138cb3d1b7cca11a09753bf51a72ed3a6cc9689))
 - The inline menu and save bar are removed when a page goes into the back/forward cache, so a page restored after
-  the vault locked no longer shows item names.
+  the vault locked no longer shows item names. ([4138cb3](https://github.com/zoltrons/warren/commit/4138cb3d1b7cca11a09753bf51a72ed3a6cc9689))
 - Saving a new organization item without picking a collection shows the error and keeps the Save button usable,
-  instead of leaving it disabled until the popup is reopened.
+  instead of leaving it disabled until the popup is reopened. ([ec7ee93](https://github.com/zoltrons/warren/commit/ec7ee934e3301ee3c7c0efd1c3ef7ba1afb81bf8))
 
 ## 0.0.20 — 2026-11-12
 
