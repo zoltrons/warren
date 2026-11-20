@@ -282,6 +282,12 @@ addEventListener(
       void toTop({ op: "focus" });
       return;
     }
+    // ArrowDown in a field without its menu (closed with Escape) opens it, as it does Chrome's dropdown.
+    if (e.key === "ArrowDown" && e.isTrusted && !e.altKey && !host && !drawnAbove && askable(field) && active() === field) {
+      dismissed = undefined;
+      void open(field);
+      return;
+    }
     if (e.key === "Enter" && field.type === "password") report(field.form);
   },
   true,
