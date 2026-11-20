@@ -98,7 +98,9 @@ async function setServer(input: string): Promise<void> {
   } catch (e) {
     throw new UserError("invalid", (e as Error).message);
   }
-  const info = await getServerInfo(url).catch((e: unknown) => {
+  const info = await getServerInfo(url).catch(async (e: unknown) => {
+    // API calls refuse redirects (invariant 7), which reads as unreachable: say so when that is the reason.
+    if (e instanceof NetworkError && (await redirects(url))) throw new UserError("badServer", "This address redirects elsewhere. Enter the address the server ends up at (check https:// and the path).");
     if (e instanceof NetworkError) throw e;
     throw new UserError("badServer", "This does not look like a Vaultwarden server");
   });
@@ -106,6 +108,13 @@ async function setServer(input: string): Promise<void> {
   if (previous && previous.url !== url) await logout();
   await setLocal("server", { url, version: info.version, name: info.name });
 }
+
+/** Whether the server's config address answers with a redirect (only looked at, never followed). */
+const redirects = (base: string) =>
+  fetch(`${base}/api/config`, { redirect: "manual", credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(10_000) }).then(
+    (r) => r.type === "opaqueredirect",
+    () => false,
+  );
 
 /** Vault requests return their own data; everything else returns the new State. */
 async function handle(req: Request): Promise<unknown> {

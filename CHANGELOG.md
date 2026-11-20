@@ -41,6 +41,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Changes made on other devices while the push connection was down (network drop, browser restart, a server or
   proxy without WebSockets) now reach an unlocked vault: Warren syncs after every reconnect and at least every 30
   minutes, instead of only when the popup is opened.
+- Clearer errors while setting up a server: an address that redirects (http to https, another host or path) says so
+  instead of "Cannot reach the server", and a proxy's error page reads "The server answered with an error (HTTP 502)…"
+  instead of a bare "HTTP 502".
 - Saving an item that was changed on another device while it was open no longer fails over and over: Warren
   fetches the newer copy and says so, and saving again replaces that change with yours (or cancel to keep it).
 - Searching a vault of thousands of items stays quick: the list sorts with one shared collator, waits for a pause in

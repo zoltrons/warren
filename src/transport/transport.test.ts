@@ -24,7 +24,8 @@ test("errorMessage skips Vaultwarden's empty error_description", () => {
   const body = { error: "", error_description: "", ErrorModel: { Message: "Invalid TOTP code!" }, message: "Invalid TOTP code!" };
   assert.equal(errorMessage(body, 400), "Invalid TOTP code!");
   assert.equal(errorMessage({ error_description: "Username or password is incorrect" }, 400), "Username or password is incorrect");
-  assert.equal(errorMessage(null, 502), "HTTP 502");
+  assert.match(errorMessage(null, 502), /HTTP 502\). It may be down/);
+  assert.equal(errorMessage(null, 404), "HTTP 404");
   assert.equal(errorMessage({ message: "x".repeat(10_000) }, 500).length, 500, "a hostile server cannot flood the popup");
 });
 

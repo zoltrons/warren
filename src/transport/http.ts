@@ -71,7 +71,9 @@ export function errorMessage(body: unknown, status: number): string {
     ci(ci(body, "error"), "description"),
   ];
   // Cut: a hostile server must not flood the popup with an endless error text.
-  return (candidates.find((m): m is string => typeof m === "string" && m.trim() !== "") ?? `HTTP ${status}`).slice(0, 500);
+  // No text of the server's own (a proxy's error page): say what a 5xx usually means.
+  const fallback = status >= 500 ? `The server answered with an error (HTTP ${status}). It may be down, starting or misconfigured.` : `HTTP ${status}`;
+  return (candidates.find((m): m is string => typeof m === "string" && m.trim() !== "") ?? fallback).slice(0, 500);
 }
 
 export async function call(base: string, method: string, path: string, opts: CallOptions = {}): Promise<unknown> {
