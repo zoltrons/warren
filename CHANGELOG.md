@@ -26,6 +26,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 - Two-step sign-ins (the account name on one page, the password on the next, as on Google, Microsoft or Okta) save the
   new login with its username: Warren remembers the name the first page took, for that site and tab, for 5 minutes.
+- Screen readers announce the inline menu when it opens on a field, and how to reach it (Down arrow).
 - The save bar's username can be corrected before a new login is saved.
 - Signing in to a site while Warren is locked shows "Unlock Warren to save this login?"; after the unlock the usual
   save or update prompt follows. The typed password waits in memory only, for 5 minutes at most.

@@ -157,7 +157,13 @@ function draw(a: HTMLElement, height: number, secret: string) {
   frame.allow = "clipboard-write";
   // Radius and shadow are Chrome's menu ones (8 px, Material elevation 2).
   frame.style.cssText = `all:initial;display:block;width:100%;height:${height}px;border:0;border-radius:8px;box-shadow:0 0 0 1px rgba(128,128,128,.16),0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15);color-scheme:normal`;
-  host.attachShadow({ mode: "closed" }).append(frame);
+  // Screen readers stay in the page's field: a live region tells them the menu is there and how to reach it. Filled
+  // after insertion, since a live region announces changes, not its first text.
+  const say = document.createElement("span");
+  say.setAttribute("role", "status");
+  say.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap";
+  host.attachShadow({ mode: "closed" }).append(frame, say);
+  setTimeout(() => (say.textContent = chrome.i18n.getMessage("inlineMenuOpened")), 100);
   containerOf(a).append(host);
   raise(host);
   appear(frame);
