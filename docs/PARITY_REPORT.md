@@ -256,6 +256,7 @@ Windows Hello hardware.
 | Password-protected JSON | Export and import of Bitwarden's `passwordProtected` format: `PinKey` over a random base64 salt, as `bitwarden-exporters`; the account's KDF when it is strong, else Argon2id 256 MiB×3; the file's KDF passes the server floors and caps | Rust unit + e2e (file opened in Node with the same WASM) |
 | Hide my email (Send) | Switch on new sends (`hideEmail`) | — |
 | Organization items | New item: Owner + collections (`POST /ciphers/create`); personal item: "Move to organization" (item key re-wrapped with the org key, so attachments stay readable; `PUT /ciphers/{id}/share`); org item: change collections (`collections_v2`) | Rust unit + e2e |
+| V2 encryption accounts | Unlock with the verified signed state (no downgrade); blob items read, filled, edited and saved as blobs by the SDK's rule; cipher keys wrapped in the SDK's format; PIN, biometric, login with a device, Sends, attachments and organization keys with a V2 user key | Rust unit + sdk-internal test vectors + e2e on Vaultwarden `testing` |
 | Duo 2FA (personal 2 / organization 6) | "Launch Duo" opens Duo's authorize URL (checked like the clients' connector); the worker reads `code|state` from the tab when it reaches the server's `duo-redirect-connector.html` and finishes the login | unit; **no real Duo account** |
 
 E2E: 94 of 95 steps pass against Vaultwarden 1.37.5 in Helium (the SSO step needs CI's IdP). `core_wasm.js` budget

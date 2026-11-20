@@ -7,6 +7,11 @@ use std::{fs, path::PathBuf};
 use serde_json::{Map, Value};
 use warren_core_wasm::api;
 
+fn base64_decode(s: &str) -> Vec<u8> {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.decode(s).unwrap()
+}
+
 fn vectors_dir() -> Option<PathBuf> {
     // Relative paths are relative to the workspace root (cargo runs tests from the crate dir).
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -229,7 +234,67 @@ fn user_vectors_unlock_and_decrypt() {
             );
             checked += 1;
         }
+        // Every other way into the session, and every other key it wraps, works with this account's user key too
+        // (for a V2 account an XAES-256-GCM one): PIN, biometric (PRF), login with a device, Sends, attachments.
+        let quick = api::kdf_from_params(0, 5_000, 0, 0).unwrap();
+        let pin = api::pin_protect_user_key("1234", salt, &quick).unwrap();
+        let prf = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="; // 32 bytes
+        let prf_wrapped = api::prf_protect_user_key(prf).unwrap();
+        let send = api::encrypt_send(r#"{"type":0,"name":"n","text":{"text":"secret"}}"#).unwrap();
+        let sends = api::decrypt_send_list(&format!("[{send}]")).unwrap();
+        assert!(sends.contains(r#""secret""#), "{name}: send");
+        let mut item =
+            serde_json::json!({ "type": 2, "name": "with file", "secureNote": { "type": 0 } });
+        item =
+            serde_json::from_str(&api::encrypt_cipher(&item.to_string(), true).unwrap()).unwrap();
+        let att: Value = serde_json::from_str(
+            &api::encrypt_attachment(&item.to_string(), "f.txt", b"body").unwrap(),
+        )
+        .unwrap();
+        item["attachments"] =
+            serde_json::json!([{ "id": "a", "key": att["key"], "fileName": att["fileName"] }]);
+        let body = base64_decode(att["data"].as_str().unwrap());
+        assert_eq!(
+            api::decrypt_attachment(&item.to_string(), "a", &body).unwrap(),
+            b"body",
+            "{name}: attachment"
+        );
+        let opened: Value =
+            serde_json::from_str(&api::decrypt_cipher(&item.to_string()).unwrap()).unwrap();
+        assert_eq!(
+            opened["attachments"][0]["fileName"], "f.txt",
+            "{name}: attachment name"
+        );
+        // An organization key shared to this account's public key opens with its private key (V2: COSE-wrapped).
+        let org_key =
+            api::auth_request_approve(v["rawCryptographicState"]["publicKey"].as_str().unwrap())
+                .unwrap();
+        assert_eq!(
+            api::set_org_keys(&serde_json::json!({ "org": org_key }).to_string()).unwrap(),
+            1,
+            "{name}: org key"
+        );
+        let req: Value = serde_json::from_str(&api::auth_request_create(salt).unwrap()).unwrap();
+        let approved = api::auth_request_approve(req["publicKey"].as_str().unwrap()).unwrap();
+        api::auth_request_unlock(&approved, Some(&keys))
+            .unwrap_or_else(|e| panic!("{name}: device login: {e}"));
         api::lock();
+        api::unlock_with_pin("1234", salt, &quick, &pin, Some(&keys))
+            .unwrap_or_else(|e| panic!("{name}: PIN: {e}"));
+        assert!(
+            api::verify_prf(prf, &prf_wrapped).unwrap(),
+            "{name}: PRF check"
+        );
+        api::lock();
+        api::unlock_with_prf(prf, &prf_wrapped, Some(&keys))
+            .unwrap_or_else(|e| panic!("{name}: PRF: {e}"));
+        assert_eq!(
+            api::security_version(),
+            Some(want_version),
+            "{name}: version after PRF unlock"
+        );
+        api::lock();
+
         report.push(format!("{name}: ok"));
     }
     eprintln!("{}", report.join("\n"));

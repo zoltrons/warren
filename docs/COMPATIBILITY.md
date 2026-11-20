@@ -201,9 +201,12 @@ on 2026-10-29, unless marked otherwise.
   `send-email-login` takes `authRequestId` + `authRequestAccessCode` instead of `masterPasswordHash`.
 * `PUT /api/auth-requests/<id>` needs `key` even to deny (we send `""`).
 
-## Not yet verified
+## V2 encryption (Vaultwarden main after 1.37.5; verified on `testing` 1.37.5-baff1cab, 2026-11-20)
 
-* Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions, `viewPassword: false` and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.
+Unit and vector tests (`crates/core-wasm/tests/vectors.rs`: the `v2-*-blob` accounts unlock, every item decrypts and
+writes back, and PIN, PRF, login with a device, Sends, attachments and organization keys work with a V2 user key) plus
+the e2e `vectors` group (registration, login, list, edit) on every server that can register V2 accounts.
+
 * V2 "blob" ciphers (`data` = `{"format_version":1,"wrapped_cek":...,"envelope":...}`): Vaultwarden main after 1.37.5
   stores and returns them (dani-garcia/vaultwarden#7764): `data` is the blob as a JSON string, `name` is null and the
   typed fields are absent. The SDK writes every personal item this way once the account's security version is 2 (a V2
@@ -232,6 +235,10 @@ on 2026-10-29, unless marked otherwise.
 * Attachments in sync and cipher responses (Vaultwarden main after 1.37.5, #7963) carry an unsigned `url` that is not
   served without a token. Warren never reads it: it downloads through `GET /api/ciphers/<id>/attachment/<attId>`,
   which returns a signed URL.
+
+## Not yet verified
+
+* Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions, `viewPassword: false` and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.
 * Round-trip with the official `bw` CLI (contract test b): not done.
 
 ## Chromium 156 (verified in Playwright Chromium 156.0.8078.4)
