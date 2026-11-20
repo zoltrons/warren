@@ -13,6 +13,10 @@ async function ensureOffscreen(): Promise<void> {
       justification:
         "Runs the vault crypto (WebAssembly) in a dedicated worker that holds the unlocked keys, and clears copied passwords from the clipboard.",
     })
+    // A caller that checked before another's creation finished tries again; the document being there is success.
+    .catch(async (e: unknown) => {
+      if (!(await chrome.offscreen.hasDocument())) throw e;
+    })
     .finally(() => (creating = undefined));
   await creating;
 }
