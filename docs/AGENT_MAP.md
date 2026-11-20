@@ -85,7 +85,8 @@ file over 8 KiB gets a ceiling from its role.
 | Writing values into fields | `src/autofill/executor/fill.ts` | Re-checks origin and visibility (invariant 3). |
 | Shared helpers | `src/shared/{csv,card,qr,search,strength,markdown,linked-fields,pageload,digest}.ts` | All unit-tested. |
 | Constants, server-facing ids | `src/shared/constants.ts` | `CLIENT_NAME`, `DEVICE_TYPE` stay Bitwarden's. |
-| UI shell, auth screens, settings | `src/ui/popup.ts` | |
+| UI shell, auth screens | `src/ui/popup.ts` | Owns `ui`, `act`, `render`, `stateRequest`; `settings.ts` imports them. |
+| Settings tab, settings search, export, import | `src/ui/settings.ts` | |
 | Vault tab | `src/ui/vault.ts` picks the screen; `vault-list.ts` list, search, quick actions, "this site"; `vault-item.ts` item view and the per-type field `SCHEMA`; `vault-edit.ts` editor; `vault-tools.ts` folders, organizations, security report; `vault-shared.ts` the shared state `st`, toast, popover menu, list loading | Each 250-800 lines. Cross-file state goes through `st` or a setter (`setCurrentCtx`, `timers`): a module never assigns another module's variable. |
 | Generator, Send, biometric setup | `src/ui/generator.ts`, `send.ts`, `biometric.ts` | |
 | DOM helper, messaging, i18n | `src/ui/dom.ts` (`h`, `send`, `t`, `enter`/`leave` row motion) | No `innerHTML` (invariant 12). |
