@@ -219,7 +219,7 @@ await step("create login in popup; server copy decrypts independently", async ()
   assert.deepEqual(c?.login.uris.map((u: { uri: string }) => u.uri), ["example.com", "https://login.example.com"]);
 });
 
-await step("edit password keeps history; stale edits are refused by the server", async () => {
+await step("edit password keeps history; a stale edit is refused and reported as changed elsewhere", async () => {
   await rows().filter({ hasText: "GitHub" }).click();
   await page.getByRole("button", { name: "Edit" }).click();
   await fill("Password", "gh-secret-2");
@@ -240,7 +240,12 @@ await step("edit password keeps history; stale edits are refused by the server",
   await page.getByRole("button", { name: "Edit" }).click();
   await fill("Password", "gh-secret-3");
   await page.getByRole("button", { name: "Save" }).click();
-  await page.getByRole("alert").filter({ hasText: "out of date" }).waitFor();
+  // Warren fetches the newer copy and says so; a second Save would replace it (the user decides), Cancel keeps it.
+  await page.getByRole("alert").filter({ hasText: "changed on another device" }).waitFor();
+  const s2 = await apiSession(vaultUser);
+  const kept = (await s2.ciphers()).find((x) => x.name === "GitHub");
+  s2.done();
+  assert.deepEqual([kept?.notes, kept?.login.password], ["edited elsewhere", "gh-secret-2"], "the refused save changed nothing");
   // Unsaved edits: the first Cancel warns and offers Discard, the second leaves.
   await page.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("status").filter({ hasText: "Unsaved changes" }).waitFor();
