@@ -5,6 +5,7 @@ import type { CoreRequest, KdfParams, LoginRequest } from "../shared/messages.ts
 import {
   answerAuthRequest,
   authorizationCodeToken,
+  accountKeysOf,
   authRequestStatus,
   createAuthRequest,
   getAuthRequest,
@@ -120,8 +121,8 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
   // The KDF later unlocks and re-prompts use (and send a hash of): the token's, checked like prelogin's.
   const accountKdf = await guardKdf(serverUrl, email, kdfFromToken(t, kdf));
   const op: CoreRequest = via.device
-    ? { op: "authRequestUnlock", key: via.device.key, encryptedPrivateKey: t.PrivateKey }
-    : { op: "unlock", handle: via.handle, protectedUserKey: t.Key, encryptedPrivateKey: t.PrivateKey };
+    ? { op: "authRequestUnlock", key: via.device.key, encryptedPrivateKey: accountKeysOf(t) }
+    : { op: "unlock", handle: via.handle, protectedUserKey: t.Key, encryptedPrivateKey: accountKeysOf(t) };
   try {
     await coreCall(op);
   } catch (e) {
@@ -133,7 +134,7 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
     userId: jwtSubject(t.access_token),
     kdf: accountKdf,
     protectedUserKey: t.Key,
-    encryptedPrivateKey: t.PrivateKey,
+    encryptedPrivateKey: accountKeysOf(t),
   };
   const owner = await checkEpoch(epoch, async () => {
     // Another account from here: a refresh, a sync or a hub begun for the one before must not write over this one.
@@ -797,7 +798,7 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
     assertOwner(mine);
     await removeLocal("vault");
     assertOwner(mine);
-    await setLocal("account", { email, userId: jwtSubject(t.access_token), kdf, protectedUserKey: t.Key, encryptedPrivateKey: t.PrivateKey });
+    await setLocal("account", { email, userId: jwtSubject(t.access_token), kdf, protectedUserKey: t.Key, encryptedPrivateKey: accountKeysOf(t) });
     await storeRefreshToken(tokens.refreshToken, mine);
     assertOwner(mine);
     await updateSession({ sso: undefined, pin: undefined, accessToken: tokens.accessToken, accessExpiresAt: tokens.expiresAt });

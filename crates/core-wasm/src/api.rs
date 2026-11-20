@@ -10,12 +10,16 @@ use std::{cell::RefCell, collections::HashMap, num::NonZeroU32, str::FromStr};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EFF_LONG_WORD_LIST, EncString, HashPurpose, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, PinKey, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey,
-    PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
+    BitwardenLegacyKeyBytes, CoseSerializable, CoseSign1Bytes, EFF_LONG_WORD_LIST, EncString,
+    HashPurpose, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, PinKey,
+    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, SignedObject,
+    SignedPublicKey, SigningNamespace, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
     derive_symmetric_key_from_prf,
 };
+use serde::Deserialize;
 use serde_json::Value;
+
+use crate::blob::Ids;
 
 pub type Result<T> = std::result::Result<T, String>;
 
@@ -27,6 +31,9 @@ pub struct Session {
     pub user: SymmetricCryptoKey,
     pub private: Option<PrivateKey>,
     pub orgs: HashMap<String, SymmetricCryptoKey>,
+    /// The account's verified security version: 1 for a V1 account, the signed state's for a V2 one (the SDK's
+    /// `BLOB_SECURITY_VERSION` 2 and up means personal items are written as blobs).
+    pub security_version: u64,
 }
 
 thread_local! {
@@ -247,7 +254,69 @@ pub fn auth_request_approve(public_key_b64: &str) -> Result<String> {
     })
 }
 
-fn open_session(user: SymmetricCryptoKey, encrypted_private_key: Option<&str>) -> Result<()> {
+/// A V2 account's state as Warren keeps it: the token's `AccountKeys`, wrapped and signed (store.ts).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct V2State {
+    private_key: String,
+    signing_key: String,
+    signed_public_key: String,
+    security_state: String,
+}
+
+#[derive(Deserialize)]
+struct SecurityState {
+    version: u64,
+}
+
+/// As the SDK's `set_to_context` for a V2 account: the signing key opens with the user key, and the signed public key
+/// and the security state verify with it, so a server can neither swap them nor lower the version. Returns the version.
+fn verify_v2(user: &SymmetricCryptoKey, state: &V2State) -> Result<u64> {
+    let tampered = |_| "the account's signed state does not verify".to_string();
+    let store = KeyStore::<Ids>::default();
+    let mut ctx = store.context_mut();
+    let user_id = ctx.add_local_symmetric_key(user.clone());
+    let signing = ctx
+        .unwrap_signing_key(
+            user_id,
+            &EncString::from_str(&state.signing_key).map_err(err)?,
+        )
+        .map_err(err)?;
+    let verifying = ctx.get_verifying_key(signing).map_err(err)?;
+    SignedPublicKey::from_str(&state.signed_public_key)
+        .map_err(err)?
+        .verify_and_unwrap(&verifying)
+        .map_err(tampered)?;
+    let signed = SignedObject::from_cose(&CoseSign1Bytes::from(
+        STANDARD.decode(&state.security_state).map_err(err)?,
+    ))
+    .map_err(err)?;
+    let s: SecurityState = signed
+        .verify_and_unwrap(&verifying, &SigningNamespace::SecurityState)
+        .map_err(tampered)?;
+    Ok(s.version)
+}
+
+/// `account_keys`: the RSA private key (EncString) of a V1 account, or a V2 account's state as JSON (`V2State`).
+/// The user key decides which one it must be, as in the SDK: a V2 (XAES-256-GCM) user key without its signed state
+/// is refused, so a server cannot downgrade the account by leaving the state out.
+fn open_session(user: SymmetricCryptoKey, account_keys: Option<&str>) -> Result<()> {
+    let state = account_keys
+        .filter(|s| s.trim_start().starts_with('{'))
+        .map(serde_json::from_str::<V2State>)
+        .transpose()
+        .map_err(|_| "malformed V2 account state")?;
+    let v2_key = matches!(user, SymmetricCryptoKey::XAes256GcmKey(_));
+    let legacy_key = matches!(
+        user,
+        SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_)
+    );
+    let (encrypted_private_key, security_version) = match &state {
+        Some(state) if v2_key => (Some(state.private_key.as_str()), verify_v2(&user, state)?),
+        None if legacy_key => (account_keys, 1),
+        Some(_) => return Err("a V2 account state with a V1 user key".into()),
+        None => return Err("a V2 user key without its signed account state".into()),
+    };
     let private = match encrypted_private_key {
         Some(s) if !s.is_empty() => {
             let der: Vec<u8> = EncString::from_str(s)
@@ -263,6 +332,7 @@ fn open_session(user: SymmetricCryptoKey, encrypted_private_key: Option<&str>) -
             user,
             private,
             orgs: HashMap::new(),
+            security_version,
         })
     });
     Ok(())
@@ -294,6 +364,11 @@ pub fn set_org_keys(org_keys: &str) -> Result<usize> {
         s.orgs = orgs;
         Ok(n)
     })
+}
+
+/// The unlocked account's verified security version (`Session::security_version`).
+pub fn security_version() -> Option<u64> {
+    SESSION.with_borrow(|s| s.as_ref().map(|s| s.security_version))
 }
 
 pub fn is_unlocked() -> bool {

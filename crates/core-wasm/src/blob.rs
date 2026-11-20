@@ -20,21 +20,21 @@ use crate::api::{Result, err};
 
 key_slot_ids! {
     #[symmetric]
-    enum SymmetricIds {
+    pub(crate) enum SymmetricIds {
         #[local]
         Local(LocalId),
     }
     #[private]
-    enum PrivateIds {
+    pub(crate) enum PrivateIds {
         #[local]
         Local(LocalId),
     }
     #[signing]
-    enum SigningIds {
+    pub(crate) enum SigningIds {
         #[local]
         Local(LocalId),
     }
-    Ids => SymmetricIds, PrivateIds, SigningIds;
+    pub(crate) Ids => SymmetricIds, PrivateIds, SigningIds;
 }
 
 /// `CipherBlobV1`, kept as JSON.

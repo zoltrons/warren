@@ -4,6 +4,12 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ## Unreleased
 
+### Security
+
+- Accounts with the new encryption (V2) open only when their signed account state verifies, as in the Bitwarden apps:
+  a server cannot leave it out, swap in another account's, or lower its security version. The WebAssembly core grows
+  by about 100 KiB for the signature checks.
+
 ### Fixed
 
 - Menus in the popup (More actions, copy and row options) open above their button when there is no room below,

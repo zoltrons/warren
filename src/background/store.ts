@@ -18,6 +18,7 @@ export interface Account {
   userId?: string;
   kdf: KdfParams;
   protectedUserKey: string;
+  /** A V1 account's RSA private key (EncString), or a V2 account's signed state as JSON (auth.ts `accountKeysOf`). */
   encryptedPrivateKey?: string;
   /** Older builds: the refresh token in clear text, sealed into `refreshTokenEnc` on the next unlock. */
   refreshToken?: string;

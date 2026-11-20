@@ -157,6 +157,7 @@ mod tests {
             user: SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
             private: None,
             orgs: HashMap::new(),
+            security_version: 1,
         };
         let mut send = json!({ "type": 0, "name": "hello", "text": { "text": "secret", "hidden": true }, "password": "pw" });
         encrypt(&s, &mut send).unwrap();
@@ -191,6 +192,7 @@ mod tests {
             user: SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
             private: None,
             orgs: HashMap::new(),
+            security_version: 1,
         };
         let mut send = json!({ "type": 0, "name": "n", "text": { "text": "t" }, "password": "pw" });
         encrypt(&s, &mut send).unwrap();

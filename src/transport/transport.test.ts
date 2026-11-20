@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { normalizeServerUrl } from "../shared/url.ts";
-import { parseTwoFactorChallenge, prelogin } from "./auth.ts";
+import { accountKeysOf, parseTwoFactorChallenge, prelogin, type TokenResponse } from "./auth.ts";
 import { errorMessage } from "./http.ts";
 
 test("prelogin refuses a KDF the crypto core would read as another one", async () => {
@@ -46,4 +46,18 @@ test("normalizeServerUrl", () => {
   // Plain http would send the auth hash, tokens and vault in clear text.
   assert.throws(() => normalizeServerUrl("http://vault.example.com"));
   assert.throws(() => normalizeServerUrl("http://localhost.evil.test"));
+});
+
+test("a V2 token opens with its whole signed state; a V1 one with its private key, and a partial state stays V2", () => {
+  const base = { access_token: "a", expires_in: 1, PrivateKey: "7.p" } as TokenResponse;
+  assert.equal(accountKeysOf(base), "7.p");
+  assert.equal(accountKeysOf({ ...base, AccountKeys: { publicKeyEncryptionKeyPair: { wrappedPrivateKey: "2.p" } } }), "7.p");
+  const v2 = {
+    publicKeyEncryptionKeyPair: { wrappedPrivateKey: "7.p", signedPublicKey: "spk" },
+    signatureKeyPair: { wrappedSigningKey: "7.s" },
+    securityState: { securityState: "ss" },
+  };
+  assert.deepEqual(JSON.parse(accountKeysOf({ ...base, AccountKeys: v2 })!), { privateKey: "7.p", signingKey: "7.s", signedPublicKey: "spk", securityState: "ss" });
+  // A server that sends only part of it: the core gets a state it refuses, not a V1 private key.
+  assert.deepEqual(JSON.parse(accountKeysOf({ ...base, AccountKeys: { securityState: { securityState: "ss" } } })!), { privateKey: "7.p", securityState: "ss" });
 });

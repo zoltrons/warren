@@ -122,6 +122,8 @@ fn user_vectors_unlock_and_decrypt() {
     };
     let mut checked = 0;
     let mut report = Vec::new();
+    // A V2 account's signed security state, for the next V2 vector to try as its own.
+    let mut other_v2_state: Option<Value> = None;
     for entry in fs::read_dir(dir.join("users")).unwrap() {
         let path = entry.unwrap().path();
         let v: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
@@ -150,16 +152,40 @@ fn user_vectors_unlock_and_decrypt() {
         );
 
         let state = &v["account"]["accountCryptographicState"];
-        let private = state
-            .get("V1")
-            .or_else(|| state.get("V2"))
-            .and_then(|s| s["private_key"].as_str());
-        api::unlock_user_key(
-            h,
-            unlock["masterKeyWrappedUserKey"].as_str().unwrap(),
-            private,
-        )
-        .unwrap_or_else(|e| panic!("{name}: unlock: {e}"));
+        let user_key = unlock["masterKeyWrappedUserKey"].as_str().unwrap();
+        // A V2 account opens with its whole signed state (store.ts), the shape the extension keeps.
+        let keys = match (state.get("V1"), state.get("V2")) {
+            (Some(v1), _) => v1["private_key"].as_str().unwrap().to_owned(),
+            (_, Some(v2)) => {
+                let s = |k: &str| v2[k].clone();
+                let keys = serde_json::json!({ "privateKey": s("private_key"), "signingKey": s("signing_key"),
+                    "signedPublicKey": s("signed_public_key"), "securityState": s("security_state") });
+                // Without the state, or with another account's signed state, the account does not open.
+                assert!(
+                    api::unlock_user_key(h, user_key, s("private_key").as_str()).is_err(),
+                    "{name}: downgrade"
+                );
+                if let Some(other) = &other_v2_state {
+                    let mut swapped = keys.clone();
+                    swapped["securityState"] = other.clone();
+                    assert!(
+                        api::unlock_user_key(h, user_key, Some(&swapped.to_string())).is_err(),
+                        "{name}: swapped state"
+                    );
+                }
+                other_v2_state = Some(s("security_state"));
+                keys.to_string()
+            }
+            _ => panic!("{name}: no account state"),
+        };
+        api::unlock_user_key(h, user_key, Some(&keys))
+            .unwrap_or_else(|e| panic!("{name}: unlock: {e}"));
+        let want_version = v["account"]["securityVersion"].as_u64().unwrap_or(1);
+        assert_eq!(
+            api::security_version(),
+            Some(want_version),
+            "{name}: security version"
+        );
 
         for c in v["vault"]["ciphers"].as_array().unwrap() {
             let id = c["encrypted"]["id"].as_str().unwrap();

@@ -14,12 +14,20 @@ export async function prelogin(base: string, email: string): Promise<KdfParams> 
   return { type: r.kdf, iterations: r.kdfIterations, memory: r.kdfMemory ?? 0, parallelism: r.kdfParallelism ?? 0 };
 }
 
+// A V2 account's keys (Vaultwarden's account_keys_json): wrapped and signed, nothing secret in clear.
+const accountKeys = obj({
+  publicKeyEncryptionKeyPair: opt(obj({ wrappedPrivateKey: opt(str), signedPublicKey: opt(str) })),
+  signatureKeyPair: opt(obj({ wrappedSigningKey: str })),
+  securityState: opt(obj({ securityState: str })),
+});
+
 const tokenResponse = obj({
   access_token: str,
   expires_in: num,
   refresh_token: opt(str),
   Key: opt(str),
   PrivateKey: opt(str),
+  AccountKeys: opt(accountKeys),
   Kdf: opt(kdfType),
   KdfIterations: opt(u32),
   KdfMemory: opt(u32),
@@ -27,6 +35,23 @@ const tokenResponse = obj({
   TwoFactorToken: opt(str),
 });
 export type TokenResponse = ReturnType<typeof tokenResponse>;
+
+/**
+ * What the crypto core opens the session with (`encryptedPrivateKey`): a V1 account's RSA private key, or a V2
+ * account's whole signed state as JSON, which the core verifies (api.rs `open_session`). Any V2 field makes it a V2
+ * state; a missing one then fails there, never falls back to V1.
+ */
+export function accountKeysOf(t: TokenResponse): string | undefined {
+  const k = t.AccountKeys;
+  const signedPublicKey = k?.publicKeyEncryptionKeyPair?.signedPublicKey;
+  if (!k?.signatureKeyPair && !signedPublicKey && !k?.securityState) return t.PrivateKey;
+  return JSON.stringify({
+    privateKey: k.publicKeyEncryptionKeyPair?.wrappedPrivateKey ?? t.PrivateKey,
+    signingKey: k.signatureKeyPair?.wrappedSigningKey,
+    signedPublicKey,
+    securityState: k.securityState?.securityState,
+  });
+}
 
 export interface Tokens {
   accessToken: string;

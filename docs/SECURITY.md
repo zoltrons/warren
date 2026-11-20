@@ -183,6 +183,13 @@ freed rather than zeroed in place.
     passkey's new login, and by imports). An item another client made without one keeps none when edited here:
     adding one would mean re-wrapping its attachment keys, so its URIs stay unbound.
 
+10b. **A V2 account's state is verified, and cannot be downgraded.** As the SDK's `set_to_context`: a V2
+    (XAES-256-GCM) user key opens a session only with its signing key, signed public key and signed security state,
+    and both signatures must verify with that signing key (`crates/core-wasm/src/api.rs` `open_session`); a V1 user key
+    with a V2 state is refused too. A server can therefore neither leave the state out, nor swap in another account's,
+    nor lower the security version, which decides how personal items are written. A blob item is authenticated as a
+    whole by its data envelope (`blob.rs`), so it needs no URI checksums.
+
 11. **Passkeys are bound to the origin.** `checkRpId` requires the RP ID to be the origin's host or a
     registrable parent, on a secure origin, and never a public suffix — including when the page's own
     host *is* the public suffix. An IP address has no parent: it is only ever its own RP ID. The service worker runs the same check before

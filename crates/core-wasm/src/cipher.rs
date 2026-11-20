@@ -415,6 +415,7 @@ mod tests {
             user: SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
             private: None,
             orgs,
+            security_version: 1,
         }
     }
 
