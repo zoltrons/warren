@@ -5,6 +5,9 @@ ignore = [
   # bitwarden-crypto. The server picks the ciphertexts, but sees too few decryptions, too coarsely
   # timed, to run the attack (docs/SECURITY.md, Known gaps). Drop when rsa is patched.
   { id = "RUSTSEC-2023-0071", reason = "no fix upstream; one RSA decryption per sync or request, far too few timings for the attack (docs/SECURITY.md)" },
+  # chrono marked unmaintained (no vulnerability). Only bitwarden-crypto pulls it in (bitwarden-logging, schemars);
+  # Warren calls none of its date code. Drop when an UPSTREAM_SYNC rev no longer depends on it.
+  { id = "RUSTSEC-2026-0543", reason = "unmaintained, not vulnerable; only through bitwarden-crypto, re-check at every UPSTREAM_SYNC" },
 ]
 
 [sources]
