@@ -4,6 +4,11 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ## Unreleased
 
+### Changed
+
+- The inline menu steps aside once you type in its field, so it no longer covers the rest of the form, and comes back
+  when the field is emptied.
+
 ### Fixed
 
 - Moving to the next field with Tab opens its inline menu; the field left behind used to cancel it on the way.

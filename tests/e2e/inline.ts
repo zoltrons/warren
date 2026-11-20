@@ -277,6 +277,18 @@ await step("inline menu: Escape closes it for this visit to the field; coming ba
   await loginPage.keyboard.press("Escape");
 });
 
+await step("inline menu: typing hides it, emptying the field brings it back", async () => {
+  await loginPage.goto(`${SITE}/login`);
+  await loginPage.click("#u");
+  await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+  await loginPage.keyboard.type("lo");
+  await loginPage.locator("warren-menu").waitFor({ state: "detached" });
+  await loginPage.keyboard.press("Backspace");
+  await loginPage.keyboard.press("Backspace");
+  await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+  await loginPage.keyboard.press("Escape");
+});
+
 await step("inline menu: a login inside a modal dialog gets a menu above it that takes the click", async () => {
   await loginPage.bringToFront();
   await loginPage.goto(`${SITE}/modal`);

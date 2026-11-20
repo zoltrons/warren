@@ -287,6 +287,21 @@ addEventListener(
   true,
 );
 
+// Typing hides the menu so it does not cover the form, as Bitwarden's does; emptying the field brings it back. Only the
+// user's own typing: a fill's input events are not trusted. (No filtering by what was typed: a page could measure the
+// menu shrink letter by letter and spell out a saved username.)
+addEventListener(
+  "input",
+  (e) => {
+    const el = targetOf(e);
+    if (!e.isTrusted || picking() || !askable(el) || el === dismissed) return;
+    if (el.value) {
+      if (el === anchor || el === drawnAbove) close();
+    } else if (active() === el) void open(el);
+  },
+  true,
+);
+
 // Escape (or ArrowUp past the first row) in the menu hands focus back to its field. Only our frame's own window
 // counts as the sender: a page posting the same text gets nothing.
 addEventListener("message", (e) => {
