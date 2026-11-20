@@ -213,11 +213,17 @@ on 2026-10-29, unless marked otherwise.
   `v2-*-blob` test vectors (`tests/vectors.rs`) and the SDK's recorded envelopes (`blob.rs` tests). Blob items are
   read-only in Warren until it writes the format. (Cipher key encryption, a `key` on new, cloned and imported items,
   is covered by the e2e suite.)
-* V2 encryption accounts (Vaultwarden main after 1.37.5, behind `pm-27278-v2-password-registration` /
-  `enable-account-encryption-v2-jit-password-registration`): every login needs `Bitwarden-Client-Version`, and a V2
-  account at least 2026.10.1 (`version_header_missing` / an outdated-client error otherwise). Warren sends exactly
-  2026.10.1, so this constant must not fall behind the server's minimum. V2 unlock is covered by the crate's test
-  vectors only; e2e `vectors` registers V1 accounts, because 1.37.5 cannot register a V2 one.
+* V2 encryption accounts (Vaultwarden main after 1.37.5): `POST /identity/accounts/register/finish` takes
+  `accountKeys {userKeyEncryptedAccountPrivateKey, accountPublicKey, publicKeyEncryptionKeyPair{wrappedPrivateKey,
+  publicKey, signedPublicKey}, signatureKeyPair{signatureAlgorithm: "ed25519", wrappedSigningKey, verifyingKey},
+  securityState{securityState, securityVersion}}` in place of `keys` / `userAsymmetricKeys`, with no server flag (the
+  `pm-27278-v2-password-registration` / `enable-account-encryption-v2-jit-password-registration` flags only tell the
+  clients to create V2 accounts). The token's `PrivateKey` is then a COSE `7.` string and `AccountKeys` carries the
+  signature key pair and the security state. Every login needs `Bitwarden-Client-Version`, and a V2 account at least
+  2026.10.1 (`version_header_missing` / an outdated-client error otherwise). Warren sends exactly 2026.10.1, so this
+  constant must not fall behind the server's minimum. e2e `vectors` registers the `v2-*-blob` vectors this way and
+  logs in, lists and opens their blob items on every server that can (`testing` today; checked 2026-11-20 on
+  1.37.5-baff1cab).
 * Attachments in sync and cipher responses (Vaultwarden main after 1.37.5, #7963) carry an unsigned `url` that is not
   served without a token. Warren never reads it: it downloads through `GET /api/ciphers/<id>/attachment/<attId>`,
   which returns a signed URL.

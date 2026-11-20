@@ -9,9 +9,15 @@ import { BASE, root, step, page, loginAs, expectUnlocked, logout, rows, back, en
 
 await ensureSignedIn();
 // Same data as crates/core-wasm/tests/vectors.rs, but here it goes through Vaultwarden and the extension's
-// login, sync and list. Only V1 password accounts: V2 needs signing keys at registration, TDE/key connector no password.
+// login, sync and list. Every password account; TDE and Key Connector have no master password.
 export const vectorDir = join(root, process.env.WARREN_TEST_VECTORS ?? "target/test-vectors", "users");
-for (const name of ["v1-pbkdf2-password", "v1-argon2id-password"]) {
+// V2 accounts (signing keys, blob-encrypted items) register on Vaultwarden after 1.37.5: `testing` today, `latest` from
+// the next release on, without a change here.
+const vw = String(await call(BASE, "GET", "/api/version"));
+const [maj = 0, min = 0, patch = 0] = vw.split(/[.-]/).map(Number);
+const v2Server = maj * 1e6 + min * 1e3 + patch > 1_037_005 || (vw.startsWith("1.37.5-"));
+if (!v2Server) console.log(`    Vaultwarden ${vw} cannot register V2 accounts: the v2 vectors run on testing`);
+for (const name of ["v1-pbkdf2-password", "v1-argon2id-password", ...(v2Server ? ["v2-pbkdf2-blob", "v2-argon2id-blob"] : [])]) {
   await step(`test vector ${name}: registered as is, Warren logs in, lists and decrypts its vault`, async () => {
     const v = JSON.parse(readFileSync(join(vectorDir, `${name}.json`), "utf8")); // run tools/fetch-test-vectors.sh first
     const { email, password, kdf } = v.account;
@@ -20,12 +26,26 @@ for (const name of ["v1-pbkdf2-password", "v1-argon2id-password"]) {
     const old = await passwordToken(BASE, { email, authHash, deviceId: crypto.randomUUID() }).catch(() => undefined);
     if (old) await call(BASE, "DELETE", "/api/accounts", { token: old.access_token, json: { masterPasswordHash: authHash } });
     const a2 = kdf.argon2id;
+    const { V1, V2 } = v.account.accountCryptographicState;
+    const raw = v.rawCryptographicState;
+    // A V2 account registers with its whole state, as the clients do (Vaultwarden's AccountKeysRequestModel).
+    const keys = V2
+      ? {
+          accountKeys: {
+            userKeyEncryptedAccountPrivateKey: V2.private_key,
+            accountPublicKey: raw.publicKey,
+            publicKeyEncryptionKeyPair: { wrappedPrivateKey: V2.private_key, publicKey: raw.publicKey, signedPublicKey: V2.signed_public_key },
+            signatureKeyPair: { signatureAlgorithm: "ed25519", wrappedSigningKey: V2.signing_key, verifyingKey: raw.verifyingKey },
+            securityState: { securityState: V2.security_state, securityVersion: v.account.securityVersion },
+          },
+        }
+      : { userAsymmetricKeys: { publicKey: raw.publicKey, encryptedPrivateKey: V1.private_key } };
     const token = await call(BASE, "POST", "/identity/accounts/register/send-verification-email", { json: { email, name } });
     await call(BASE, "POST", "/identity/accounts/register/finish", {
       json: {
         email, emailVerificationToken: token, masterPasswordHash: authHash, key: v.unlockMethods[0].masterPasswordUnlock.master_password_unlock.masterKeyWrappedUserKey,
         kdf: a2 ? 1 : 0, kdfIterations: a2 ? a2.iterations : kdf.pBKDF2.iterations, kdfMemory: a2?.memory ?? null, kdfParallelism: a2?.parallelism ?? null,
-        userAsymmetricKeys: { publicKey: v.rawCryptographicState.publicKey, encryptedPrivateKey: v.account.accountCryptographicState.V1.private_key },
+        ...keys,
       },
     });
     const tok = await passwordToken(BASE, { email, authHash, deviceId: crypto.randomUUID() });
@@ -54,6 +74,11 @@ for (const name of ["v1-pbkdf2-password", "v1-argon2id-password"]) {
       await page.getByText(d.login.password, { exact: true }).waitFor();
       const text = await page.locator("#app").innerText();
       assert.ok(text.includes(d.login.username) && (!d.notes || text.includes(d.notes)), `${d.name}: username or notes missing`);
+      // A blob item is read-only until Warren writes the format, and says why.
+      if (c.blobEncrypted) {
+        assert.ok(text.includes("newer format"), `${d.name}: no read-only note`);
+        assert.equal(await page.getByRole("button", { name: "Edit" }).count(), 0, `${d.name}: offered for editing`);
+      }
       await back();
     }
   });
