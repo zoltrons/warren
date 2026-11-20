@@ -541,6 +541,15 @@ await step("custom fields: the context menu copies a field's name", async () => 
     return chrome.tabs.sendMessage(tab!.id!, { type: "clickedFieldName" }, { frameId: 0 });
   }, SITE);
   assert.equal(name, "member");
+  // A floating label over the field takes the right click: the field under it is named.
+  await loginPage.goto(`${SITE}/floating`);
+  await loginPage.click("#fl", { button: "right" });
+  await loginPage.keyboard.press("Escape");
+  const under = await sw.evaluate(async (site) => {
+    const [tab] = await chrome.tabs.query({ url: `${site}/*`, active: true });
+    return chrome.tabs.sendMessage(tab!.id!, { type: "clickedFieldName" }, { frameId: 0 });
+  }, SITE);
+  assert.equal(under, "email");
 });
 
 await step("save bar: a single-page app's plain Sign in button offers the save", async () => {

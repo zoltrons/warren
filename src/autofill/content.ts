@@ -6,7 +6,7 @@
 import { watchForPasswordField } from "./collector/field-watcher.ts";
 import { deepAll, shadowOf, up } from "./collector/shadow-dom.ts";
 import type { PageApi } from "./page.ts";
-import { fieldName, fieldOf, picking, startPicker, stopPicker } from "./picker.ts";
+import { fieldAt, fieldName, fieldOf, picking, startPicker, stopPicker } from "./picker.ts";
 
 const api = (globalThis as unknown as { warren: PageApi }).warren;
 
@@ -368,11 +368,12 @@ function report(form?: HTMLFormElement | null) {
 // ---------- "Copy custom field name" ----------
 
 /** A menu can only be told about an element while it opens. Only the user's own right click counts. */
-let rightClicked: Element | undefined;
+let rightClicked: ReturnType<typeof fieldOf>;
 addEventListener(
   "contextmenu",
   (e) => {
-    if (e.isTrusted) rightClicked = e.composedPath()[0] as Element;
+    // A floating label over the field takes the right click too.
+    if (e.isTrusted) rightClicked = fieldOf(e.composedPath()[0] as Element) ?? fieldAt(e.clientX, e.clientY);
   },
   true,
 );
@@ -416,8 +417,7 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply: (r
   }
 
   if (msg.type === "clickedFieldName") {
-    const el = fieldOf(rightClicked);
-    return void reply(el ? fieldName(el, api) : "");
+    return void reply(rightClicked ? fieldName(rightClicked, api) : "");
   }
   if (msg.type === "pickerStart") {
     close();
