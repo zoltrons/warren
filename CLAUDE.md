@@ -15,7 +15,7 @@ Helium itself, fetches the PSL once and the test vectors once per sdk-internal r
 |---|---|
 | After every change: types, unit tests (`src/**/*.test.ts`), contrast (~10 s) | `npm run check` (= `node tools/verify.mjs`) |
 | Before every push: all CI gates (wasm, rust, build, size, smoke tests, workflow/secret lint) | `node tools/verify.mjs push` |
-| e2e vs. Vaultwarden **latest** (only supported release) + mock IdP | `bash dev/vaultwarden/up.sh` (docker or Apple `container`), then `node tools/verify.mjs e2e [--only vault,inline]` |
+| e2e vs. Vaultwarden **testing** (main, the next release: development target) + mock IdP; `VW_TAG=latest` for the supported release, CI runs both | `bash dev/vaultwarden/up.sh` (docker or Apple `container`), then `node tools/verify.mjs e2e [--only vault,inline]` |
 | One task | `node tools/verify.mjs <task>`: `fmt clippy vectors autofill wasm build size fill biometric passkeys lint e2e` |
 | Release, once the `Version X.Y.Z` commit is on main | `bash tools/release.sh X.Y.Z` (waits for green ci, signs, pushes the tag) |
 | UI screenshots, stubbed worker | `node dev/preview/build.mjs && node dev/preview/shot.mjs [dir] [--only list,menu]` |

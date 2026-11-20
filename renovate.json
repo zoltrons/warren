@@ -34,15 +34,15 @@
     },
     {
       "customType": "regex",
-      "description": "Last Vaultwarden release reviewed (upstream.lock); tests always run latest",
+      "description": "Last Vaultwarden release reviewed (upstream.lock); tests run latest and testing",
       "managerFilePatterns": ["/^upstream\\.lock$/"],
       "matchStrings": ["version = \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""],
-      "depNameTemplate": "vaultwarden/server",
+      "depNameTemplate": "ghcr.io/dani-garcia/vaultwarden",
       "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
     { "matchDepNames": ["bitwarden/sdk-internal"], "groupName": "sdk-internal", "schedule": ["before 6am on monday"] },
-    { "matchDepNames": ["vaultwarden/server"], "groupName": "vaultwarden" }
+    { "matchDepNames": ["ghcr.io/dani-garcia/vaultwarden"], "groupName": "vaultwarden" }
   ]
 }

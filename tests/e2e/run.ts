@@ -1,4 +1,4 @@
-// End-to-end suite: the real extension in a Chromium-based browser against a local Vaultwarden (latest).
+// End-to-end suite: the real extension in a Chromium-based browser against a local Vaultwarden (`testing` or `latest`, VW_TAG).
 // Run it through `node tools/verify.mjs e2e [--only <group,...>]`, which builds dist/ext-e2e, checks the server and
 // picks the browser. By hand: node --experimental-strip-types tests/e2e/run.ts [--only vault,inline]
 //

@@ -12,7 +12,8 @@ Status: pins, map, report tool and weekly report job exist; pin bumps come as Re
    changed enums (cipher types, KDF types, EncString types), new key formats (COSE, type 7+), KDF
    default changes, new required request fields (Vaultwarden `CipherData`, `ConnectData`). Read-only.
 4. **`.github/workflows/upstream.yml`** — weekly, read-only: runs the report into the job summary. A bump PR runs
-   `ci.yml`: test vectors + `cargo test`, the Vaultwarden contract tests on `:latest` (the only supported release)
+   `ci.yml`: test vectors + `cargo test`, the Vaultwarden contract tests on `:latest` (the only supported release) and `:testing` (main, the next release;
+   also daily)
    and the size report.
 5. **Renovate** (`renovate.json`) — JS devDependencies, the last-reviewed Vaultwarden version, and the sdk-internal rev
    (regex manager over `upstream.lock` + `Cargo.toml`).

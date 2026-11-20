@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Starts the local e2e server: Vaultwarden latest on 127.0.0.1:8080 and the mock IdP on :9090, then waits for both.
-#   bash dev/vaultwarden/up.sh [--pull]    --pull first moves to a newer :latest image
+# Starts the local e2e server: Vaultwarden on 127.0.0.1:8080 and the mock IdP on :9090, then waits for both.
+#   [VW_TAG=latest] bash dev/vaultwarden/up.sh [--pull]    --pull first moves to a newer image of that tag
+# VW_TAG: `testing` (Vaultwarden main, the next release; the default, as development targets it) or `latest`.
 # Docker (CI): docker compose. Apple `container` (this repo's Macs): the same settings, read from docker-compose.yml.
 # `container` cannot share a network namespace, so the IdP gets a container of its own and the server reaches it at
 # that container's address (the browser reaches it there too). Both are recreated on every run: the data is test data.
@@ -20,7 +21,7 @@ fi
 command -v container >/dev/null || { echo "need docker or Apple container" >&2; exit 1; }
 container system status >/dev/null 2>&1 || container system start
 
-vw=docker.io/vaultwarden/server:latest
+vw=ghcr.io/dani-garcia/vaultwarden:${VW_TAG:-testing}
 node=docker.io/library/node:24-alpine
 [[ -n "$pull" ]] && { container image pull "$vw"; container image pull "$node"; }
 for c in warren-vw warren-idp; do
@@ -43,4 +44,4 @@ env=()
 while IFS= read -r kv; do env+=(-e "$kv"); done < <(sed -n 's/^      \([A-Z_]*\): "\(.*\)".*/\1=\2/p' docker-compose.yml | sed 's/\${VW_PORT:-8080}/8080/' | grep -v '^SSO_AUTHORITY=')
 container run -d --name warren-vw -p 127.0.0.1:8080:80 "${env[@]}" -e "SSO_AUTHORITY=http://$ip:9090" "$vw" >/dev/null
 wait_for http://localhost:8080/alive || exit 1
-echo "Vaultwarden http://localhost:8080 (warren-vw)$([[ $ip != localhost ]] && echo ", mock IdP http://$ip:9090 (warren-idp)")"
+echo "Vaultwarden ${VW_TAG:-testing} http://localhost:8080 (warren-vw)$([[ $ip != localhost ]] && echo ", mock IdP http://$ip:9090 (warren-idp)")"

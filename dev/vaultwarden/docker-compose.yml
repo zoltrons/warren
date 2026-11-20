@@ -1,11 +1,12 @@
 # Local Vaultwarden for the e2e contract tests.
 # Test-only fixture: signups are open and there is no admin token. Never expose beyond 127.0.0.1.
-# Warren supports only the latest Vaultwarden release, so this runs vaultwarden/server:latest.
+# Warren supports the latest Vaultwarden release and develops against the next one: VW_TAG picks the image,
+# `testing` (main, the next release) by default, `latest` (the current release) when set. CI runs both.
 name: warren-vw
 
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: ghcr.io/dani-garcia/vaultwarden:${VW_TAG:-testing}
     restart: "no"
     ports:
       - "127.0.0.1:${VW_PORT:-8080}:80"
@@ -39,4 +40,6 @@ services:
       - ./mock-idp.mjs:/idp/mock-idp.mjs:ro
 
 volumes:
+  # One per tag: a database migrated by `testing` may not open on `latest`.
   vw-data:
+    name: warren-vw-data-${VW_TAG:-testing}

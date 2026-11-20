@@ -18,7 +18,8 @@ Your vault is decrypted only in memory and locks itself when you walk away.
 >
 > Warren is an unofficial client and is not affiliated with Bitwarden, Inc. or the Vaultwarden project.
 
-**Server:** the latest Vaultwarden release only. Older releases are neither tested nor supported.
+**Server:** the latest Vaultwarden release only. Older releases are neither tested nor supported. Every change is
+also tested against Vaultwarden's `testing` image, so the next release works on the day it ships.
 
 ## Screenshots
 

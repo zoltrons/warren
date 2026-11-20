@@ -215,7 +215,7 @@ Other content scripts are registered at runtime (`chrome.scripting.registerConte
 
 `upstream.lock` (pins) → `upstream-map.yaml` (upstream path → local module) → `tools/sync-upstream`
 (Markdown diff report; never edits code) → CI job (bump Cargo rev, run test vectors + e2e on
-Vaultwarden latest, report WASM size delta). Details in `docs/UPSTREAM_SYNC.md`.
+Vaultwarden `latest` and `testing`, report WASM size delta). Details in `docs/UPSTREAM_SYNC.md`.
 
 ## Repository layout
 

@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Vaultwarden's `testing` image moves with its main branch, without a push here: a daily run catches a change
+  # Warren has to follow before it ships in a release.
+  schedule:
+    - cron: "17 5 * * *"
 
 # Least privilege by default; a job that needs more says so itself.
 permissions: {}
@@ -100,11 +104,18 @@ jobs:
             dist/wasm
             dist/wasm-register
 
+  # Both are required: `latest` is the release users run, `testing` (Vaultwarden main) the next one, which development
+  # targets so that a server change is handled before it ships.
   e2e:
+    name: e2e (vaultwarden ${{ matrix.vw }})
     needs: extension
     runs-on: ubuntu-latest
     timeout-minutes: 15 # a healthy run takes ~5 min; a hung browser call must not burn 6 h
     permissions: { contents: read }
+    strategy:
+      fail-fast: false
+      matrix: { vw: [latest, testing] }
+    env: { VW_TAG: "${{ matrix.vw }}" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }

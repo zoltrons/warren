@@ -11,7 +11,7 @@ wrong, fix it in the same change (see [Keeping this map true](#keeping-this-map-
 
 | Question | Answer |
 |---|---|
-| What is it? | MV3 extension (Chromium 156+), a Bitwarden-protocol client for self-hosted Vaultwarden (latest release only). |
+| What is it? | MV3 extension (Chromium 156+), a Bitwarden-protocol client for self-hosted Vaultwarden (latest release only; developed against `testing`, the next one). |
 | Languages | TypeScript (no framework, esbuild) + Rust compiled to WASM (crypto core, autofill engine). |
 | Where do keys live? | Only in the offscreen worker (`src/offscreen/worker.ts` → `crates/core-wasm`). Never in the service worker, the UI or `storage.*` as plaintext. |
 | Where are messages defined? | `src/shared/messages.ts`: every type, its validator and its size caps. |
@@ -129,7 +129,7 @@ file over 8 KiB gets a ceiling from its role.
 | `tools/common-words.mjs` | Builds `src/shared/common-words.json` (base words of the 10 000 most common passwords) for the strength check. |
 | `tools/sync-upstream.mjs` | Read-only diff report of upstream since the pins. |
 | `tools/pack-crx.mjs`, `verify-tag.sh` | Release signing and tag verification. |
-| `dev/vaultwarden/` | Local Vaultwarden (latest) + mock IdP for e2e. `up.sh` starts both with docker compose or Apple `container` (recreated each run, `--pull` for a newer latest). |
+| `dev/vaultwarden/` | Local Vaultwarden + mock IdP for e2e. `up.sh` starts both with docker compose or Apple `container` (recreated each run, `--pull` for a newer image); `VW_TAG` picks `testing` (default) or `latest`. |
 | `dev/preview/` | Renders popup/menu/bar against a stubbed worker (`stub.ts`) for screenshots and UI audits (`shot.mjs --only <scene,...>` for one screen). |
 | `tests/e2e/` | The e2e suite against Vaultwarden. `run.ts` runs the groups in order (`--only` picks some); `harness.ts` holds the browser, the test site, fixtures (`register`, `apiSession`, `ensureSignedIn`) and `step`. One module per group: `auth`, `webauthn`, `send`, `vault`, `autofill`, `inline`, `passkeys`, `vectors`, `sso`. A group imports the groups whose fixtures it uses (ESM runs those first); the others start with `ensureSignedIn()`. |
 | `src/**/*.test.ts` | Unit tests (`node --test`, type stripping, no `@types/node`). They sit next to the module they test. |
@@ -209,7 +209,8 @@ must go in `deny.toml` `allow-git`. A new license goes in `NOTICE` and `docs/LIC
 **Upstream bump (sdk-internal, Vaultwarden, toolchain)**
 - sdk-internal: Renovate moves the rev in `upstream.lock` and `crates/core-wasm/Cargo.toml` together; CI fails if they
   differ. wasm-bindgen-cli must equal the `wasm-bindgen` version in `upstream.lock`.
-- Vaultwarden: `upstream.lock` `version` is the last release reviewed. Tests always run `latest`. Read the
+- Vaultwarden: `upstream.lock` `version` is the last release reviewed. e2e runs `latest` (supported) and `testing` (main, the next release, which
+  development targets; CI runs it daily too). A `testing` failure is a server change to follow before it ships. Read the
   `node tools/sync-upstream.mjs` report and record what changed in `docs/COMPATIBILITY.md`.
 - Rust toolchain: `rust-toolchain.toml` (Renovate). Node: `.nvmrc`.
 

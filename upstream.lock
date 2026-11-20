@@ -20,7 +20,7 @@ license = "GPL-3.0-only"
 
 [vaultwarden]
 repo = "https://github.com/dani-garcia/vaultwarden"
-# Supported: the latest release only; CI and e2e run vaultwarden/server:latest.
+# Supported: the latest release only. e2e runs ghcr.io/dani-garcia/vaultwarden:latest and :testing (main, the next release).
 # Last release reviewed for protocol changes (sync-upstream diff base); Renovate bumps it.
 version = "1.37.5"
 license = "AGPL-3.0-only"
