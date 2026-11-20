@@ -599,8 +599,17 @@ function lockedView(s: State): HTMLElement {
       switchMethod,
     ),
     // Leaving the account is not an unlock method: set apart and quieter.
-    h("div", { class: "actions apart" }, h("button", { type: "button", class: "btn text small quiet", disabled: ui.busy, onclick: () => void act({ type: "logout" }) }, t("logOut"))),
+    h("div", { class: "actions apart" }, h("button", { type: "button", class: "btn text small quiet", disabled: ui.busy, onclick: armedLogout }, ui.armLogout ? t("confirmLogOut") : t("logOut"))),
   );
+}
+
+/** Logging out drops the local vault, PIN and biometric setup: one stray click must not do it, so it takes two. */
+function armedLogout() {
+  // Disarmed on use, so the next session starts unarmed (ui outlives a logout).
+  if (ui.armLogout) return void ((ui.armLogout = false), act({ type: "logout" }));
+  ui.armLogout = true;
+  render();
+  setTimeout(() => ui.armLogout && ((ui.armLogout = false), render()), 4000);
 }
 
 function navButton(tab: Ui["tab"], label: string, ic: IconName) {
@@ -839,18 +848,7 @@ function settingsTab(s: State): HTMLElement {
       !inPanel && !inTab
         ? row(t("openInTab"), t("openInTabHint"), icon("external"), { type: "button", onclick: () => void chrome.tabs.create({ url: location.href }) }, "button")
         : null,
-      // Logging out drops the local vault and asks for the password again: one stray click must not do it.
-      row(ui.armLogout ? t("confirmLogOut") : t("logOut"), undefined, icon("logout"), {
-        type: "button",
-        class: "row danger",
-        onclick: () => {
-          // Disarmed on use, so the next session starts unarmed (ui outlives a logout).
-          if (ui.armLogout) return void ((ui.armLogout = false), act({ type: "logout" }));
-          ui.armLogout = true;
-          render();
-          setTimeout(() => ui.armLogout && ((ui.armLogout = false), render()), 4000);
-        },
-      }, "button"),
+      row(ui.armLogout ? t("confirmLogOut") : t("logOut"), undefined, icon("logout"), { type: "button", class: "row danger", onclick: armedLogout }, "button"),
       ),
     ),
     section(

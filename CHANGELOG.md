@@ -22,6 +22,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   Before, they appeared empty and an edit would have overwritten them.
 - New items, attachments and moves to an organization wrap their keys the way the Bitwarden apps read them on V2
   accounts.
+- "Log out" on the lock screen asks for a second click like the one in Settings, since it removes the local vault,
+  PIN and biometric unlock.
 - A proxy or login gateway in front of the server that answers a token refresh with its own 401 page no longer logs
   Warren out (which removed the PIN, biometric unlock and local settings); only the server's own refusal does.
 - Autofill on page load waits until a prerendered page is actually shown, instead of filling a page the user may
