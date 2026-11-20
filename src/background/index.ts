@@ -344,7 +344,7 @@ async function handle(req: Request): Promise<unknown> {
       break;
   }
   const state = await getState();
-  if (state.phase === "unlocked") await touchAutoLock();
+  if (state.phase === "unlocked" && !(req.type === "getState" && req.passive)) await touchAutoLock();
   if (state.phase === "unlocked" || state.phase === "locked") void ensurePush().catch(() => undefined);
   return state;
 }
@@ -468,6 +468,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // ---------- push (Vaultwarden WebSocket hub) ----------
 
 const LOGIN_REQUEST_NOTE = "loginRequest";
+const MAX_LOGIN_REQUESTS = 20;
 let pushSync: ReturnType<typeof setTimeout> | undefined;
 
 /** Connects the hub while an account is logged in; a no-op when it is up. */
@@ -500,7 +501,8 @@ async function onPush(u: HubUpdate): Promise<void> {
     queue = queue.then(logout).catch((e: unknown) => console.error(e)).then(updateTabUi);
   } else if (u.type === HUB.AuthRequest && u.id) {
     const { loginRequests: ids = [] } = await getSession();
-    if (!ids.includes(u.id)) await updateSession({ loginRequests: [...ids, u.id] });
+    // Anyone who knows the email can open a request: keep only the newest few.
+    if (!ids.includes(u.id)) await updateSession({ loginRequests: [...ids, u.id].slice(-MAX_LOGIN_REQUESTS) });
     const account = await getLocal("account");
     chrome.notifications.create(LOGIN_REQUEST_NOTE, {
       type: "basic",

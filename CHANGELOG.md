@@ -11,6 +11,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   by about 100 KiB for the signature checks.
 - After "Fill anyway" puts a login into another site, that site can no longer add a passkey to the login through
   the automatic passkey upgrade.
+- An open popup or side panel no longer keeps the vault from auto-locking when it refreshes because of a pushed
+  login request: anyone who knows the account's email can send those. At most 20 pending requests are kept.
 - A passkey request that fails inside Warren tells the site only "not allowed", never why (vault locked, offline, the
   server's error text).
 

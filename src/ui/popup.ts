@@ -1408,5 +1408,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
     render();
   }
   // Applies unless setState finds the screen has moved past it since it was asked.
-  void stateRequest({ type: "getState" }).then((r) => r.ok && render());
+  void stateRequest({ type: "getState", passive: true }).then((r) => r.ok && render());
 });

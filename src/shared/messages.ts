@@ -35,7 +35,8 @@ const secret = capped(64);
 // ---------- popup -> service worker ----------
 
 export type Request =
-  | { type: "getState" }
+  /** `passive`: asked because storage changed (a lock, a pushed login request), not by the user: no auto-lock extension. */
+  | { type: "getState"; passive?: boolean }
   | { type: "setServer"; url: string }
   | { type: "login"; email: string; password: string }
   | { type: "twoFactorSubmit"; provider: number; token: string; remember: boolean }
@@ -184,7 +185,7 @@ const collectionIds: Validator<string[]> = (v, p) => {
 };
 
 const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { type: K }>> } = {
-  getState: obj({ type: literal("getState") }),
+  getState: obj({ type: literal("getState"), passive: opt(bool) }),
   setServer: obj({ type: literal("setServer"), url: str }),
   login: obj({ type: literal("login"), email: str, password: str }),
   twoFactorSubmit: obj({ type: literal("twoFactorSubmit"), provider: num, token: str, remember: bool }),
