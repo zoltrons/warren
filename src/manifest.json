@@ -32,9 +32,15 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; require-trusted-types-for 'script'; trusted-types warren"
   },
   "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" }
+    },
     "autofill-login": {
       "suggested_key": { "default": "Ctrl+Shift+L", "mac": "Command+Shift+L" },
       "description": "__MSG_cmdAutofill__"
+    },
+    "lock-vault": {
+      "description": "__MSG_cmdLock__"
     }
   },
   "incognito": "not_allowed"

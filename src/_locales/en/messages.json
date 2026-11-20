@@ -460,6 +460,9 @@
   "cmdAutofill": {
     "message": "Fill the login for this page"
   },
+  "cmdLock": {
+    "message": "Lock Warren"
+  },
   "onThisSite": {
     "message": "On $P1$",
     "placeholders": {
