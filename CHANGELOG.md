@@ -6,6 +6,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Moving to the next field with Tab opens its inline menu; the field left behind used to cancel it on the way.
 - An inline menu closed with Escape opens again when you come back to its field with Tab; it used to stay closed
   there until the field was clicked.
 - The inline menu opens on sign-in forms whose floating label takes the click and focuses the field itself, as many

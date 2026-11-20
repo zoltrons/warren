@@ -243,7 +243,7 @@ addEventListener(
   (e) => {
     const el = targetOf(e); // fields inside shadow roots too
     if (el === host || picking()) return; // focus moved into our menu, or the user is pointing at fields
-    if (el !== dismissed) dismissed = undefined; // Escape holds for this visit to the field, as Chrome's dropdown does
+      if (el !== dismissed) dismissed = undefined; // Escape holds for this visit to the field, as Chrome's dropdown does
     if (askable(el) && userFocused(el)) void open(el);
     else if (el !== anchor) close();
   },
@@ -254,7 +254,9 @@ addEventListener(
   "focusout",
   () =>
     setTimeout(() => {
-      if (document.activeElement !== host && active() !== anchor) close();
+      // Not when focus went to a field whose menu is on its way (Tab): that open() must not be cancelled.
+      const now = active();
+      if (document.activeElement !== host && now !== anchor && now !== opening) close();
     }),
   true,
 );

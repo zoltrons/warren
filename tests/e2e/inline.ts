@@ -266,8 +266,13 @@ await step("inline menu: Escape closes it for this visit to the field; coming ba
   await loginPage.keyboard.type("x");
   await loginPage.waitForTimeout(300);
   assert.equal(await loginPage.locator("warren-menu").count(), 0, "a dismissed menu came back while typing");
+  // Tab to the next field: its menu opens (the field left behind must not cancel it).
   await loginPage.keyboard.press("Tab");
+  await loginPage.waitForFunction(() => document.activeElement?.id === "p" && !!document.querySelector("warren-menu"));
+  await loginPage.waitForTimeout(1200);
+  assert.ok(await loginPage.evaluate(() => !!document.querySelector("warren-menu")), "the password field's menu went away");
   await loginPage.keyboard.press("Shift+Tab");
+  await loginPage.waitForTimeout(300); // the password field's menu fades out first
   await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
   await loginPage.keyboard.press("Escape");
 });
