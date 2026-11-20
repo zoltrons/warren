@@ -89,6 +89,7 @@ const vault: VaultList = {
     { id: "f2", name: "Personal" },
   ],
   trash: [],
+  archive: [],
   organizations: [{ id: "o1", name: "Team Alpha" }],
   collections: [{ id: "c1", name: "Engineering" }],
   syncedAt: Date.now(),
@@ -253,3 +254,6 @@ const chromeStub = {
 };
 
 (globalThis as unknown as { chrome: unknown }).chrome = chromeStub;
+
+// The preview runs in WebKit, which has no requestIdleCallback (Chromium does); popup.ts calls it at load.
+globalThis.requestIdleCallback ??= (cb: IdleRequestCallback) => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 1);
