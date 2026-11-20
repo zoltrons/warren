@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- The inline menu opens on sign-in forms whose floating label takes the click and focuses the field itself, as many
+  Material-style forms do; it used to stay closed there.
 - "Pick from page" picks the field under a floating label, an icon or any box a site draws over it, where it used to
   ignore the click; it also darkens and outlines fields inside a modal dialog instead of hiding under it.
 

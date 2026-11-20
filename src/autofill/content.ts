@@ -221,9 +221,14 @@ async function show(el: HTMLInputElement, mine: number, details: ReturnType<type
  * The user's own last pointer press or Tab. A page can focus a field from script and measure the menu it gets
  * (how many cards, locked or not): only a focus the user caused opens one.
  */
-let gesture: { target: Element | undefined; at: number } = { target: undefined, at: 0 };
-addEventListener("pointerdown", (e) => e.isTrusted && (gesture = { target: e.composedPath()[0] as Element, at: Date.now() }), true);
+let gesture: { target: Element | undefined; at: number; x?: number; y?: number } = { target: undefined, at: 0 };
+addEventListener("pointerdown", (e) => e.isTrusted && (gesture = { target: e.composedPath()[0] as Element, at: Date.now(), x: e.clientX, y: e.clientY }), true);
 addEventListener("keydown", (e) => e.isTrusted && e.key === "Tab" && (gesture = { target: undefined, at: Date.now() }), true);
+/** The press landed on the field's box: a floating label or icon drawn over it took the press, the page focused it. */
+const pressedOn = (el: Element) => {
+  const r = el.getBoundingClientRect();
+  return gesture.x !== undefined && gesture.y !== undefined && gesture.x >= r.left && gesture.x <= r.right && gesture.y >= r.top && gesture.y <= r.bottom;
+};
 /** A press on a closed shadow root reports only its host: it counts for the fields inside that root. */
 const closedHostOf = (a: Element, el: Element) => {
   if (a.shadowRoot || !shadowOf(a)) return false;
@@ -231,7 +236,7 @@ const closedHostOf = (a: Element, el: Element) => {
   return false;
 };
 const userFocused = (el: HTMLInputElement) =>
-  Date.now() - gesture.at < 1000 && (!gesture.target || el.contains(gesture.target) || closedHostOf(gesture.target, el) || [...(el.labels ?? [])].some((l) => l.contains(gesture.target!)));
+  Date.now() - gesture.at < 1000 && (!gesture.target || el.contains(gesture.target) || pressedOn(el) || closedHostOf(gesture.target, el) || [...(el.labels ?? [])].some((l) => l.contains(gesture.target!)));
 
 addEventListener(
   "focusin",

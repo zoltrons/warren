@@ -303,6 +303,19 @@ await step("inline menu: a login inside a closed shadow root gets the menu and f
   assert.equal(await loginPage.evaluate(() => ((window as unknown as { root: ShadowRoot }).root.getElementById("u") as HTMLInputElement).value), "local-user");
 });
 
+await step("inline menu: a floating label that focuses its field on the user's press opens the menu", async () => {
+  await loginPage.goto(`${SITE}/float-login`);
+  await loginPage.click("#ul");
+  await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).click();
+  await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
+  // A press elsewhere that the page answers by focusing the field from script opens nothing.
+  await loginPage.goto(`${SITE}/float-login`);
+  await loginPage.evaluate(() => document.body.addEventListener("mousedown", (e) => { if (e.target === document.body) { e.preventDefault(); setTimeout(() => document.getElementById("u")!.focus(), 50); } }));
+  await loginPage.mouse.click(600, 400);
+  await loginPage.waitForTimeout(600);
+  assert.equal(await loginPage.locator("warren-menu").count(), 0);
+});
+
 await step("inline menu: a page that removes the menu does not leave its field without one", async () => {
   await loginPage.goto(`${SITE}/login`);
   await loginPage.click("#u");

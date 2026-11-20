@@ -426,7 +426,9 @@ short on purpose. Either way the reason is given here or in Known gaps.
   root is closed), so a page can measure it: that Warren is installed, that it is locked (one row) or how many rows it
   shows (up to 5, `show` in `src/autofill/content.ts`), on a login field or, with cards in the inline menu on, on a card
   or identity field. No names or values. A fixed-size host would not hide it: hit-testing the area finds the frame's
-  edges just as well.
+  edges just as well. The menu opens only on a focus the user caused: a press on the field, its label or its box
+  (a floating label drawn over it), or Tab, in the last second (`userFocused`); a page focusing a field from script
+  after a press elsewhere gets no menu.
 - **Cards and identities are listed on every site**, as in the official clients, and fill only on a click in the
   inline menu or the popup. A page cannot get that click by covering or hiding the menu (`guardClicks`, invariant 4).
 - **RUSTSEC-2023-0071 (Marvin timing attack on `rsa`) is ignored in `deny.toml`.** The crate arrives through

@@ -222,6 +222,8 @@ export const pages: Record<string, string> = {
   "/otp": `<form onsubmit="return false"><label for="code">Verification code</label><input id="code" autocomplete="off"><button>Verify</button></form>`,
   "/autosubmit": `<form onsubmit="window.submitted = true; return false"><input id="u" name="username"><input id="p" type="password" name="password"><button>Sign in</button></form>`,
   "/custom": `<form onsubmit="return false"><input id="u" name="username"><input id="p" type="password" name="password"><input id="member" name="member_no"><input id="alias" name="alias"><input type="checkbox" id="terms" name="terms"></form>`,
+  // A floating label over the username that takes the press and focuses the field from script (Material-style forms).
+  "/float-login": `<form onsubmit="return false"><div style="position:relative;width:300px"><input id="u" name="username" style="width:300px;height:40px"><div id="ul" style="position:absolute;inset:0;padding:10px">Username</div></div><input id="p" type="password" name="password"><button>Sign in</button></form><script>document.getElementById("ul").addEventListener("mousedown", (e) => { e.preventDefault(); document.getElementById("u").focus(); });</script>`,
   // A floating label drawn over its field (it takes the click), and a field in a modal <dialog>.
   "/floating": `<div style="position:relative;width:300px"><input id="email" name="email" style="width:300px;height:40px"><div id="fl" style="position:absolute;inset:0">Email address</div></div><dialog id="d"><input id="code" name="code"></dialog>`,
   // A login in a modal <dialog> (everything outside it is inert) and in a focus-trapping ARIA modal.
