@@ -355,11 +355,11 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
   const onsubmit = async (e: Event) => {
     e.preventDefault();
     if (!d.name.trim()) return ((st.error = t("nameRequired")), ctx.rerender());
+    const org = isNew ? str(d.base.organizationId) : "";
+    if (org && !d.collectionIds.length) return ((st.error = t("pickCollection")), ctx.rerender());
     st.busy = true;
     st.error = undefined;
     ctx.rerender();
-    const org = isNew ? str(d.base.organizationId) : "";
-    if (org && !d.collectionIds.length) return ((st.error = t("pickCollection")), ctx.rerender());
     const r = await send<VaultList>({ type: "saveItem", item: buildItem(d), ...(org ? { collectionIds: d.collectionIds } : {}) });
     st.busy = false;
     if (!r.ok) return ((st.error = r.error), ctx.rerender());

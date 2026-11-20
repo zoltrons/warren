@@ -22,6 +22,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   Before, they appeared empty and an edit would have overwritten them.
 - New items, attachments and moves to an organization wrap their keys the way the Bitwarden apps read them on V2
   accounts.
+- Saving a new organization item without picking a collection shows the error and keeps the Save button usable,
+  instead of leaving it disabled until the popup is reopened.
 
 ## 0.0.20 — 2026-11-12
 
