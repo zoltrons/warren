@@ -950,7 +950,8 @@ export type FrameRequest =
   | { type: "inlineAlias"; nonce: string }
   | { type: "barInfo"; token: string }
   /** `username`: a new login's, as the user corrected it in the bar. */
-  | { type: "barAction"; action: "save" | "never" | "close" | "unlock"; token: string; username?: string };
+  /** `itemId`: which of BarInfo.choices to update. */
+  | { type: "barAction"; action: "save" | "never" | "close" | "unlock"; token: string; username?: string; itemId?: string };
 
 const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameRequest, { type: K }>> } = {
   inlineList: obj({ type: literal("inlineList"), nonce: secret }),
@@ -961,7 +962,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   inlineBlock: obj({ type: literal("inlineBlock"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
-  barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close", "unlock"), token: secret, username: opt(field) }),
+  barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close", "unlock"), token: secret, username: opt(field), itemId: opt(secret) }),
 };
 
 const parseBy =
@@ -998,4 +999,6 @@ export interface BarInfo {
   kind: "add" | "update" | "locked";
   host: string;
   username: string;
+  /** Update: the logins to choose from, when the page did not say which one changed. */
+  choices?: { id: string; name: string; sub: string }[];
 }

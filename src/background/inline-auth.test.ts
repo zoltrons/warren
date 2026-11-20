@@ -33,7 +33,7 @@ const tabMessages: string[] = [];
   runtime: {
     id: "warren",
     sendMessage: async ({ req }: { req: { op: string } }) =>
-      req.op === "matchUri" ? { ok: true, value: await new Promise((r) => (matched = r)) } : { ok: true, value: req.op === "vaultLoaded" ? true : null },
+      req.op === "matchUri" ? { ok: true, value: await new Promise((r) => (matched = r)) } : { ok: true, value: req.op === "vaultLoaded" ? true : req.op === "fillData" ? { password: "old" } : null },
   },
   tabs: { query: async () => [], sendMessage: async (_tab: number, m: { type: string }) => void tabMessages.push(m.type), get: async () => ({ url: "https://evil.test/" }) },
 };
@@ -125,4 +125,25 @@ test("logged out: a submitted login is not kept, there is nothing to unlock", as
   await handlePage(parsePageRequest({ type: "loginSubmitted", username: "u", password: "typed" }), page);
   local.account = account;
   assert.equal(session["save:1"], undefined);
+});
+
+test("several logins, none with the typed password: the update bar offers them, and saves only one of them", async () => {
+  delete session["save:1"];
+  delete session["ident:1"];
+  session.session = { unlocked: true };
+  offscreen = true;
+  matched = undefined;
+  const page = { tab: { id: 1, url: "https://evil.test/" }, frameId: 0, url: "https://evil.test/change" } as chrome.runtime.MessageSender;
+  const submitted = handlePage(parsePageRequest({ type: "loginSubmitted", username: "", password: "new" }), page);
+  for (let i = 0; i < 200 && !matched; i++) await new Promise((r) => setTimeout(r, 5));
+  matched!([
+    { id: "a", type: 1, name: "site", sub: "ann", readOnly: false },
+    { id: "b", type: 1, name: "site", sub: "bob", readOnly: false },
+  ]);
+  await submitted;
+  const p = session["save:1"] as { kind: string; choices?: { id: string }[]; token: string };
+  assert.deepEqual([p.kind, p.choices?.map((c) => c.id)], ["update", ["a", "b"]]);
+  const info = (await handleFrame(parseFrameRequest({ type: "barInfo", token: p.token }), 1)) as { choices?: unknown[] };
+  assert.equal(info.choices?.length, 2);
+  await assert.rejects(handleFrame(parseFrameRequest({ type: "barAction", action: "save", token: p.token, itemId: "not-offered" }), 1), /Pick the login/);
 });

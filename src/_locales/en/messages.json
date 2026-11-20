@@ -716,6 +716,9 @@
   "close": {
     "message": "Close"
   },
+  "barWhichLogin": {
+    "message": "Login"
+  },
   "barLockedTitle": {
     "message": "Unlock Warren to save this login?"
   },

@@ -14,10 +14,12 @@ const fit = () => parent.postMessage({ barHeight: Math.ceil((app.firstElementChi
 
 /** A new login's username, editable before it is saved. */
 let usernameInput: HTMLInputElement | undefined;
+/** Which login an update is for, when the page did not say. */
+let choiceSelect: HTMLSelectElement | undefined;
 
 async function act(action: "save" | "never" | "close" | "unlock") {
   for (const b of app.querySelectorAll("button")) b.disabled = true;
-  const r = await ask({ type: "barAction", action, token, ...(action === "save" && usernameInput ? { username: usernameInput.value } : {}) });
+  const r = await ask({ type: "barAction", action, token, ...(action === "save" && usernameInput ? { username: usernameInput.value } : {}), ...(action === "save" && choiceSelect ? { itemId: choiceSelect.value } : {}) });
   // Unlocking happens in the popup; the bar comes back as a save or update prompt once it is done.
   if (r.ok && action === "unlock") for (const b of app.querySelectorAll("button")) b.disabled = false;
   if (!r.ok) {
@@ -67,7 +69,14 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
       h(
         "div",
         { class: "group" },
-        d.kind === "add"
+        d.choices
+          ? h(
+              "label",
+              { class: "row" },
+              h("span", { class: "label" }, t("barWhichLogin")),
+              (choiceSelect = h("select", { class: "value" }, ...d.choices.map((c) => h("option", { value: c.id }, c.sub ? `${c.name} (${c.sub})` : c.name))) as HTMLSelectElement),
+            )
+          : d.kind === "add"
           ? h("label", { class: "row" }, h("span", { class: "label" }, t("username")), (usernameInput = h("input", { class: "value", type: "text", value: d.username, autocomplete: "off", spellcheck: false }) as HTMLInputElement))
           : d.username
             ? h("div", { class: "row" }, h("span", { class: "label" }, t("username")), h("span", { class: "value ellipsis" }, d.username))

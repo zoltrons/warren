@@ -5,6 +5,7 @@ import type { FillResult } from "../autofill/types.ts";
 import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest, VaultItem } from "../shared/messages.ts";
 import { httpUrl } from "../shared/url.ts";
 import { coreCall } from "./core.ts";
+import { UserError } from "./errors.ts";
 import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadline } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill, rememberLockedFill } from "./autofill.ts";
@@ -36,6 +37,8 @@ export interface PendingSave {
   itemId?: string;
   /** Update: the item's revision (epoch ms) the prompt was made against. Saving refuses a copy that changed since. */
   revisionDate?: number;
+  /** Update without `itemId`: the site's logins that could have changed; the user picks one in the bar. */
+  choices?: { id: string; name: string; sub: string; revisionDate?: number }[];
   /** Secret handed to the bar frame, so a bar the page frames itself cannot save (see showBar). */
   token: string;
   /** epoch ms */
@@ -43,6 +46,8 @@ export interface PendingSave {
 }
 
 const SAVE_TTL_MS = 5 * 60_000;
+/** Logins the update bar offers to choose from. */
+const MAX_CHOICES = 10;
 
 async function items(kind: FieldKind, url: string): Promise<MenuItem[]> {
   const pick = ({ id, type, name, sub }: VaultItem) => ({ id, type, name, sub });
@@ -191,7 +196,11 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   else if (editable.length === 1) {
     const [m] = editable as [VaultItem];
     pending = { kind: "update", url, username: username || m.sub, password, itemId: m.id, revisionDate: m.revisionDate, token: "", expiresAt };
-  } else return; // several logins (even with the same username), none with this password: no telling which one changed
+  } else {
+    // Several logins (even with the same username), none with this password: the user says which one changed.
+    const choices = editable.slice(0, MAX_CHOICES).map((m) => ({ id: m.id, name: m.name, sub: m.sub, ...(m.revisionDate ? { revisionDate: m.revisionDate } : {}) }));
+    pending = { kind: "update", url, username, password, choices, token: "", expiresAt };
+  }
   // A lock while this was decided cleared the pending saves: the typed password must not come back after it.
   if (epoch !== lockEpoch()) return;
   await setTabState("save", tabId, pending);
@@ -263,7 +272,8 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     if (!p) return dropSave(tabId).then(() => null);
     // Only the bar this tab was just opened with may read or act.
     if (!p.token || req.token !== p.token) throw new Error("this save prompt is no longer active");
-    if (req.type === "barInfo") return { kind: p.kind, host: new URL(p.url).host, username: p.username } satisfies BarInfo;
+    if (req.type === "barInfo")
+      return { kind: p.kind, host: new URL(p.url).host, username: p.username, ...(p.choices ? { choices: p.choices.map(({ id, name, sub }) => ({ id, name, sub })) } : {}) } satisfies BarInfo;
     if (req.action === "unlock") {
       await chrome.action.openPopup().catch(() => undefined);
       return null; // the prompt stays: resumeSaves picks it up after the unlock
@@ -273,11 +283,14 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
       const host = new URL(p.url).hostname.replace(/\.$/, "");
       await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
     } else if (req.action === "save") {
-      if (p.kind === "update" && p.itemId) {
+      if (p.kind === "update") {
+        // One of the logins this prompt offered, never an id the bar makes up.
+        const choice = p.itemId ? { id: p.itemId, revisionDate: p.revisionDate } : p.choices?.find((c) => c.id === req.itemId);
+        if (!choice) throw new UserError("invalid", "Pick the login to update");
         // flagged after the prompt was queued
-        if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: p.itemId }))) throw new Error(REPROMPT_MESSAGE);
+        if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: choice.id }))) throw new Error(REPROMPT_MESSAGE);
         // Against the revision the prompt was made for: an older prompt never undoes a newer password.
-        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: p.itemId, password: p.password, revisionDate: p.revisionDate }));
+        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: choice.id, password: p.password, revisionDate: choice.revisionDate }));
       } else {
         const u = new URL(p.url);
         // The bar lets the user correct the username of a new login before it is saved.
