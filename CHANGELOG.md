@@ -38,6 +38,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   PIN and biometric unlock.
 - A proxy or login gateway in front of the server that answers a token refresh with its own 401 page no longer logs
   Warren out (which removed the PIN, biometric unlock and local settings); only the server's own refusal does.
+- The "Fill with Warren" context menu lists at most 20 logins and a "more in Warren…" entry that opens the popup,
+  instead of one entry per login on sites that match hundreds.
 - Autofill on page load waits until a prerendered page is actually shown, instead of filling a page the user may
   never open.
 - The inline menu and save bar are removed when a page goes into the back/forward cache, so a page restored after

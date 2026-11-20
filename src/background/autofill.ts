@@ -16,6 +16,9 @@ import { isBlocked, readPrivate } from "./private.ts";
 const CONTEXT_MENU_ID = "warren-autofill";
 export const AUTOFILL_COMMAND = "autofill-login";
 const COPY_FIELD_NAME_ID = "warren-copy-field-name";
+const MORE_ID = "warren-more";
+/** A shared sign-in domain can match hundreds of logins: the menu lists these many, the popup the rest. */
+const MAX_MENU_LOGINS = 20;
 
 export async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
   return (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
@@ -187,8 +190,10 @@ export function updateTabUi(): Promise<void> {
     if (settings.contextMenu) {
       const contexts: ["editable"] = ["editable"];
       chrome.contextMenus.create({ id: CONTEXT_MENU_ID, title: chrome.i18n.getMessage("ctxAutofill"), contexts }, ignoreError);
-      for (const i of items)
+      for (const i of items.slice(0, MAX_MENU_LOGINS))
         chrome.contextMenus.create({ id: `${CONTEXT_MENU_ID}:${i.id}`, parentId: CONTEXT_MENU_ID, title: i.sub ? `${i.name} (${i.sub})` : i.name, contexts }, ignoreError);
+      if (items.length > MAX_MENU_LOGINS)
+        chrome.contextMenus.create({ id: MORE_ID, parentId: CONTEXT_MENU_ID, title: chrome.i18n.getMessage("ctxMore", String(items.length - MAX_MENU_LOGINS)), contexts }, ignoreError);
       // A child turns the parent into a plain submenu, so a locked vault keeps the entry that opens the popup.
       if (unlocked) chrome.contextMenus.create({ id: COPY_FIELD_NAME_ID, parentId: CONTEXT_MENU_ID, title: chrome.i18n.getMessage("copyCustomFieldName"), contexts }, ignoreError);
     }
@@ -211,6 +216,7 @@ export async function onContextMenu(info: chrome.contextMenus.OnClickData, tab?:
   if (!(await getSettings()).contextMenu) return undefined;
   const id = String(info.menuItemId);
   if (id === COPY_FIELD_NAME_ID) return copyFieldName(tab, info.frameId);
+  if (id === MORE_ID) return chrome.action.openPopup().catch(() => undefined);
   if (id === CONTEXT_MENU_ID) return autofillFromGesture(tab);
   if (id.startsWith(`${CONTEXT_MENU_ID}:`)) return autofillFromGesture(tab, id.slice(CONTEXT_MENU_ID.length + 1));
   return undefined;

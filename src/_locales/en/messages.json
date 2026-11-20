@@ -446,6 +446,10 @@
   "ctxAutofill": {
     "message": "Fill with Warren"
   },
+  "ctxMore": {
+    "message": "$COUNT$ more in Warren…",
+    "placeholders": { "count": { "content": "$1" } }
+  },
   "cmdAutofill": {
     "message": "Fill the login for this page"
   },
