@@ -118,7 +118,7 @@ test("two syncs answered in reverse order keep the newer one", async () => {
 });
 
 test("a replacing passkey save without an answer puts the old passkey back once the server has the new one", async () => {
-  local.vault = { revision: 2, syncedAt: 0, ciphers: [], folders: [], sends: [], orgKeys: {}, collections: [], orgs: [] };
+  local.vault = { revision: 2, ciphers: [], folders: [], sends: [], orgKeys: {}, collections: [], orgs: [] };
   const posted: unknown[] = [];
   const listeners: ((m: unknown) => void)[] = [];
   onPasskeyPort({
@@ -179,7 +179,7 @@ function holdOp(op: string): () => void {
 async function opArrived(op: string) {
   for (let i = 0; i < 200 && !ops.includes(op); i++) await new Promise((r) => setTimeout(r, 5));
 }
-const cache = (revision: number) => ({ revision, syncedAt: 0, ciphers: [], folders: [], sends: [], orgKeys: {}, collections: [], orgs: [] });
+const cache = (revision: number) => ({ revision, ciphers: [], folders: [], sends: [], orgKeys: {}, collections: [], orgs: [] });
 
 test("a sync a lock overtook while the server answered writes no cache", async () => {
   local.vault = cache(5);

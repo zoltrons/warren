@@ -1393,12 +1393,9 @@ void stateRequest({ type: "getState" }).then((res) => {
  * side panel would keep showing decrypted item names after the vault locked.
  */
 chrome.storage.onChanged.addListener((changes, area) => {
-  // The stored vault changed: a push sync (new revision) or an item saved anywhere (same revision, new ciphers).
-  // Only a sync that found nothing new (just a newer syncedAt) is skipped. Also refreshes this site's matches.
-  type Stored = { revision?: number; syncedAt?: number } | undefined;
-  const vault = area === "local" ? changes.vault : undefined;
-  const [n, o] = [vault?.newValue as Stored, vault?.oldValue as Stored];
-  if (vault && state?.phase === "unlocked" && (n?.revision !== o?.revision || n?.syncedAt === o?.syncedAt)) void reloadList();
+  // The stored vault changed: a push sync (new revision) or an item saved anywhere. A sync that found nothing new
+  // only writes `syncedAt`. Also refreshes this site's matches.
+  if (area === "local" && changes.vault && state?.phase === "unlocked") void reloadList();
   if (area !== "session" || !changes.session || !state) return;
   const next = changes.session.newValue as { unlocked?: unknown; loginRequests?: unknown[] } | undefined;
   // A real lock while this screen already shows one (an unlock still in flight): the answers asked before it are stale.

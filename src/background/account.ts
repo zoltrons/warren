@@ -139,7 +139,7 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
   const owner = await checkEpoch(epoch, async () => {
     // Another account from here: a refresh, a sync or a hub begun for the one before must not write over this one.
     const mine = newOwner();
-    await removeLocal("vault"); // never show a previous account's cache
+    await removeLocal("vault", "syncedAt"); // never show a previous account's cache
     return mine;
   });
   await checkEpoch(epoch, () => setLocal("account", account));
@@ -626,7 +626,7 @@ export async function logout(): Promise<void> {
   newOwner();
   stopPush();
   await lockNow();
-  await removeLocal("account", "vault", "genHistory", "aliasSettings", "biometric", "private", "wordlist");
+  await removeLocal("account", "vault", "syncedAt", "genHistory", "aliasSettings", "biometric", "private", "wordlist");
   await chrome.storage.local.remove("lastUsed"); // clear-text stamps of older builds
   // An SSO login still waiting for its callback ends here too: a late one must not log an account back in.
   await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined, sso: undefined });
@@ -796,7 +796,7 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
     const mine = newOwner();
     await lockNow();
     assertOwner(mine);
-    await removeLocal("vault");
+    await removeLocal("vault", "syncedAt");
     assertOwner(mine);
     await setLocal("account", { email, userId: jwtSubject(t.access_token), kdf, protectedUserKey: t.Key, encryptedPrivateKey: accountKeysOf(t) });
     await storeRefreshToken(tokens.refreshToken, mine);

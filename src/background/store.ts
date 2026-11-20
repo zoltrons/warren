@@ -118,7 +118,6 @@ export interface Biometric {
 export interface VaultCache {
   /** server revision date, ms */
   revision: number;
-  syncedAt: number;
   ciphers: unknown[];
   folders: unknown[];
   /** Absent in caches written before Phase 4. */
@@ -131,6 +130,8 @@ export interface VaultCache {
 
 interface LocalSchema {
   vault: VaultCache;
+  /** When the last sync finished (epoch ms), kept apart so a sync that finds nothing new does not rewrite the vault. */
+  syncedAt: number;
   deviceId: string;
   server: Server;
   settings: Settings;

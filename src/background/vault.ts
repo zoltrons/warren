@@ -100,14 +100,15 @@ export async function sync(force: boolean): Promise<boolean> {
   const cache = await getLocal("vault");
   const revision = await revisionDate(base, token);
   if (!force && cache && cache.revision >= revision) {
-    await commit(epoch, async (c) => c && setLocal("vault", { ...c, syncedAt: Date.now() }));
+    assertEpoch(epoch);
+    await setLocal("syncedAt", Date.now());
     return false;
   }
   const r = await fullSync(base, token);
   const orgKeys = Object.fromEntries((r.profile.organizations ?? []).filter((o) => o.key).map((o) => [o.id, o.key!]));
   // shortcut: whole vault in one storage.local key (no quota: unlimitedStorage); move to IndexedDB if one set() of it gets slow.
   const orgs = (r.profile.organizations ?? []).map((o) => ({ id: o.id, name: o.name ?? "" }));
-  const next: VaultCache = { revision, syncedAt: Date.now(), ciphers: r.ciphers, folders: r.folders, sends: r.sends ?? [], orgKeys, collections: r.collections ?? [], orgs };
+  const next: VaultCache = { revision, ciphers: r.ciphers, folders: r.folders, sends: r.sends ?? [], orgKeys, collections: r.collections ?? [], orgs };
   let again = false;
   await commit(epoch, async () => {
     // A change of ours was answered while this was out, and this answer may predate it: ask again, never undo it.
@@ -115,7 +116,7 @@ export async function sync(force: boolean): Promise<boolean> {
     // A sync that began after this one was stored already: its answer is the newer one.
     if (ticket < syncStored) return;
     syncStored = ticket;
-    await setLocal("vault", next);
+    await chrome.storage.local.set({ vault: next, syncedAt: Date.now() });
     await load(next, epoch);
   });
   if (again) return sync(true);
@@ -146,7 +147,7 @@ export async function list(): Promise<VaultList> {
   await ensureLoaded();
   const l = await coreCall<VaultList>({ op: "listVault" });
   // Usage data that cannot be read is not worth failing the list over.
-  return { ...l, syncedAt: (await getLocal("vault"))?.syncedAt, opened: await readPrivate().then((d) => d.opened, () => ({})) };
+  return { ...l, syncedAt: await getLocal("syncedAt"), opened: await readPrivate().then((d) => d.opened, () => ({})) };
 }
 
 export const save = async (item: Record<string, unknown>, collectionIds?: string[]): Promise<VaultList> =>

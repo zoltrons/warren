@@ -59,15 +59,15 @@ import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
 import { archive, addAttachment, breachEmails, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
 async function getState(): Promise<State> {
-  const [server, account, session, settings, vault, bio] = await Promise.all([
+  const [server, account, session, settings, syncedAt, bio] = await Promise.all([
     getLocal("server"),
     getLocal("account"),
     getSession(),
     getSettings(),
-    getLocal("vault"),
+    getLocal("syncedAt"),
     getLocal("biometric"),
   ]);
-  const base = { settings, serverUrl: server?.url, serverVersion: server?.version, syncedAt: vault?.syncedAt, ...(session.ssoError ? { ssoError: session.ssoError } : {}) };
+  const base = { settings, serverUrl: server?.url, serverVersion: server?.version, syncedAt, ...(session.ssoError ? { ssoError: session.ssoError } : {}) };
   if (!server) return { phase: "setup", ...base };
   if (session.pending && session.pending.expiresAt > Date.now())
     return { phase: "twoFactor", ...base, email: session.pending.email, twoFactor: session.pending.challenge };
