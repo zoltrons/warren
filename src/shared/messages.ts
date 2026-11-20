@@ -948,7 +948,7 @@ export type FrameRequest =
   | { type: "inlineAlias"; nonce: string }
   | { type: "barInfo"; token: string }
   /** `username`: a new login's, as the user corrected it in the bar. */
-  | { type: "barAction"; action: "save" | "never" | "close"; token: string; username?: string };
+  | { type: "barAction"; action: "save" | "never" | "close" | "unlock"; token: string; username?: string };
 
 const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameRequest, { type: K }>> } = {
   inlineList: obj({ type: literal("inlineList"), nonce: secret }),
@@ -958,7 +958,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineAlias: obj({ type: literal("inlineAlias"), nonce: secret }),
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
-  barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close"), token: secret, username: opt(field) }),
+  barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close", "unlock"), token: secret, username: opt(field) }),
 };
 
 const parseBy =
@@ -992,7 +992,7 @@ export interface MenuData {
 }
 
 export interface BarInfo {
-  kind: "add" | "update";
+  kind: "add" | "update" | "locked";
   host: string;
   username: string;
 }

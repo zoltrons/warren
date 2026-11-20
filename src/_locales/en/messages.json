@@ -698,6 +698,9 @@
   "createAccount": {
     "message": "Create account"
   },
+  "inlineMenuOpened": {
+    "message": "Warren suggestions available. Press Down arrow to choose one."
+  },
   "unlockToFill": {
     "message": "Unlock to fill"
   },
@@ -709,6 +712,9 @@
   },
   "close": {
     "message": "Close"
+  },
+  "barLockedTitle": {
+    "message": "Unlock Warren to save this login?"
   },
   "barSaveTitle": {
     "message": "Save this login in Warren?"

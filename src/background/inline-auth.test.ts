@@ -40,7 +40,7 @@ const tabMessages: string[] = [];
 const wasm = new URL("../../dist/wasm/autofill_core_bg.wasm", import.meta.url);
 globalThis.fetch = (async () => new Response(readFileSync(wasm), { headers: { "content-type": "application/wasm" } })) as typeof fetch;
 
-const { handleFrame, handlePage } = await import("./inline.ts");
+const { handleFrame, handlePage, resumeSaves } = await import("./inline.ts");
 const { lockNow } = await import("./lock.ts");
 
 const password = { fieldId: 1, formId: 1, type: "password", htmlName: "password", isActive: true, dataAttributes: {}, blockPath: [1] };
@@ -94,4 +94,35 @@ test("two-step sign-in: the username of the first page names the login the passw
   matched!([]);
   await submitted;
   assert.deepEqual([(session["save:1"] as { kind?: string }).kind, (session["save:1"] as { username?: string }).username], ["add", "ali@evil.test"]);
+});
+
+test("locked: a submitted login waits behind an unlock prompt and is matched once the vault is open", async () => {
+  delete session["save:1"];
+  delete session["ident:1"];
+  tabMessages.length = 0;
+  session.session = { unlocked: false };
+  offscreen = false;
+  matched = undefined;
+  const page = { tab: { id: 1, url: "https://evil.test/" }, frameId: 0, url: "https://evil.test/signin" } as chrome.runtime.MessageSender;
+  await handlePage(parsePageRequest({ type: "loginSubmitted", username: "u", password: "typed" }), page);
+  assert.equal((session["save:1"] as { kind?: string }).kind, "locked");
+  assert.ok(tabMessages.includes("barShow"), "the bar asks for an unlock");
+  session.session = { unlocked: true };
+  offscreen = true;
+  const resuming = resumeSaves();
+  for (let i = 0; i < 200 && !matched; i++) await new Promise((r) => setTimeout(r, 5));
+  matched!([]);
+  await resuming;
+  assert.equal((session["save:1"] as { kind?: string }).kind, "add");
+});
+
+test("logged out: a submitted login is not kept, there is nothing to unlock", async () => {
+  delete session["save:1"];
+  session.session = { unlocked: false };
+  const account = local.account;
+  delete local.account;
+  const page = { tab: { id: 1, url: "https://evil.test/" }, frameId: 0, url: "https://evil.test/signin" } as chrome.runtime.MessageSender;
+  await handlePage(parsePageRequest({ type: "loginSubmitted", username: "u", password: "typed" }), page);
+  local.account = account;
+  assert.equal(session["save:1"], undefined);
 });

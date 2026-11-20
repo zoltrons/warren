@@ -7,7 +7,7 @@ import { httpUrl } from "../shared/url.ts";
 import { coreCall } from "./core.ts";
 import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadline } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
-import { pageLoadFill } from "./autofill.ts";
+import { pageLoadFill, rememberLockedFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional, rememberFill } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
@@ -28,7 +28,8 @@ export interface InlineContext {
 }
 
 export interface PendingSave {
-  kind: "add" | "update";
+  /** `locked`: submitted while Warren was locked; matched against the vault once it is unlocked (resumeSaves). */
+  kind: "add" | "update" | "locked";
   url: string;
   username: string;
   password: string;
@@ -149,7 +150,8 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: str
   return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) + ((await offerAlias(ctx)) ? 1 : 0), footer: true };
 }
 
-async function loginSubmitted(tabId: number, url: string, username: string, password: string) {
+/** `resumed`: replayed after an unlock (resumeSaves); a lock meanwhile ends it instead of keeping the password again. */
+async function loginSubmitted(tabId: number, url: string, username: string, password: string, resumed = false) {
   const epoch = lockEpoch();
   const settings = await getSettings();
   const host = new URL(url).hostname.replace(/\.$/, ""); // no port or trailing dot: the form hostOf gives the settings list
@@ -162,7 +164,14 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
     const ident = await getTabState("ident", tabId);
     if (ident && ident.origin === origin && Date.now() - ident.at < SAVE_TTL_MS) username = ident.username;
   }
-  if (!(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
+  if (!(await isUnlocked())) {
+    // Logged out: there is nothing to unlock. A replay that a lock overtook keeps nothing.
+    if (resumed || !(await getLocal("account"))) return;
+    // Kept until it expires or the next lock, like any pending save: the bar asks for an unlock, then decides.
+    await setTabState("save", tabId, { kind: "locked", url, username, password, token: "", expiresAt: Date.now() + SAVE_TTL_MS });
+    return showBar(tabId, epoch);
+  }
+  if ((await readPrivate()).neverSave.includes(host)) return;
   await ensureLoaded();
   // A page never updates a login it matched only through a regular expression (VaultItem.regexOnly).
   const matches = (await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch })).filter((m) => !m.regexOnly);
@@ -187,6 +196,18 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   if (epoch !== lockEpoch()) return;
   await setTabState("save", tabId, pending);
   await showBar(tabId, epoch);
+}
+
+/** After an unlock: logins submitted while locked are matched now, and get the save or update bar they need. */
+export async function resumeSaves(): Promise<void> {
+  const keys = Object.keys(await chrome.storage.session.get(null)).filter((k) => k.startsWith("save:"));
+  for (const k of keys) {
+    const tabId = Number(k.slice("save:".length));
+    const p = await pendingSave(tabId);
+    if (p?.kind !== "locked") continue;
+    await dropSave(tabId);
+    await loginSubmitted(tabId, p.url, p.username, p.password, true).catch((e: unknown) => console.warn("resume save", e));
+  }
 }
 
 /** A pending save, dropping it once its TTL passed so a typed password never outlives it. */
@@ -243,6 +264,11 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     // Only the bar this tab was just opened with may read or act.
     if (!p.token || req.token !== p.token) throw new Error("this save prompt is no longer active");
     if (req.type === "barInfo") return { kind: p.kind, host: new URL(p.url).host, username: p.username } satisfies BarInfo;
+    if (req.action === "unlock") {
+      await chrome.action.openPopup().catch(() => undefined);
+      return null; // the prompt stays: resumeSaves picks it up after the unlock
+    }
+    if (p.kind === "locked" && req.action !== "close") return null; // nothing to save or block before the vault is open
     if (req.action === "never") {
       const host = new URL(p.url).hostname.replace(/\.$/, "");
       await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
@@ -267,6 +293,8 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
   // Only the menu this document opened may act: a copy of menu.html framed by the page has no nonce.
   if (req.nonce !== ctx.nonce) throw new Error("this menu is not the one opened for this page");
   if (req.type === "inlineOpen") {
+    // "Unlock to fill": the fill follows the unlock (resumeFill).
+    if (!(await isUnlocked())) await rememberLockedFill(await chrome.tabs.get(tabId).catch(() => undefined));
     await chrome.action.openPopup().catch(() => undefined);
     return null;
   }

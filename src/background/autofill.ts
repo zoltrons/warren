@@ -8,7 +8,7 @@ import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { customFieldsOf, type FillRequest, fillInFrames, pageCall } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
-import { getLocal, getSettings } from "./store.ts";
+import { getLocal, getSession, getSettings, updateSession } from "./store.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, markUsed } from "./vault.ts";
 import { isBlocked, readPrivate } from "./private.ts";
@@ -238,9 +238,30 @@ export async function readPageLogin(tabId: number, origin: string): Promise<Page
   return login && { ...login, url: tab.url! }; // the browser's URL, not the page's own location.href
 }
 
+const RESUME_MS = 2 * 60_000;
+
+/** Remembers a fill asked for while locked, for `resumeFill` after the unlock. */
+export async function rememberLockedFill(tab: chrome.tabs.Tab | undefined, itemId?: string): Promise<void> {
+  const origin = httpUrl(tab)?.origin;
+  if (tab?.id !== undefined && origin) await updateSession({ resume: { tabId: tab.id, origin, ...(itemId ? { itemId } : {}), at: Date.now() } });
+}
+
+/** After an unlock: the fill asked for while locked, into that tab if it still shows that site. */
+export async function resumeFill(): Promise<void> {
+  const { resume } = await getSession();
+  if (!resume) return;
+  await updateSession({ resume: undefined });
+  if (Date.now() - resume.at > RESUME_MS) return;
+  const tab = await chrome.tabs.get(resume.tabId).catch(() => undefined);
+  // Only into the tab the user is looking at: one they left meanwhile is not filled unseen.
+  if (!tab?.active || httpUrl(tab)?.origin !== resume.origin) return;
+  await fillTab(tab, resume.itemId).catch((e: unknown) => console.warn("resume fill", e));
+}
+
 /** Keyboard shortcut / context menu: fill the first match, or open the popup (locked, or nothing to fill). */
 export async function autofillFromGesture(tab: chrome.tabs.Tab | undefined, id?: string): Promise<FillResult> {
   if (!(await isUnlocked())) {
+    await rememberLockedFill(tab, id);
     await chrome.action.openPopup().catch(() => undefined);
     return { filled: false, reason: "locked" };
   }

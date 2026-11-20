@@ -51,10 +51,10 @@ import {
   updateSettings,
 } from "./store.ts";
 import { generatorPrefs, hostOf, readPrivate, setGeneratorPrefs, setWordlist, updatePrivate, withWordlist } from "./private.ts";
-import { handleFrame, handlePage, showBar } from "./inline.ts";
+import { handleFrame, handlePage, resumeSaves, showBar } from "./inline.ts";
 import { ensurePasskeyScripts, onPasskeyPort, onWindowRemoved, passkeyDecision, passkeyPrompt } from "./passkey.ts";
 import { startFieldPicker, takeFieldPick } from "./picker.ts";
-import { AUTOFILL_COMMAND, autofillFromGesture, fillShownTab, onContextMenu, pageMatches, readPageLogin, updateTabUi } from "./autofill.ts";
+import { AUTOFILL_COMMAND, autofillFromGesture, fillShownTab, onContextMenu, pageMatches, readPageLogin, resumeFill, updateTabUi } from "./autofill.ts";
 import { generateAlias, getAliasSettings, saveAliasSettings } from "./alias.ts";
 import { archive, addAttachment, breachEmails, deleteAttachment, moveToOrg, setCollections, addGeneratorHistory, CLIPBOARD_ALARM, downloadAttachment, exportVault, importVault, clearClipboard, clearGeneratorHistory, deleteFolder, generatorHistory, isUnlocked, deleteSend, getSend, purge, removeSendPassword, restore, saveFolder, scheduleClipboardClear, list as vaultList, requireUnlocked, save, saveSend, sendList, sync, trash } from "./vault.ts";
 
@@ -353,6 +353,9 @@ async function handle(req: Request): Promise<unknown> {
       break;
   }
   const state = await getState();
+  // What was asked for while locked happens now: the fill, and the save or update prompt.
+  if (state.phase === "unlocked" && (req.type === "unlock" || req.type === "unlockPin" || req.type === "unlockBiometric"))
+    void resumeFill().then(resumeSaves).catch((e: unknown) => console.warn("after unlock", e));
   if (state.phase === "unlocked" && !(req.type === "getState" && req.passive)) await touchAutoLock();
   if (state.phase === "unlocked" || state.phase === "locked") void ensurePush().catch(() => undefined);
   return state;

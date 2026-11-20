@@ -68,6 +68,9 @@ interface Session {
   duo?: { tabId: number; provider: number; remember: boolean };
   /** PIN unlock: the user key wrapped with the PIN key, and wrong tries so far. `kdf` absent = PIN_KDF. */
   pin?: { email: string; key: string; attempts: number; kdf?: KdfParams };
+  /** A fill asked for while locked (shortcut, context menu, the inline menu's "Unlock to fill"): done after the unlock
+   * if it comes within 2 minutes and that tab is still active and on that origin (autofill.ts resumeFill). */
+  resume?: { tabId: number; origin: string; itemId?: string; at: number };
   /** Origin the inline menu's "Create account" wants a new login for; the popup it opens takes it. */
   newLogin?: string;
   /** "Pick from page" running in a tab (background/picker.ts); `done` once the user picked or cancelled. */

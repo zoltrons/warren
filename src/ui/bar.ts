@@ -15,9 +15,11 @@ const fit = () => parent.postMessage({ barHeight: Math.ceil((app.firstElementChi
 /** A new login's username, editable before it is saved. */
 let usernameInput: HTMLInputElement | undefined;
 
-async function act(action: "save" | "never" | "close") {
+async function act(action: "save" | "never" | "close" | "unlock") {
   for (const b of app.querySelectorAll("button")) b.disabled = true;
   const r = await ask({ type: "barAction", action, token, ...(action === "save" && usernameInput ? { username: usernameInput.value } : {}) });
+  // Unlocking happens in the popup; the bar comes back as a save or update prompt once it is done.
+  if (r.ok && action === "unlock") for (const b of app.querySelectorAll("button")) b.disabled = false;
   if (!r.ok) {
     (app.firstElementChild ?? app).append(h("p", { class: "error", role: "alert" }, icon("error"), r.error));
     fit();
@@ -32,6 +34,23 @@ addEventListener("keydown", (e) => {
 void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
   if (!r.ok || !r.data) return;
   const d = r.data;
+  if (d.kind === "locked") {
+    app.replaceChildren(
+      h(
+        "div",
+        { class: "bar" },
+        h(
+          "div",
+          { class: "top" },
+          h("span", { class: "bar-mark", "aria-hidden": "true" }, icon("lock")),
+          h("div", { class: "body" }, h("strong", {}, t("barLockedTitle")), h("span", { class: "sub" }, d.host)),
+          h("button", { type: "button", class: "icon-btn sm", "aria-label": t("close"), onclick: () => void act("close") }, icon("close")),
+        ),
+        h("div", { class: "actions row-actions" }, h("button", { type: "button", class: "btn filled", onclick: () => void act("unlock") }, t("unlock"))),
+      ),
+    );
+    return fit();
+  }
   app.replaceChildren(
     h(
       "div",
