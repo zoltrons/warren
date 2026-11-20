@@ -561,6 +561,8 @@ export type ErrorCode =
   | "reprompt"
   | "sessionExpired"
   | "wrongPhase"
+  /** A save the server refused: the item changed elsewhere since the draft was opened (the newer copy is synced). */
+  | "conflict"
   /** UI only (ui/dom.ts send): the answer was asked for before a lock or account change the screen has seen since. */
   | "stale";
 

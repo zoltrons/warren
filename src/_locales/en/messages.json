@@ -446,6 +446,9 @@
   "ctxAutofill": {
     "message": "Fill with Warren"
   },
+  "editConflict": {
+    "message": "This item was changed on another device since you opened it. Save again to replace those changes with yours, or cancel to keep them."
+  },
   "showAllResults": {
     "message": "Show all $COUNT$ results",
     "placeholders": { "count": { "content": "$1" } }

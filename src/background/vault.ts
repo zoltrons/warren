@@ -182,7 +182,12 @@ export async function putCipher(enc: Record<string, unknown>, guard?: () => void
   // Right before the request, with no await in between: a change a lock overtook is never sent.
   assertEpoch(epoch);
   guard?.();
-  const saved = await saveCipher(base, token, { ...enc, encryptedFor: account.userId }, collectionIds);
+  const saved = await saveCipher(base, token, { ...enc, encryptedFor: account.userId }, collectionIds).catch(async (e: unknown) => {
+    if (!(e instanceof ApiError && e.status === 400 && /out of date/i.test(e.message))) throw e;
+    // Fetch the newer copy, so the editor can show what it is overwriting and a second save carries its revision.
+    await refreshAfter(sync(false));
+    throw new UserError("conflict", "This item was changed on another device since you opened it.");
+  });
   changes++;
   await refreshAfter(
     commit(epoch, async (cache) => {

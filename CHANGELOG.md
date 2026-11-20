@@ -41,6 +41,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Changes made on other devices while the push connection was down (network drop, browser restart, a server or
   proxy without WebSockets) now reach an unlocked vault: Warren syncs after every reconnect and at least every 30
   minutes, instead of only when the popup is opened.
+- Saving an item that was changed on another device while it was open no longer fails over and over: Warren
+  fetches the newer copy and says so, and saving again replaces that change with yours (or cancel to keep it).
 - Searching a vault of thousands of items stays quick: the list sorts with one shared collator, waits for a pause in
   the typing in vaults over 1,000 items, and draws the first 200 results with a "Show all" button for the rest.
 - The "Fill with Warren" context menu lists at most 20 logins and a "more in Warren…" entry that opens the popup,

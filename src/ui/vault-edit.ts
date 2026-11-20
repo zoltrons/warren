@@ -362,6 +362,12 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     ctx.rerender();
     const r = await send<VaultList>({ type: "saveItem", item: buildItem(d), ...(org ? { collectionIds: d.collectionIds } : {}) });
     st.busy = false;
+    if (!r.ok && r.code === "conflict" && !isNew) {
+      // The user decides: saving again replaces the other device's change (the draft takes the newer revision).
+      const fresh = await send<Json>({ type: "getItem", id: str(d.base.id) });
+      if (fresh.ok) d.base = { ...d.base, revisionDate: fresh.data.revisionDate };
+      return ((st.error = t("editConflict")), ctx.rerender());
+    }
     if (!r.ok) return ((st.error = r.error), ctx.rerender());
     st.list = r.data;
     st.item = undefined;

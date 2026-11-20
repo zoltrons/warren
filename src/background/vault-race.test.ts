@@ -81,7 +81,7 @@ async function answer(path: string, body: unknown | Error) {
   await arrived(path);
   const next = waiting.get(path)?.shift();
   assert.ok(next, `no request to ${path}`);
-  next(body instanceof Error ? body : new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
+  next(body instanceof Error || body instanceof Response ? body : new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }
 const syncBody = (ciphers: unknown[]) => ({ ciphers, folders: [], profile: {} });
 
@@ -339,4 +339,18 @@ test("past the e-mail cap the breach answer says not every address was checked",
   const few = breachEmails(emails.slice(0, 2));
   for (let i = 0; i < 2; i++) await answer("/api/hibp/breach", []);
   assert.deepEqual(await few, { results: [] });
+});
+
+test("a save the server refuses as out of date syncs the newer copy and says so", async () => {
+  waiting.clear(); // requests earlier tests left unanswered on purpose
+  local.vault = cache(5);
+  session.session = { unlocked: true, accessToken: "token", accessExpiresAt: Date.now() + 3_600_000 };
+  offscreen = true;
+  const saving = putCipher({ id: "item-1", name: "2.enc", lastKnownRevisionDate: "old" });
+  const refusal = { message: "The client copy of this cipher is out of date. Resync the client and try again.", validationErrors: null };
+  await answer("/api/ciphers/item-1", new Response(JSON.stringify(refusal), { status: 400, headers: { "content-type": "application/json" } }));
+  await answer("/api/accounts/revision-date", 9);
+  await answer("/api/sync", syncBody([{ id: "item-1", revisionDate: "new" }]));
+  await assert.rejects(saving, (e: { code?: string }) => e.code === "conflict");
+  assert.equal((local.vault as { revision: number }).revision, 9, "the newer copy was synced");
 });
