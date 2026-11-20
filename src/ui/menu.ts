@@ -58,7 +58,13 @@ async function render() {
       }),
     ),
     // Pinned under the list, like Chrome's "Manage passwords…": the frame height counts it (content.ts).
-    h("div", { class: "menu-foot" }, row(icon("key"), t("managePasswords"), "", () => void ask({ type: "inlineOpen", nonce }))),
+    h(
+      "div",
+      { class: "menu-foot" },
+      row(icon("key"), t("managePasswords"), "", () => void ask({ type: "inlineOpen", nonce })),
+      // Settings → Blocked websites undoes it.
+      h("button", { type: "button", class: "icon-btn sm", "aria-label": t("hideOnSite"), title: t("hideOnSite"), onclick: () => void ask({ type: "inlineBlock", nonce }) }, icon("eyeOff")),
+    ),
   );
 }
 

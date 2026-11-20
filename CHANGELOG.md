@@ -26,6 +26,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 - Two-step sign-ins (the account name on one page, the password on the next, as on Google, Microsoft or Okta) save the
   new login with its username: Warren remembers the name the first page took, for that site and tab, for 5 minutes.
+- The inline menu has a "Don't show on this site" button next to "Manage passwords"; Settings → Blocked websites
+  undoes it.
 - Keyboard shortcuts: Ctrl+Shift+Y (Command+Shift+Y on a Mac) opens Warren, and a "Lock Warren" command can be given a
   key in the browser's extension shortcut settings.
 - Screen readers announce the inline menu when it opens on a field, and how to reach it (Down arrow).

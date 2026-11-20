@@ -1116,7 +1116,8 @@ body.frame #app { min-height: 0; height: 100%; padding: 4px; overflow: hidden; }
 /* The list scrolls past five rows; the footer stays pinned under it. */
 body.frame .group { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* 4 + 1 + 4 + 36 = the 45 px content.ts adds for it. */
-.menu-foot { margin: 4px -4px 0; padding: 4px 4px 0; border-top: 1px solid var(--outline-weak); }
+.menu-foot { display: flex; align-items: center; gap: 4px; margin: 4px -4px 0; padding: 4px 4px 0; border-top: 1px solid var(--outline-weak); }
+.menu-foot .row { flex: 1; min-width: 0; }
 body.frame .menu-foot .row { min-height: 36px; color: var(--muted); }
 body.frame .menu-foot .row .title { font-weight: 400; }
 body.frame .group { border: 0; border-radius: 0; background: transparent; }

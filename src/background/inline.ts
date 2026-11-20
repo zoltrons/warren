@@ -15,7 +15,7 @@ import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/a
 import { generateAlias, getAliasSettings } from "./alias.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
-import { isBlocked, readPrivate, updatePrivate } from "./private.ts";
+import { hostOf, isBlocked, readPrivate, updatePrivate } from "./private.ts";
 
 export interface InlineContext {
   frameId: number;
@@ -304,6 +304,12 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     return null;
   }
   if (!(await isUnlocked())) return { kind: ctx.kind, locked: true, items: [], passkey: false, create: false, alias: false } satisfies MenuData;
+  if (req.type === "inlineBlock") {
+    const host = hostOf(ctx.url);
+    if (host) await updatePrivate((d) => (d.blocked = [...d.blocked.filter((h) => h !== host), host]));
+    await closeMenu(tabId, ctx);
+    return null;
+  }
   if (req.type === "inlineNewLogin") {
     await touchAutoLock();
     await updateSession({ newLogin: new URL(ctx.url).origin });

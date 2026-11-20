@@ -944,6 +944,8 @@ export type FrameRequest =
   /** Opens the popup: to unlock, or from the menu's "Manage passwords" row. */
   | { type: "inlineOpen"; nonce: string }
   | { type: "inlineNewLogin"; nonce: string }
+  /** "Don't show on this site": the field's site joins the blocked list. */
+  | { type: "inlineBlock"; nonce: string }
   /** "New e-mail alias": made by the first configured alias service and filled into the registration field. */
   | { type: "inlineAlias"; nonce: string }
   | { type: "barInfo"; token: string }
@@ -957,6 +959,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineOpen: obj({ type: literal("inlineOpen"), nonce: secret }),
   inlineAlias: obj({ type: literal("inlineAlias"), nonce: secret }),
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
+  inlineBlock: obj({ type: literal("inlineBlock"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
   barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close", "unlock"), token: secret, username: opt(field) }),
 };

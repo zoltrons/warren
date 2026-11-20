@@ -1627,6 +1627,9 @@
   "blockedSitesHint": {
     "message": "No inline menu, autofill on page load or passkey prompts on these sites and their subdomains. The list is stored in the encrypted vault, so it applies while the vault is unlocked."
   },
+  "hideOnSite": {
+    "message": "Don't show on this site (undo in Settings → Blocked websites)"
+  },
   "blockSite": {
     "message": "Block"
   },
