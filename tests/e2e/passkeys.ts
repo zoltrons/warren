@@ -52,8 +52,8 @@ await step("passkeys: create on a site, saved to the vault, attestation valid", 
   assert.deepEqual([cd.type, cd.origin, cd.challenge], ["webauthn.create", SITE, challenge.toString("base64url")]);
   const ad = Buffer.from(c.authData, "base64");
   assert.ok(ad.subarray(0, 32).equals(createHash("sha256").update("localhost").digest()), "rpIdHash");
-  // UV stays clear: the vault was already unlocked and the site did not require verification (presence only).
-  assert.equal(ad[32]! & 0x45, 0x41, "UP and AT flags, no UV");
+  // The unlocked vault is the user verification: UV is set with no further prompt.
+  assert.equal(ad[32]! & 0x45, 0x45, "UP, UV and AT flags");
   spki = c.spki;
   const s = await apiSession(vaultUser);
   const item = (await s.ciphers()).find((x) => x.login?.fido2Credentials?.length && !x.deletedDate);
@@ -69,13 +69,13 @@ await step("passkeys: sign in with the stored passkey, signature verifies", asyn
     const b = (x: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(x)));
     return { clientData: b(r.clientDataJSON), authData: b(r.authenticatorData), sig: b(r.signature), user: b(r.userHandle!) };
   }, [...challenge]);
-  // The site requires user verification: the window asks for the master password before it signs.
+  // The site requires user verification: the unlocked vault gives it, the window asks for no master password.
   await approve(async (w) => {
-    await w.getByLabel(/verify it is you/).fill(vaultUser.password);
+    assert.equal(await w.getByLabel(/verify it is you/).count(), 0, "no master password prompt");
     await w.getByRole("listitem").filter({ hasText: "pk-user" }).click();
   });
   const g = await got;
-  assert.equal(Buffer.from(g.authData, "base64")[32]! & 0x05, 0x05, "UP and UV flags after the master password");
+  assert.equal(Buffer.from(g.authData, "base64")[32]! & 0x05, 0x05, "UP and UV flags from the unlocked vault");
   const clientData = Buffer.from(g.clientData, "base64");
   assert.equal(JSON.parse(clientData.toString()).type, "webauthn.get");
   const signed = Buffer.concat([Buffer.from(g.authData, "base64"), createHash("sha256").update(clientData).digest()]);

@@ -1,7 +1,6 @@
 // Approval window for a website's passkey request. The service worker opens popup.html?passkey=<id>;
 // after unlocking (if needed) the user picks a passkey, saves a new one, or hands the call back to the browser.
 import type { PasskeyCandidate, PasskeyPrompt } from "../shared/messages.ts";
-import { getBiometricPrf } from "./biometric.ts";
 import { h, send, t } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type Ctx, tile } from "./vault-shared.ts";
@@ -15,12 +14,10 @@ const fresh = () => ({
   error: undefined as string | undefined,
   /** Create: the login whose passkey the user is being asked to replace. */
   confirm: undefined as PasskeyCandidate | undefined,
-  /** The master password, when the site requires user verification (prompt.verify). */
-  password: "",
 });
 let pk = fresh();
 
-/** A lock or another account: no typed master password or prompt of the session before stays (popup.ts render). */
+/** A lock or another account: no prompt of the session before stays (popup.ts render). */
 export const resetPasskey = (): void => void (pk = fresh());
 
 async function load(ctx: Ctx) {
@@ -39,17 +36,9 @@ async function decide(ctx: Ctx, action: "use" | "fallback", itemId?: string, cre
   pk.busy = true;
   pk.confirm = undefined;
   ctx.rerender();
-  // The site requires user verification: Touch ID / Windows Hello first when biometric unlock is set up (a typed master
-  // password wins). If it fails, the master password field is the way on.
-  const bio = action === "use" && !pk.password ? pk.prompt?.biometric : undefined;
-  const prf = bio ? await getBiometricPrf(bio.credentialId, bio.prfSalt).catch(() => undefined) : undefined;
-  if (pk !== mine) return;
-  const password = action === "use" && pk.prompt?.verify && prf === undefined ? pk.password : undefined;
-  if (password === "") return ((pk.busy = false), (pk.error = t("passkeyVerifyHint")), ctx.rerender());
-  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}), ...(password !== undefined ? { password } : {}), ...(prf !== undefined ? { prf } : {}) });
+  const r = await send<null>({ type: "passkeyDecision", id: passkeyRequestId!, action, ...(itemId ? { itemId, credentialId } : {}), ...(replace ? { replace } : {}) });
   if (r.ok) return window.close();
   if (pk !== mine) return;
-  pk.password = "";
   pk.busy = false;
   pk.error = r.error;
   ctx.rerender();
@@ -87,19 +76,6 @@ export function passkeyScreen(ctx: Ctx): HTMLElement {
     { class: "page" },
     h("div", { class: "brand" }, h("div", { class: "logo" }, icon("fingerprint")), h("h1", {}, t(create ? "passkeySaveTitle" : "passkeySignInTitle")), p ? h("p", {}, p.origin) : null),
     pk.error ? h("div", { class: "error", role: "alert" }, icon("error"), h("div", {}, pk.error)) : null,
-    // The site requires user verification: the master password confirms it was the user, like a fingerprint would.
-    p?.verify
-      ? h(
-          "div",
-          { class: "field" },
-          h(
-            "label",
-            { for: "passkey-password" },
-            h("span", {}, t("passkeyVerifyHint")),
-            h("input", { id: "passkey-password", type: "password", autocomplete: "current-password", value: pk.password, disabled: pk.busy, oninput: (e: Event) => (pk.password = (e.target as HTMLInputElement).value) }),
-          ),
-        )
-      : null,
     pk.confirm
       ? h(
           "div",

@@ -16,7 +16,7 @@ import {
   parsePasskeyCall,
   type VaultItem,
 } from "../shared/messages.ts";
-import { UserError, verifyMasterPassword } from "./account.ts";
+import { UserError } from "./account.ts";
 import { ApiError } from "../transport/http.ts";
 import { coreCall } from "./core.ts";
 import { assertEpoch, lockEpoch } from "./lock.ts";
@@ -51,10 +51,8 @@ interface Pending {
   frameId: number;
   /** Conditional mediation: no approval window until the user picks the inline-menu entry. */
   conditional: boolean;
-  /** The vault was locked when the call came: unlocking for it verifies the user (master password, PIN, biometrics). */
+  /** The vault was locked when the call came: the blocked-site list could not be read yet. */
   startedLocked: boolean;
-  /** The user confirmed the master password for this request. */
-  confirmed?: boolean;
   windowId?: number;
   done(r: PasskeyResult): void;
 }
@@ -400,8 +398,7 @@ export async function openConditional(tabId: number, frameId: number): Promise<v
     await requireUnlocked();
     const found = await candidates(p, p.call.options.allow);
     const only = found.length === 1 ? found[0] : undefined;
-    // A site that requires user verification gets the window, which asks for the master password.
-    if (only && !mustVerify(p) && !repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: only.itemId }))) {
+    if (only && !repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: only.itemId }))) {
       await passkeyDecision(p.id, "use", only.itemId, only.credentialId);
       return;
     }
@@ -409,37 +406,10 @@ export async function openConditional(tabId: number, frameId: number): Promise<v
   await openWindow(p);
 }
 
-/**
- * The UV flag means "the authenticator verified the user for this request", and sites rely on it as a second
- * factor. A click in an already unlocked vault is only presence: verified is an unlock or a master password
- * confirmation that happened for this request.
- */
-const verified = (p: Pending) => !!p.confirmed || p.startedLocked;
-const mustVerify = (p: Pending) => p.call.options.userVerification === "required" && !verified(p);
-
-/**
- * Biometric unlock of this account, offered in place of the master password when the site requires verification and
- * none happened yet. Not for "preferred", WebAuthn's default: nearly every site sends it, and a fingerprint on every
- * passkey sign-in is the friction passkeys are meant to remove.
- */
-async function biometricFor(p: Pending): Promise<{ credentialId: string; prfSalt: string } | undefined> {
-  if (!mustVerify(p)) return undefined;
-  const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
-  return account && bio && bio.email === account.email ? { credentialId: bio.credentialId, prfSalt: bio.prfSalt } : undefined;
-}
-
-/** A biometric assertion's PRF output for this request: it must open the session's own user key. */
-async function verifyBiometric(prf: string): Promise<void> {
-  const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
-  if (!account || !bio || bio.email !== account.email) throw new UserError("invalid", "Biometric unlock is not set up");
-  if (!(await coreCall<boolean>({ op: "verifyPrf", prf, protectedUserKey: bio.protectedUserKey }))) throw new UserError("invalid", "Biometric verification failed");
-}
-
 export async function passkeyPrompt(id: string): Promise<PasskeyPrompt> {
   await requireUnlocked();
   const p = get(id);
-  const biometric = await biometricFor(p);
-  const base = { origin: p.origin, rpId: p.rpId, ...(mustVerify(p) ? { verify: true } : {}), ...(biometric ? { biometric } : {}) };
+  const base = { origin: p.origin, rpId: p.rpId };
   if (p.call.kind === "get") {
     const found = await candidates(p, p.call.options.allow);
     // Nothing matches: say whether the vault has passkeys for this site at all (the site may know another one).
@@ -460,29 +430,19 @@ async function undoIfTaken(p: Pending, itemId: string, credentialId: string, und
   await putCipher({ ...undo, lastKnownRevisionDate: ci(now, "revisionDate") ?? null });
 }
 
-export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false, password?: string, prf?: string): Promise<null> {
+export async function passkeyDecision(id: string, action: "use" | "fallback", itemId?: string, credentialId?: string, replace = false): Promise<null> {
   const epoch = lockEpoch();
   const p = get(id);
   if (action === "fallback") return (p.done({ fallback: true }), null);
   await requireUnlocked();
-  if (password !== undefined) {
-    await verifyMasterPassword(password); // a wrong one goes back to the window, which asks again
-    if (pending.get(id) !== p) return null;
-    p.confirmed = true;
-  } else if (prf !== undefined) {
-    await verifyBiometric(prf); // Touch ID / Windows Hello for this request: as good as the master password here
-    if (pending.get(id) !== p) return null;
-    p.confirmed = true;
-  }
-  if (mustVerify(p)) throw new UserError("invalid", "This site requires you to confirm your master password");
-  const uv = verified(p);
+  // uv: the unlocked vault is the user verification, as in Bitwarden's own clients: no second prompt per request.
   try {
     if (p.call.kind === "get") {
       const c = (await candidates(p, p.call.options.allow)).find((x) => x.itemId === itemId && x.credentialId === credentialId);
       if (!c) throw new UserError("invalid", "Choose one of the passkeys for this site");
       // The window has no password prompt: a flagged item must be confirmed in the popup first (the grant is per item).
       if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: c.itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
-      const { cipher, ...credential } = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) });
+      const { cipher, ...credential } = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv: true, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) });
       // An imported passkey's raised sign counter (offscreen/vault.ts passkeyAssert) is saved before the site gets it.
       if (cipher)
         await putCipher(cipher as Record<string, unknown>, () => {
@@ -505,7 +465,7 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       // The worker returns the item already encrypted: the new private key never passes through here.
       const r = await coreCall<{ cipher: Record<string, unknown>; response: Record<string, unknown>; undo?: Record<string, unknown> }>({
         op: "passkeyCreate",
-        input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) },
+        input: { origin: p.origin, rpId: p.rpId, rpName: o.rpName, challenge: o.challenge, user: o.user, discoverable: o.discoverable, uv: true, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) },
         ...(itemId ? { itemId } : {}),
       });
       // The page aborted (or the vault locked) before the save went out: the site never gets this credential, so it

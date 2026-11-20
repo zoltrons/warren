@@ -281,10 +281,6 @@ fn user_vectors_unlock_and_decrypt() {
         api::lock();
         api::unlock_with_pin("1234", salt, &quick, &pin, Some(&keys))
             .unwrap_or_else(|e| panic!("{name}: PIN: {e}"));
-        assert!(
-            api::verify_prf(prf, &prf_wrapped).unwrap(),
-            "{name}: PRF check"
-        );
         api::lock();
         api::unlock_with_prf(prf, &prf_wrapped, Some(&keys))
             .unwrap_or_else(|e| panic!("{name}: PRF: {e}"));

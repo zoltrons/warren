@@ -305,7 +305,7 @@ async function handle(req: Request): Promise<unknown> {
     case "passkeyPrompt":
       return passkeyPrompt(req.id);
     case "passkeyDecision":
-      return passkeyDecision(req.id, req.action, req.itemId, req.credentialId, req.replace === true, req.password, req.prf);
+      return passkeyDecision(req.id, req.action, req.itemId, req.credentialId, req.replace === true);
     case "setSettings": {
       await updateSettings((current) => ({
         autoLockMinutes: req.autoLockMinutes ?? current.autoLockMinutes,

@@ -42,6 +42,12 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - A fill asked for while locked (shortcut, context menu, the inline menu's "Unlock to fill") happens right after the
   unlock, if it comes within 2 minutes and the tab still shows that site.
 
+### Changed
+
+- Passkeys no longer ask for the master password, Touch ID or Windows Hello in an unlocked vault, even when the site
+  requires verification: unlocking the vault is the verification, as in Bitwarden's own apps and extension. An item
+  with master password reprompt still asks for it.
+
 ### Fixed
 
 - Menus in the popup (More actions, copy and row options) open above their button when there is no room below,
