@@ -12,9 +12,12 @@ guardClicks();
 /** The frame fits the bar (content.ts), so an error line gets room and nothing is left blank under the buttons. */
 const fit = () => parent.postMessage({ barHeight: Math.ceil((app.firstElementChild?.getBoundingClientRect().height ?? 0) + 8) }, "*");
 
+/** A new login's username, editable before it is saved. */
+let usernameInput: HTMLInputElement | undefined;
+
 async function act(action: "save" | "never" | "close") {
   for (const b of app.querySelectorAll("button")) b.disabled = true;
-  const r = await ask({ type: "barAction", action, token });
+  const r = await ask({ type: "barAction", action, token, ...(action === "save" && usernameInput ? { username: usernameInput.value } : {}) });
   if (!r.ok) {
     (app.firstElementChild ?? app).append(h("p", { class: "error", role: "alert" }, icon("error"), r.error));
     fit();
@@ -45,7 +48,11 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
       h(
         "div",
         { class: "group" },
-        d.username ? h("div", { class: "row" }, h("span", { class: "label" }, t("username")), h("span", { class: "value ellipsis" }, d.username)) : null,
+        d.kind === "add"
+          ? h("label", { class: "row" }, h("span", { class: "label" }, t("username")), (usernameInput = h("input", { class: "value", type: "text", value: d.username, autocomplete: "off", spellcheck: false }) as HTMLInputElement))
+          : d.username
+            ? h("div", { class: "row" }, h("span", { class: "label" }, t("username")), h("span", { class: "value ellipsis" }, d.username))
+            : null,
         h("div", { class: "row" }, h("span", { class: "label" }, t("password")), h("span", { class: "value", "aria-hidden": "true" }, "••••••••")),
       ),
       h(

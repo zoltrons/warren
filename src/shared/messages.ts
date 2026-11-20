@@ -909,6 +909,7 @@ export type PageRequest =
    * All a page can claim here is a different menu for its own frame.
    */
   | { type: "inlineFocus"; nonce: string; details: CollectedPageDetails }
+  /** `password` empty: the first page of a two-step sign-in, which takes only the username. */
   | { type: "loginSubmitted"; username: string; password: string }
   /** Sent once per document, when the frame has a password field; the worker decides whether to fill. */
   | { type: "pageLoad" }
@@ -946,7 +947,8 @@ export type FrameRequest =
   /** "New e-mail alias": made by the first configured alias service and filled into the registration field. */
   | { type: "inlineAlias"; nonce: string }
   | { type: "barInfo"; token: string }
-  | { type: "barAction"; action: "save" | "never" | "close"; token: string };
+  /** `username`: a new login's, as the user corrected it in the bar. */
+  | { type: "barAction"; action: "save" | "never" | "close"; token: string; username?: string };
 
 const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameRequest, { type: K }>> } = {
   inlineList: obj({ type: literal("inlineList"), nonce: secret }),
@@ -956,7 +958,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineAlias: obj({ type: literal("inlineAlias"), nonce: secret }),
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
-  barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close"), token: secret }),
+  barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close"), token: secret, username: opt(field) }),
 };
 
 const parseBy =

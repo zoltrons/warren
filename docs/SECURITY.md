@@ -95,7 +95,8 @@ freed rather than zeroed in place.
 6. **Vault secrets are never written unencrypted to disk.** `storage.local` holds the encrypted cache, the
    protected user key, the wrapped PIN, an encrypted generator history, encrypted alias settings and the refresh token
    sealed with the user key (`storeRefreshToken`). The 2FA remember tokens are the exception, see Known gaps. Access tokens, and a typed password waiting in the
-   save bar until it expires or the vault locks, live in `storage.session` (memory only); the decrypted
+   save bar until it expires or the vault locks, live in `storage.session` (memory only), as does the username a
+   two-step sign-in's first page took (`ident:<tabId>`, 5 minutes, also while locked; no password); the decrypted
    vault lives in the crypto worker. Both stores are set to `TRUSTED_CONTEXTS` on *every* worker start, so
    content scripts cannot read them.
 

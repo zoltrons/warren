@@ -341,12 +341,15 @@ function report(form?: HTMLFormElement | null) {
   // A page can fire submit events itself, and whether the bar appears tells it if a guessed password
   // matches the saved one: only a real gesture counts, and only one guess per REPORT_GAP_MS.
   if (!navigator.userActivation.isActive) return;
-  const login = api.readLogin(form);
+  const login = api.readLogin(form) ?? api.readIdentifier(form);
   if (!login) return;
   const key = `${login.username}\n${login.password}`;
-  if (key === reported || Date.now() - lastReport < REPORT_GAP_MS) return;
-  reported = key;
-  lastReport = Date.now();
+  // An account name alone shows no bar, so it is no oracle and must not hold back the password step after it.
+  if (login.password) {
+    if (key === reported || Date.now() - lastReport < REPORT_GAP_MS) return;
+    reported = key;
+    lastReport = Date.now();
+  }
   void chrome.runtime.sendMessage({ type: "loginSubmitted", username: login.username, password: login.password }).catch(() => undefined);
 }
 

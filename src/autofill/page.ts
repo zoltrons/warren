@@ -39,6 +39,24 @@ function readLogin(form?: HTMLFormElement | null): PageLogin | null {
   return { url: location.href, username: user?.value ?? "", password: pass.value };
 }
 
+const ACCOUNT_HINT = /user|e-?mail|login|account|identifier|phone|kullan|hesap/;
+
+/**
+ * The account name on the first page of a two-step sign-in: a visible filled email / username box, and no password
+ * field visible at all (a page with one is a normal login or sign-up, which readLogin handles).
+ */
+function readIdentifier(form?: HTMLFormElement | null): PageLogin | null {
+  const inputs = deepFields().filter((el): el is HTMLInputElement => el instanceof HTMLInputElement && isElementVisible(el) && (!form || el.form === form));
+  if (inputs.some((i) => i.type === "password")) return null;
+  const named = (i: HTMLInputElement) => {
+    const ac = i.autocomplete.toLowerCase().split(/\s+/);
+    return i.type === "email" || ac.includes("username") || ac.includes("email") || ACCOUNT_HINT.test([i.name, i.id, extractAriaLabel(i)].join(" ").toLowerCase());
+  };
+  const user = inputs.filter((i) => TEXTISH.includes(i.type) && i.value.trim() && named(i));
+  // One account box only: a form with several (a search, a contact form) says nothing about a sign-in.
+  return user.length === 1 ? { url: location.href, username: user[0]!.value.trim(), password: "" } : null;
+}
+
 export const api = {
   /** Refuses a frame on another origin before it reads a single field. */
   collect(req: { origin: string; mode: CollectMode }): CollectedPageDetails | FillResult {
@@ -52,6 +70,7 @@ export const api = {
   },
   execute: executeFill,
   readLogin,
+  readIdentifier,
   hasPasswordField: () => deepAll(document, "input[type=password]").length > 0,
 };
 

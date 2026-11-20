@@ -22,6 +22,12 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - A passkey request that fails inside Warren tells the site only "not allowed", never why (vault locked, offline, the
   server's error text).
 
+### Added
+
+- Two-step sign-ins (the account name on one page, the password on the next, as on Google, Microsoft or Okta) save the
+  new login with its username: Warren remembers the name the first page took, for that site and tab, for 5 minutes.
+- The save bar's username can be corrected before a new login is saved.
+
 ### Fixed
 
 - Menus in the popup (More actions, copy and row options) open above their button when there is no room below,

@@ -22,7 +22,8 @@ test("frame requests: inline actions need the nonce, bar actions need the save t
   assert.deepEqual(parseFrameRequest({ type: "inlineFill", id: "i", nonce: "n" }), { type: "inlineFill", id: "i", nonce: "n" });
   throws(() => parseFrameRequest({ type: "inlineFill", id: "i" }), /nonce/);
   throws(() => parseFrameRequest({ type: "inlineList" }), /nonce/);
-  assert.deepEqual(parseFrameRequest({ type: "barAction", action: "save", token: "t" }), { type: "barAction", action: "save", token: "t" });
+  assert.deepEqual(parseFrameRequest({ type: "barAction", action: "save", token: "t" }), { type: "barAction", action: "save", token: "t", username: undefined });
+  throws(() => parseFrameRequest({ type: "barAction", action: "save", token: "t", username: "u".repeat(10_000) }), /long|large|too/);
   throws(() => parseFrameRequest({ type: "barAction", action: "save" }), /token/);
   throws(() => parseFrameRequest({ type: "barInfo" }), /token/);
 });

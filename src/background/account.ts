@@ -33,6 +33,7 @@ import { stopPush } from "./push.ts";
 import { grantReprompt } from "./reprompt.ts";
 import { BLOCK, resealLegacy, seal, unseal } from "./seal.ts";
 import {
+  clearPendingSaves,
   type Account,
   getDeviceId,
   getLocal,
@@ -636,6 +637,7 @@ export async function logout(): Promise<void> {
   await lockNow();
   await removeLocal("account", "vault", "syncedAt", "genHistory", "aliasSettings", "biometric", "private", "wordlist");
   await chrome.storage.local.remove("lastUsed"); // clear-text stamps of older builds
+  await clearPendingSaves(true);
   // An SSO login still waiting for its callback ends here too: a late one must not log an account back in.
   await updateSession({ accessToken: undefined, accessExpiresAt: undefined, refreshToken: undefined, pin: undefined, loginRequests: undefined, sso: undefined });
   await chrome.scripting.unregisterContentScripts({ ids: [SSO_SCRIPT] }).catch(() => undefined);

@@ -80,3 +80,18 @@ test("epoch: a lock while a submitted login is matched leaves no save prompt hol
   assert.equal(session["save:1"], undefined);
   assert.ok(!tabMessages.includes("barShow"));
 });
+
+test("two-step sign-in: the username of the first page names the login the password page saves", async () => {
+  delete session["save:1"];
+  session.session = { unlocked: true };
+  offscreen = true;
+  matched = undefined;
+  const page = { tab: { id: 1, url: "https://evil.test/" }, frameId: 0, url: "https://evil.test/signin" } as chrome.runtime.MessageSender;
+  await handlePage(parsePageRequest({ type: "loginSubmitted", username: "ali@evil.test", password: "" }), page);
+  assert.equal((session["ident:1"] as { username?: string }).username, "ali@evil.test");
+  const submitted = handlePage(parsePageRequest({ type: "loginSubmitted", username: "", password: "typed" }), page);
+  for (let i = 0; i < 200 && !matched; i++) await new Promise((r) => setTimeout(r, 5));
+  matched!([]);
+  await submitted;
+  assert.deepEqual([(session["save:1"] as { kind?: string }).kind, (session["save:1"] as { username?: string }).username], ["add", "ali@evil.test"]);
+});

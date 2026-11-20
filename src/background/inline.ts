@@ -153,7 +153,16 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   const epoch = lockEpoch();
   const settings = await getSettings();
   const host = new URL(url).hostname.replace(/\.$/, ""); // no port or trailing dot: the form hostOf gives the settings list
-  if (!settings.savePrompt || !(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
+  if (!settings.savePrompt) return;
+  const origin = new URL(url).origin;
+  // The first page of a two-step sign-in (Google, Microsoft, Okta): only an account name. Its password page,
+  // on the same origin, names none: the account comes from here.
+  if (!password) return username ? setTabState("ident", tabId, { origin, username, at: Date.now() }) : undefined;
+  if (!username) {
+    const ident = await getTabState("ident", tabId);
+    if (ident && ident.origin === origin && Date.now() - ident.at < SAVE_TTL_MS) username = ident.username;
+  }
+  if (!(await isUnlocked()) || (await readPrivate()).neverSave.includes(host)) return;
   await ensureLoaded();
   // A page never updates a login it matched only through a regular expression (VaultItem.regexOnly).
   const matches = (await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch })).filter((m) => !m.regexOnly);
@@ -245,7 +254,8 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
         await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: p.itemId, password: p.password, revisionDate: p.revisionDate }));
       } else {
         const u = new URL(p.url);
-        await save({ type: 1, name: u.hostname, login: { username: p.username, password: p.password, uris: [{ uri: u.origin, match: null }] } });
+        // The bar lets the user correct the username of a new login before it is saved.
+        await save({ type: 1, name: u.hostname, login: { username: req.username ?? p.username, password: p.password, uris: [{ uri: u.origin, match: null }] } });
       }
     }
     await dropSave(tabId);

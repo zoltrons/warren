@@ -78,13 +78,15 @@ interface Session {
  * Per-tab state in storage.session, one key per tab ("inline:<tabId>", "save:<tabId>"), so writes for
  * different tabs (or the login session) never overwrite each other.
  *   inline: the field the inline menu belongs to;  save: a submitted login waiting in the save bar;
- *   filled: the login the user last had filled.
+ *   filled: the login the user last had filled;  ident: a two-step sign-in's username.
  */
 interface TabState {
   inline: InlineContext;
   save: PendingSave;
   /** The last login the user had Warren fill in this tab: a passkey upgrade may join it for a while (passkey.ts). */
   filled: { origin: string; itemId: string; at: number };
+  /** The username a two-step sign-in's first page took (no password yet): its password page names no account. */
+  ident: { origin: string; username: string; at: number };
 }
 
 export async function getTabState<K extends keyof TabState>(kind: K, tabId: number): Promise<TabState[K] | undefined> {
@@ -95,13 +97,14 @@ export async function getTabState<K extends keyof TabState>(kind: K, tabId: numb
 export const setTabState = <K extends keyof TabState>(kind: K, tabId: number, value: TabState[K] | undefined) =>
   value === undefined ? chrome.storage.session.remove(`${kind}:${tabId}`) : chrome.storage.session.set({ [`${kind}:${tabId}`]: value });
 
-/** Submitted logins waiting in a save bar hold a typed password: they must not outlive the lock. */
-export async function clearPendingSaves(): Promise<void> {
-  const keys = Object.keys(await chrome.storage.session.get(null)).filter((k) => k.startsWith("save:"));
+/** Submitted logins waiting in a save bar hold a typed password: they must not outlive the lock. `alsoNames`
+ * (logout): the usernames two-step sign-ins took go too, which survive a lock. */
+export async function clearPendingSaves(alsoNames = false): Promise<void> {
+  const keys = Object.keys(await chrome.storage.session.get(null)).filter((k) => k.startsWith("save:") || (alsoNames && k.startsWith("ident:")));
   await chrome.storage.session.remove(keys);
 }
 
-export const clearTabState = (tabId: number) => chrome.storage.session.remove([`inline:${tabId}`, `save:${tabId}`, `filled:${tabId}`]);
+export const clearTabState = (tabId: number) => chrome.storage.session.remove([`inline:${tabId}`, `save:${tabId}`, `filled:${tabId}`, `ident:${tabId}`]);
 
 /** Biometric unlock: the user key wrapped with a key derived from the authenticator's PRF output. */
 export interface Biometric {

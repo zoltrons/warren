@@ -165,8 +165,10 @@ removed when that setting is turned off.
 
 Static content scripts `page.js` and `content.js` (see Autofill above) plus the web-accessible `menu.html` and
 `bar.html`. Its per-tab state lives in `chrome.storage.session`, one key per tab, removed when the tab
-closes: `inline:<tabId>` (frame, URL and kind of the field the open menu belongs to) and `save:<tabId>`
-(a submitted login waiting in the save bar, 5 minute TTL).
+closes: `inline:<tabId>` (frame, URL and kind of the field the open menu belongs to), `save:<tabId>`
+(a submitted login waiting in the save bar, 5 minute TTL), `filled:<tabId>` (the login last filled, for a passkey
+upgrade) and `ident:<tabId>` (the username a two-step sign-in's first page took, used by its password page on the same
+origin, 5 minute TTL).
 
 Other content scripts are registered at runtime (`chrome.scripting.registerContentScripts`):
 
