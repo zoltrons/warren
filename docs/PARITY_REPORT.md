@@ -25,7 +25,7 @@ the parity commit `8010209` (inline menu, save bar, editing, trash, folders).
 |---|---|---|
 | Timeout action "log out" | Setting next to auto-lock; the auto-lock alarm, system lock and browser start log out instead of locking | e2e |
 | YubiKey OTP 2FA (provider 3) | "YubiKey" chip, text field (no numeric keypad, the key types + Enter) | e2e with the server's 2FA answer stubbed in the SW |
-| Website icons | `<server>/icons/<host>/icon.png` on login tiles (list, "On this site", item view); "Show website icons" setting, on by default like the official client | e2e |
+| Website icons | `<server>/icons/<host>/icon.png` on login tiles (list, "On this site", item view); "Show website icons" setting, off by default (it tells the server which sites the vault holds, SECURITY.md Known gaps; corrected 2026-11-20, this line said "on by default") | e2e |
 | TOTP copy after fill | Popup fill, Ctrl+Shift+L, context menu and inline menu copy the current code (cleared like any copy); setting, on by default | e2e |
 | Action badge | Number of logins for the active tab; cleared on every tab when locked | e2e |
 | Context-menu submenu | "Fill with Warren" lists the tab's logins; locked or no match: the bare entry opens the popup | e2e (via the click handler; Chrome has no API to open a context menu) |
