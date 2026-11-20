@@ -462,7 +462,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === AUTOLOCK_ALARM) void timeout();
   if (alarm.name === CLIPBOARD_ALARM) void clearClipboard();
   if (alarm.name === PENDING_ALARM) void cancelTwoFactor();
-  if (alarm.name === PUSH_ALARM) void ensurePush();
+  if (alarm.name === PUSH_ALARM) void ensurePush().then(syncIfStale);
 });
 
 // ---------- push (Vaultwarden WebSocket hub) ----------
@@ -482,9 +482,15 @@ async function ensurePush(): Promise<void> {
     // Server, account and token read under one owner (auth checks it): the same email on two servers is two owners.
     const { token } = await auth(epoch);
     // An update for an account that is gone (a login or logout since) changes nothing.
-    startPush(server.url, owner, token, (u) => {
-      if (epoch === ownerEpoch()) void onPush(u).catch((e: unknown) => console.error(e));
-    });
+    startPush(
+      server.url,
+      owner,
+      token,
+      (u) => {
+        if (epoch === ownerEpoch()) void onPush(u).catch((e: unknown) => console.error(e));
+      },
+      () => epoch === ownerEpoch() && queueSync(),
+    );
   } catch {
     /* offline or the session ended: PUSH_ALARM tries again */
   }
@@ -516,15 +522,25 @@ async function onPush(u: HubUpdate): Promise<void> {
     await dropLoginRequest(u.id);
     await clearLoginNote();
   } else if (u.type < HUB.AuthRequest) {
-    // A burst of changes (an import, a bulk move) syncs once. Locked: the next unlock syncs anyway.
-    clearTimeout(pushSync);
-    pushSync = setTimeout(() => {
-      queue = queue
-        .then(async () => (await isUnlocked()) && sync(false))
-        .catch((e: unknown) => console.error(e))
-        .then(updateTabUi);
-    }, 1000);
+    queueSync();
   }
+}
+
+/** A burst of changes (an import, a bulk move) syncs once. Locked: the next unlock syncs anyway. */
+function queueSync(): void {
+  clearTimeout(pushSync);
+  pushSync = setTimeout(() => {
+    queue = queue
+      .then(async () => (await isUnlocked()) && sync(false))
+      .catch((e: unknown) => console.error(e))
+      .then(updateTabUi);
+  }, 1000);
+}
+
+/** Without push (a server or proxy without WebSockets, a dropped socket) the vault still catches up this often. */
+const STALE_MS = 30 * 60_000;
+async function syncIfStale(): Promise<void> {
+  if (Date.now() - ((await getLocal("syncedAt")) ?? 0) > STALE_MS && (await isUnlocked())) queueSync();
 }
 
 chrome.notifications.onClicked.addListener((id) => {

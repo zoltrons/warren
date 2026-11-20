@@ -141,7 +141,9 @@ decoder in `src/transport/hub.ts`) while an account is logged in, locked or not.
 query (browsers cannot set WebSocket headers). A SignalR ping every 20 s, echoed by the server, counts as
 service-worker activity, so the worker stays up; `PUSH_ALARM` (1 min) reconnects after a drop or a restart.
 Updates caused by our own device id are ignored. Vault, folder, send and settings updates run `sync(false)` once
-per burst, only while unlocked (the popup syncs on open anyway); `LogOut` logs out; `AuthRequest` stores the id in
+per burst, only while unlocked (the popup syncs on open anyway). Updates sent while the socket was down are lost,
+so every (re)connect queues the same `sync(false)` (a revision-date call when nothing changed), and `PUSH_ALARM`
+also syncs an unlocked vault last synced over 30 minutes ago, which covers servers without WebSockets; `LogOut` logs out; `AuthRequest` stores the id in
 `storage.session` (`loginRequests`) and shows a notification whose click opens the popup's approval screen.
 
 Log in with device (Bitwarden auth requests): the WASM makes a one-off RSA-2048 key and keeps its private half

@@ -18,7 +18,8 @@ let lastTry = 0;
 export const pushUp = (owner: string) => !!socket && socket.readyState <= WebSocket.OPEN && socketOwner === owner;
 
 /** Opens the hub connection for `owner` unless it is up (or was just tried). `base` is the configured server. */
-export function startPush(base: string, owner: string, token: string, onUpdate: (u: HubUpdate) => void): void {
+/** `onOpen` runs once the hub connection is up: updates sent while it was down are lost and need a sync. */
+export function startPush(base: string, owner: string, token: string, onUpdate: (u: HubUpdate) => void, onOpen: () => void): void {
   if (pushUp(owner)) return;
   if (socketOwner !== owner) stopPush();
   if (Date.now() - lastTry < RETRY_MS) return;
@@ -30,6 +31,7 @@ export function startPush(base: string, owner: string, token: string, onUpdate: 
   ws.onopen = () => {
     ws.send(HANDSHAKE);
     pinger = setInterval(() => ws.send(PING), PING_MS);
+    onOpen();
   };
   ws.onmessage = (ev: MessageEvent) => {
     if (!(ev.data instanceof ArrayBuffer)) return;
