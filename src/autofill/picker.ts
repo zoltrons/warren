@@ -24,8 +24,11 @@ type Pickable = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 const pickable = (el: unknown): el is Pickable =>
   (el instanceof HTMLInputElement && !NOT_PICKABLE.includes(el.type) && !el.readOnly && !el.disabled) || ((el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) && !el.disabled && !(el instanceof HTMLTextAreaElement && el.readOnly));
 
-/** Generated per page load (`:r3:`, `input-1234`, `a1b2c3d4`): a custom field named after one fails next time. */
-const looksGenerated = (id: string) => /^:|\d{3,}|[0-9a-f]{8,}/i.test(id);
+/**
+ * Generated per page load: React's useId (`:r3:`, `«r3»`, `_r_3_`), UI kits' counters (`mat-input-0`,
+ * `headlessui-input-3`), `input-1234`, `a1b2c3d4`. A custom field named after one fails next time.
+ */
+export const looksGenerated = (id: string) => /^:|:r\w*:|[«»]|^_r_\w*_$|^(mat|headlessui|radix|react-aria|downshift)-|\d{3,}|[0-9a-f]{8,}/i.test(id);
 
 /** The best name for a custom field that fills `el`: an attribute unique on the page, else what its label says. */
 export function fieldName(el: Pickable, pw: PageApi): string {

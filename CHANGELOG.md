@@ -11,6 +11,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- "Pick from page" no longer names a custom field after an id the site makes up on every load (React's newer ids,
+  Angular Material and Headless UI counters), which would not fill next time; it uses the field's name or label.
 - Moving to the next field with Tab opens its inline menu; the field left behind used to cancel it on the way.
 - An inline menu closed with Escape opens again when you come back to its field with Tab; it used to stay closed
   there until the field was clicked.
