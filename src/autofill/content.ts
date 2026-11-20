@@ -243,6 +243,7 @@ addEventListener(
   (e) => {
     const el = targetOf(e); // fields inside shadow roots too
     if (el === host || picking()) return; // focus moved into our menu, or the user is pointing at fields
+    if (el !== dismissed) dismissed = undefined; // Escape holds for this visit to the field, as Chrome's dropdown does
     if (askable(el) && userFocused(el)) void open(el);
     else if (el !== anchor) close();
   },

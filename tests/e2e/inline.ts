@@ -257,6 +257,21 @@ await step("inline menu: it opens right under its field, also on a page taller t
   await loginPage.keyboard.press("Escape");
 });
 
+await step("inline menu: Escape closes it for this visit to the field; coming back with Tab opens it again", async () => {
+  await loginPage.goto(`${SITE}/login`);
+  await loginPage.click("#u");
+  await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+  await loginPage.keyboard.press("Escape");
+  await loginPage.locator("warren-menu").waitFor({ state: "detached" });
+  await loginPage.keyboard.type("x");
+  await loginPage.waitForTimeout(300);
+  assert.equal(await loginPage.locator("warren-menu").count(), 0, "a dismissed menu came back while typing");
+  await loginPage.keyboard.press("Tab");
+  await loginPage.keyboard.press("Shift+Tab");
+  await (await frameOf(loginPage, "menu.html")).getByRole("option", { name: /, Local app$/ }).waitFor();
+  await loginPage.keyboard.press("Escape");
+});
+
 await step("inline menu: a login inside a modal dialog gets a menu above it that takes the click", async () => {
   await loginPage.bringToFront();
   await loginPage.goto(`${SITE}/modal`);
