@@ -446,6 +446,10 @@
   "ctxAutofill": {
     "message": "Fill with Warren"
   },
+  "showAllResults": {
+    "message": "Show all $COUNT$ results",
+    "placeholders": { "count": { "content": "$1" } }
+  },
   "ctxMore": {
     "message": "$COUNT$ more in Warren…",
     "placeholders": { "count": { "content": "$1" } }

@@ -52,8 +52,11 @@ export function matches(i: VaultItem, clauses: Clause[]): boolean {
   return !clauses.length || matchesQuery(clauses, searchable(i));
 }
 
+/** One collator for every comparison: localeCompare with options builds one per call, slow over thousands of items. */
+const collator = new Intl.Collator(undefined, { sensitivity: "base" });
+
 export function sortItems(items: VaultItem[]): VaultItem[] {
-  const byName = (a: VaultItem, b: VaultItem) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.id.localeCompare(b.id);
+  const byName = (a: VaultItem, b: VaultItem) => collator.compare(a.name, b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const list = [...items];
   if (st.sort === "nameDesc") return list.sort((a, b) => byName(b, a));
   if (st.sort === "updated") return list.sort((a, b) => (b.revisionDate ?? 0) - (a.revisionDate ?? 0) || byName(a, b));
@@ -257,6 +260,11 @@ export function emptyState(ctx: Ctx, q: string): HTMLElement {
   );
 }
 
+/** Search results drawn at once; the rest on "Show all", so typing stays quick in a vault of thousands. */
+const RESULT_ROWS = 200;
+/** The query whose results the user asked to see in full. */
+let allResultsFor: string | undefined;
+
 export function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: string) {
   const nodes: Child[] = [];
   // While searching, the best matches lead (relevance), so there are no letter headings to split them.
@@ -314,7 +322,10 @@ export function fillList(ctx: Ctx, box: HTMLElement, items: VaultItem[], q: stri
         if (list.length) nodes.push(sectionTitle(t(title)), h("div", { class: "group", role: "list" }, ...list.map((i) => suggestionRow(ctx, i))));
       }
     if (!grouped) {
-      if (rest.length) pushGroup(rest);
+      const cut = !!q && allResultsFor !== q && rest.length > RESULT_ROWS;
+      if (rest.length) pushGroup(cut ? rest.slice(0, RESULT_ROWS) : rest);
+      if (cut)
+        nodes.push(h("button", { type: "button", class: "btn text small", onclick: () => ((allResultsFor = q), fillList(ctx, box, items, q)) }, t("showAllResults", String(rest.length))));
     } else {
       let letter = "";
       let bucket: VaultItem[] = [];
@@ -395,6 +406,7 @@ export function listView(ctx: Ctx): HTMLElement {
   };
   const status = h("p", { class: "sr-only", role: "status" });
   redraw();
+  let typing: ReturnType<typeof setTimeout> | undefined;
 
   const input = h("input", {
     id: "vault-search",
@@ -408,7 +420,10 @@ export function listView(ctx: Ctx): HTMLElement {
     oninput: (e: Event) => {
       st.query = (e.target as HTMLInputElement).value;
       clearBtn.hidden = !st.query;
-      redraw(); // list only, so the search box keeps focus and caret
+      // List only, so the search box keeps focus and caret. A big vault waits for a pause in the typing.
+      clearTimeout(typing);
+      if ((st.list?.items.length ?? 0) > 1000) typing = setTimeout(redraw, 120);
+      else redraw();
     },
     onkeydown: (e: KeyboardEvent) => {
       // ArrowDown steps into the results; Enter opens the first one.
