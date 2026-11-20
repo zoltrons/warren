@@ -433,8 +433,9 @@ await step("custom fields: a linked field shows what it stands for, and the edit
 
 await step("custom fields: Pick from page adds the clicked field to the unsaved editor; Esc adds nothing", async () => {
   const draft = (name: string) => ({ draft: { base: { type: 1 }, type: 1, name, notes: "", folderId: "", favorite: false, reprompt: false, data: {}, uris: [], autofillOnPageLoad: null, fields: [] }, isNew: true });
-  const start = async (name: string) => {
-    await loginPage.goto(`${SITE}/custom`);
+  const start = async (name: string, path = "/custom", prep?: () => Promise<unknown>) => {
+    await loginPage.goto(`${SITE}${path}`);
+    await prep?.();
     await loginPage.bringToFront();
     const r = await page.evaluate((d) => chrome.runtime.sendMessage({ type: "startFieldPicker", draft: JSON.stringify(d), panel: true }), draft(name));
     assert.ok(r.ok, JSON.stringify(r));
@@ -474,6 +475,20 @@ await step("custom fields: Pick from page adds the clicked field to the unsaved 
   await reopenPopup();
   assert.equal(await page.getByLabel("Type", { exact: true }).inputValue(), "0");
   assert.equal(await page.getByLabel("Value to fill").count(), 1);
+
+  // A floating label over the field takes the click: the field under it is the pick.
+  await start("Floating item", "/floating");
+  await loginPage.click("#fl");
+  await loginPage.locator("warren-picker").waitFor({ state: "detached" });
+  await reopenPopup();
+  assert.equal(await page.getByLabel("Field on the page").inputValue(), "email");
+  // A field in a modal dialog opened before the picker: the picker sits above it in the top layer.
+  await start("Dialog item", "/floating", () => loginPage.evaluate(() => (document.getElementById("d") as HTMLDialogElement).showModal()));
+  assert.ok(await loginPage.locator("warren-picker").evaluate((el) => el.matches(":popover-open")), "the picker is not in the top layer");
+  await loginPage.click("#code");
+  await loginPage.locator("warren-picker").waitFor({ state: "detached" });
+  await reopenPopup();
+  assert.equal(await page.getByLabel("Field on the page").inputValue(), "code");
 
   await start("Cancelled item");
   await loginPage.keyboard.press("Escape");

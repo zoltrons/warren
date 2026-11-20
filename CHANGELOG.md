@@ -2,6 +2,13 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Fixed
+
+- "Pick from page" picks the field under a floating label, an icon or any box a site draws over it, where it used to
+  ignore the click; it also darkens and outlines fields inside a modal dialog instead of hiding under it.
+
 ## 0.0.21 — 2026-11-20
 
 ### Security

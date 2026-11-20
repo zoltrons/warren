@@ -2,6 +2,7 @@
 // Also what the context menu's "Copy custom field name" reads.
 import type { CollectedPageDetails } from "../shared/messages.ts";
 import type { PageApi } from "./page.ts";
+import { shadowOf } from "./collector/shadow-dom.ts";
 
 export interface PickedField {
   name: string;
@@ -46,6 +47,20 @@ export function fieldOf(clicked: Element | undefined): Pickable | undefined {
   return pickable(el) ? el : undefined;
 }
 
+/**
+ * The field under the pointer. A floating label, an icon or a styled box drawn over a field takes the click, not the
+ * field: look through the stack at that point, into shadow roots (closed ones too).
+ */
+export function fieldAt(x: number, y: number, root: Document | ShadowRoot = document): Pickable | undefined {
+  for (const el of root.elementsFromPoint(x, y)) {
+    if (el.getRootNode() !== root) continue; // a shadow root's list also holds its host's ancestors
+    const inner = shadowOf(el);
+    const f = (inner && fieldAt(x, y, inner)) || fieldOf(el);
+    if (f) return f;
+  }
+  return undefined;
+}
+
 let stopCurrent: (() => void) | undefined;
 
 export const picking = () => !!stopCurrent;
@@ -80,6 +95,13 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
     shadow.append(banner);
   }
   document.documentElement.append(host);
+  // The top layer, like the inline menu: above a modal <dialog> or a fullscreen element, whose fields can be picked too.
+  host.popover = "manual";
+  try {
+    host.showPopover();
+  } catch {
+    // The page took the attribute off: z-index it is.
+  }
 
   let shown: Pickable | undefined;
   const show = (el: Pickable | undefined) => {
@@ -90,7 +112,7 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
     island.setAttribute("d", hole);
   };
   const redraw = () => show(shown);
-  const target = (e: Event) => fieldOf(e.composedPath()[0] as Element);
+  const target = (e: Event) => fieldOf(e.composedPath()[0] as Element) ?? (e instanceof MouseEvent ? fieldAt(e.clientX, e.clientY) : undefined);
   const pick = (el: Pickable) => {
     const name = fieldName(el, pw);
     // Nothing to call it by: stay in the picker, the user can point at another one.
