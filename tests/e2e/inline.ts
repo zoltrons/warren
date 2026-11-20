@@ -540,6 +540,14 @@ await step("custom fields: Pick from page adds the clicked field to the unsaved 
   await reopenPopup();
   assert.equal(await page.getByLabel("Field on the page").inputValue(), "code");
 
+  // A field in another origin's frame: that frame takes the pick.
+  await start("Frame item", "/tiny-frame");
+  await loginPage.frameLocator("#f").locator("warren-picker").waitFor({ state: "attached" });
+  await loginPage.frameLocator("#f").locator("#cc").click();
+  await loginPage.locator("warren-picker").waitFor({ state: "detached" });
+  await reopenPopup();
+  assert.equal(await page.getByLabel("Field on the page").inputValue(), "cc");
+
   await start("Cancelled item");
   await loginPage.keyboard.press("Escape");
   await loginPage.locator("warren-picker").waitFor({ state: "detached" });

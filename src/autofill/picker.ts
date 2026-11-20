@@ -2,7 +2,7 @@
 // Also what the context menu's "Copy custom field name" reads.
 import type { CollectedPageDetails } from "../shared/messages.ts";
 import type { PageApi } from "./page.ts";
-import { shadowOf } from "./collector/shadow-dom.ts";
+import { deepAll, shadowOf } from "./collector/shadow-dom.ts";
 
 export interface PickedField {
   name: string;
@@ -86,8 +86,9 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
   island.setAttribute("fill", "rgba(255,79,123,.2)");
   island.setAttribute("stroke", "#c2113f");
   island.setAttribute("stroke-width", "2");
-  // Only the top frame darkens, or a field in an iframe would sit under two layers of it.
-  if (window === top) sea.append(ocean);
+  // Each frame darkens its own part of the page and leaves its child frames to darken theirs: a field in an iframe gets
+  // its lit hole from its own frame, under one layer of dark like any other.
+  sea.append(ocean);
   sea.append(island);
   shadow.append(sea);
   if (window === top) {
@@ -106,12 +107,14 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
     // The page took the attribute off: z-index it is.
   }
 
+  const frames = deepAll(document, "iframe, frame");
   let shown: Pickable | undefined;
   const show = (el: Pickable | undefined) => {
     shown = el;
     const r = el?.getBoundingClientRect();
-    const hole = r ? `M${r.left} ${r.top}h${r.width}v${r.height}h${-r.width}z` : "";
-    ocean.setAttribute("d", `M0 0h${innerWidth}v${innerHeight}h${-innerWidth}z${hole}`);
+    const box = (b: DOMRect) => `M${b.left} ${b.top}h${b.width}v${b.height}h${-b.width}z`;
+    const hole = r ? box(r) : "";
+    ocean.setAttribute("d", `M0 0h${innerWidth}v${innerHeight}h${-innerWidth}z${hole}${frames.map((f) => box(f.getBoundingClientRect())).join("")}`);
     island.setAttribute("d", hole);
   };
   const redraw = () => show(shown);
