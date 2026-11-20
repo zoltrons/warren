@@ -153,6 +153,20 @@ test("a refused refresh for a replaced account does not log the new one out", as
   assert.equal((session.session as { refreshToken?: string }).refreshToken, "refresh-c");
 });
 
+test("a refresh refused by a proxy in front of the server (not JSON) keeps the account", async () => {
+  accountB();
+  session.session = { ...(session.session as object), accessExpiresAt: 0 };
+  const refreshing = auth();
+  await answer("/identity/connect/token", "<html>401 Authorization Required</html>", 401);
+  await assert.rejects(refreshing);
+  assert.ok(local.account, "still logged in");
+  // Control: the server's own refusal ends the session.
+  const again = auth();
+  await answer("/identity/connect/token", { error: "invalid_grant" }, 400);
+  await assert.rejects(again, /session expired/);
+  assert.equal(local.account, undefined);
+});
+
 test("a server and a token are only handed out together, for one account", async () => {
   accountB();
   const reading = auth();

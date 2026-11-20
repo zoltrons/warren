@@ -715,7 +715,9 @@ async function refreshAccessToken(): Promise<{ token: string; owner: number }> {
     t = await refreshToken(base, current);
   } catch (e) {
     // A login, logout or server change while the request was out: the refusal is the old account's, not this one's.
-    if (e instanceof ApiError && (e.status === 400 || e.status === 401) && owner === ownerEpoch()) {
+    // Only the server's own (JSON) refusal ends the session: a proxy or auth gateway in front of it answering 401
+    // with a page of its own says nothing about the token, and logging out would wipe this device's data.
+    if (e instanceof ApiError && (e.status === 400 || e.status === 401) && typeof e.body === "object" && e.body !== null && owner === ownerEpoch()) {
       await logout();
       throw new UserError("sessionExpired", "Your session expired, please log in again");
     }
