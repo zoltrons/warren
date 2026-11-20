@@ -425,6 +425,11 @@ short on purpose. Either way the reason is given here or in Known gaps.
 - **Attachment downloads never follow a redirect** and must stay on the configured server's origin
   (`src/transport/vault.ts`). The SSRF surface is the configured server only; the price is that an
   attachment store that redirects (e.g. S3) cannot be downloaded from.
+- **The inline menu's size tells the page a little.** The `<warren-menu>` host sits in the page's DOM (only its shadow
+  root is closed), so a page can measure it: that Warren is installed, that it is locked (one row) or how many rows it
+  shows (up to 5, `show` in `src/autofill/content.ts`), on a login field or, with cards in the inline menu on, on a card
+  or identity field. No names or values. A fixed-size host would not hide it: hit-testing the area finds the frame's
+  edges just as well.
 - **Cards and identities are listed on every site**, as in the official clients, and fill only on a click in the
   inline menu or the popup. A page cannot get that click by covering or hiding the menu (`guardClicks`, invariant 4).
 - **RUSTSEC-2023-0071 (Marvin timing attack on `rsa`) is ignored in `deny.toml`.** The crate arrives through
