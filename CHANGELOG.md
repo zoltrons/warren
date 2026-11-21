@@ -22,6 +22,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - A shown password in an item is set larger and a little open (it was smaller than the username), its strength sits
   in a small tinted capsule, and under the pointer it lights its group of four and shows each character's position,
   as the generator does.
+- A one-time code reads in halves split by a faint dot (123 · 456) instead of a gap that looked like a space; the dot
+  is not part of the code, so a selection copies the digits only.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.

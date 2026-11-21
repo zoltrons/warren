@@ -290,7 +290,10 @@ export function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTM
     return h("div", { class: "row" }, icon("timer"), h("div", { class: "body" }, h("span", { class: "label" }, t("oneTimeCode")), h("span", { class: "value" }, "…")));
   }
   const { code, next, remaining, period } = st.totp;
-  const pretty = (c: string) => (c.length === 6 ? `${c.slice(0, 3)} ${c.slice(3)}` : c);
+  // In two halves (6 digits 3·3, 8 digits 4·4) with a faint dot between them drawn by CSS (.half + .half::before): the
+  // dot is no character, so a selection or copy is the code as it is, and no gap reads as a space to type.
+  const pretty = (c: string): Child[] =>
+    c.length === 6 || c.length === 8 ? [h("span", { class: "half" }, c.slice(0, c.length / 2)), h("span", { class: "half" }, c.slice(c.length / 2))] : [c];
   return h(
     "div",
     { class: `row field-row totp-row elevated${remaining <= TOTP_SOON ? " soon" : ""}` },
@@ -299,7 +302,7 @@ export function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTM
       "div",
       copyOnClick(ctx, "totp", () => st.totp?.code ?? code, t("oneTimeCode")),
       h("span", { class: "label" }, t("oneTimeCode")),
-      h("span", { class: "value mono totp", "data-totp": "1" }, pretty(code)),
+      h("span", { class: "value mono totp", "data-totp": "1" }, ...pretty(code)),
       // The pill copies the next code: a click on it would otherwise copy the current one (the row's own click).
       next
         ? h(
@@ -307,7 +310,7 @@ export function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTM
             { type: "button", class: "totp-next", title: t("copyNextCode"), "aria-label": `${t("copyNextCode")}: ${next}`, onclick: () => void copy(ctx, next) },
             t("nextCode"),
             " ",
-            h("span", { class: "mono" }, pretty(next)),
+            h("span", { class: "mono" }, ...pretty(next)),
           )
         : null,
     ),
