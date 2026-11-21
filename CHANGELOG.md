@@ -41,7 +41,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   to right (not with animations turned off). Regenerate is a small button beside the value. With the pointer on the
   value, the group of four under it is lit and the character shows its position, for typing it in elsewhere.
 - In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
-- In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items.
+- In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items (the folder
+  row carries a › to say it leads somewhere).
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own
   dropdown; a second ArrowDown moves into it.
 - The inline menu steps aside once you type in its field, so it no longer covers the rest of the form, and comes back

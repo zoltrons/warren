@@ -803,6 +803,7 @@ export function itemView(ctx: Ctx, id: string): HTMLElement {
             { class: "row" },
             icon("folder"),
             h("div", actOnClick(t("showFolderItems", folder.name), () => ((st.folder = folder.id), (st.query = ""), open(ctx, { kind: "list" }))), h("span", { class: "label" }, t("folder")), h("span", { class: "value" }, folder.name)),
+            icon("chevron"), // it leads somewhere: the list, filtered to this folder
           )
         : null,
       item.revisionDate ? h("div", { class: "row" }, icon("edit"), h("div", { class: "body" }, h("span", { class: "label" }, t("lastEdited")), h("span", { class: "value" }, date(item.revisionDate)))) : null,
