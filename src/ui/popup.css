@@ -49,27 +49,28 @@
   --on-inverse: #fff7f8;
   --inverse-primary: #ffd3dc;
 
-  /* inks: six vivid hues for content (a password's digits and symbols, status, monogram tiles), after Dracula
-     (Alucard here, Dracula in dark; Tokyo Night's blue, as Dracula has none), each at 4.5:1 on every surface.
+  /* inks: six bright hues for content (a password's digits and symbols, status, monogram tiles), halfway between
+     Dracula's (Alucard here; Tokyo Night's blue) and Catppuccin's (Latte here, Mocha in dark), each at 4.5:1 on
+     every surface.
      The chrome keeps the one accent (primary); no orange (brand/README). */
-  --ink-red: #cf2236;
-  --ink-green: #14710a;
-  --ink-blue: #1f5fd6;
-  --ink-violet: #644ac9;
-  --ink-aqua: #036a96;
-  --ink-yellow: #7a6510;
+  --ink-red: #c8283c;
+  --ink-green: #297618;
+  --ink-blue: #2664cd;
+  --ink-violet: #6f4ac5;
+  --ink-aqua: #0b7187;
+  --ink-yellow: #866209;
   /* Passwords: digits in blue and symbols in red, the convention people read from other managers. */
   --digit: var(--ink-blue);
   --symbol: var(--ink-red);
   /* status: the inks, so a notice sits in the same family as the content */
   --success: var(--ink-green);
-  --success-weak: rgba(20 113 10 / 0.1);
+  --success-weak: rgba(41 118 24 / 0.1);
   --warning: var(--ink-yellow);
-  --warning-weak: rgba(122 101 16 / 0.1);
+  --warning-weak: rgba(134 98 9 / 0.1);
   --critical: var(--ink-red);
-  --critical-weak: rgba(207 34 54 / 0.1);
+  --critical-weak: rgba(200 40 60 / 0.1);
   --attention: var(--ink-violet);
-  --attention-weak: rgba(100 74 201 / 0.1);
+  --attention-weak: rgba(111 74 197 / 0.1);
 
   /* elevation (Material levels 1-3): card / menu / dialog */
   --shadow-low: 0 1px 2px rgba(0 0 0 / 0.3), 0 1px 3px 1px rgba(0 0 0 / 0.15);
@@ -150,22 +151,22 @@
   --inverse: #fff7f8;
   --on-inverse: #170a11;
   --inverse-primary: #c2113f;
-  --ink-red: #ff5c6c;
-  --ink-green: #50fa7b;
-  --ink-blue: #7aa2f7;
-  --ink-violet: #bd93f9;
-  --ink-aqua: #8be9fd;
-  --ink-yellow: #f1fa8c;
+  --ink-red: #f57783;
+  --ink-green: #82e58a;
+  --ink-blue: #84abed;
+  --ink-violet: #be9df0;
+  --ink-aqua: #8fdce1;
+  --ink-yellow: #ede797;
   --digit: var(--ink-blue);
   --symbol: var(--ink-red);
   --success: var(--ink-green);
-  --success-weak: rgba(80 250 123 / 0.16);
+  --success-weak: rgba(130 229 138 / 0.16);
   --warning: var(--ink-yellow);
-  --warning-weak: rgba(241 250 140 / 0.16);
+  --warning-weak: rgba(237 231 151 / 0.16);
   --critical: var(--ink-red);
-  --critical-weak: rgba(255 92 108 / 0.16);
+  --critical-weak: rgba(245 119 131 / 0.16);
   --attention: var(--ink-violet);
-  --attention-weak: rgba(189 147 249 / 0.16);
+  --attention-weak: rgba(190 157 240 / 0.16);
   --shadow-low: 0 1px 2px rgba(0 0 0 / 0.5), 0 1px 3px 1px rgba(0 0 0 / 0.3);
   --shadow-med: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 2px rgba(0 0 0 / 0.5), 0 2px 6px 2px rgba(0 0 0 / 0.3);
   --shadow-high: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 3px rgba(0 0 0 / 0.5), 0 4px 8px 3px rgba(0 0 0 / 0.3);
@@ -204,22 +205,22 @@
     --inverse: #fff7f8;
     --on-inverse: #170a11;
     --inverse-primary: #c2113f;
-    --ink-red: #ff5c6c;
-    --ink-green: #50fa7b;
-    --ink-blue: #7aa2f7;
-    --ink-violet: #bd93f9;
-    --ink-aqua: #8be9fd;
-    --ink-yellow: #f1fa8c;
+    --ink-red: #f57783;
+    --ink-green: #82e58a;
+    --ink-blue: #84abed;
+    --ink-violet: #be9df0;
+    --ink-aqua: #8fdce1;
+    --ink-yellow: #ede797;
     --digit: var(--ink-blue);
     --symbol: var(--ink-red);
     --success: var(--ink-green);
-    --success-weak: rgba(80 250 123 / 0.16);
+    --success-weak: rgba(130 229 138 / 0.16);
     --warning: var(--ink-yellow);
-    --warning-weak: rgba(241 250 140 / 0.16);
+    --warning-weak: rgba(237 231 151 / 0.16);
     --critical: var(--ink-red);
-    --critical-weak: rgba(255 92 108 / 0.16);
+    --critical-weak: rgba(245 119 131 / 0.16);
     --attention: var(--ink-violet);
-    --attention-weak: rgba(189 147 249 / 0.16);
+    --attention-weak: rgba(190 157 240 / 0.16);
     --shadow-low: 0 1px 2px rgba(0 0 0 / 0.5), 0 1px 3px 1px rgba(0 0 0 / 0.3);
     --shadow-med: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 2px rgba(0 0 0 / 0.5), 0 2px 6px 2px rgba(0 0 0 / 0.3);
     --shadow-high: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 3px rgba(0 0 0 / 0.5), 0 4px 8px 3px rgba(0 0 0 / 0.3);

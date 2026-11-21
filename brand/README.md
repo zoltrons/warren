@@ -31,19 +31,19 @@ Edit only the two masters (variants swap the icon's `<style>` palette), then run
 
 ### Inks
 
-Six vivid hues for content, after Dracula (its light variant Alucard for light themes; the blue from Tokyo Night, as
-Dracula has none): a password's digits and symbols, status (success, warning, critical, attention) and monogram
+Six bright hues for content, halfway in OKLab between Dracula's (its light variant Alucard for light themes; the
+blue from Tokyo Night, as Dracula has none) and Catppuccin's (Latte light, Mocha dark): a password's digits and symbols, status (success, warning, critical, attention) and monogram
 tiles. The chrome keeps the one accent above. Each ink is tuned per theme to 4.5:1 on every surface
 (`tools/check-contrast.mjs`). Still no orange: yellow takes its place.
 
 | Ink | Light | Dark | Used for |
 |---|---|---|---|
-| Red | `#CF2236` | `#FF5C6C` | password symbols, critical |
-| Green | `#14710A` | `#50FA7B` | success, strong passwords |
-| Blue | `#1F5FD6` | `#7AA2F7` | password digits |
-| Violet | `#644AC9` | `#BD93F9` | attention |
-| Cyan | `#036A96` | `#8BE9FD` | tiles |
-| Yellow | `#7A6510` | `#F1FA8C` | warning |
+| Red | `#C8283C` | `#F57783` | password symbols, critical |
+| Green | `#297618` | `#82E58A` | success, strong passwords |
+| Blue | `#2664CD` | `#84ABED` | password digits |
+| Violet | `#6F4AC5` | `#BE9DF0` | attention |
+| Cyan | `#0B7187` | `#8FDCE1` | tiles |
+| Yellow | `#866209` | `#EDE797` | warning |
 
 Text on a pink fill is night cherry (5.8:1). White text only on raspberry (6.1:1). Snow on pink (3.0:1) is for
 large or decorative marks only; night cherry and raspberry are never paired. `tools/check-contrast.mjs` checks
