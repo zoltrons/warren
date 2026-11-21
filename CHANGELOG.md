@@ -23,6 +23,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - "Pick from page" picks the field under a floating label, an icon or any box a site draws over it, where it used to
   ignore the click, and so does the context menu's "Copy custom field name". A field inside a frame (a payment
   form's) is lit like any other instead of sitting under the dark layer, and the picker also darkens and outlines fields inside a modal dialog instead of hiding under it.
+- While "Pick from page" runs, the page no longer reacts to the pointer: hovering opens no menu over the fields and a
+  middle or right click does nothing on the page.
 
 ## 0.0.21 — 2026-11-20
 

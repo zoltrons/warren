@@ -493,11 +493,20 @@ await step("custom fields: Pick from page adds the clicked field to the unsaved 
   };
   await page.waitForTimeout(1000); // the popup opened by the last step takes a pick while it loads
   await start("Picked item");
-  await loginPage.evaluate(() => document.getElementById("terms")!.addEventListener("click", () => ((window as unknown as { pageSaw: boolean }).pageSaw = true)));
+  // The page hears nothing of the pointer: no hover, middle click or click on its field.
+  const pageSaw = () => loginPage.evaluate(() => (window as unknown as { pageSaw?: string[] }).pageSaw ?? []);
+  await loginPage.evaluate(() => {
+    const w = window as unknown as { pageSaw: string[] };
+    w.pageSaw = [];
+    for (const type of ["click", "mouseover", "mousemove", "auxclick", "contextmenu"]) document.getElementById("terms")!.addEventListener(type, () => w.pageSaw.push(type));
+  });
+  await loginPage.hover("#terms");
+  await loginPage.click("#terms", { button: "middle" });
+  assert.equal(await loginPage.locator("warren-picker").count(), 1, "a middle click picked");
   await loginPage.click("#terms");
   await loginPage.locator("warren-picker").waitFor({ state: "detached" });
   assert.equal(await loginPage.isChecked("#terms"), false, "the pick reached the page");
-  assert.equal(await loginPage.evaluate(() => (window as unknown as { pageSaw?: boolean }).pageSaw ?? false), false);
+  assert.deepEqual(await pageSaw(), []);
   await reopenPopup();
   await page.getByRole("heading", { name: "New item" }).waitFor();
   assert.equal(await page.getByLabel("Name", { exact: true }).inputValue(), "Picked item");

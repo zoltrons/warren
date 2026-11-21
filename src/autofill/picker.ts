@@ -146,6 +146,10 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
     if (el) pick(el);
   };
   const onMove = (e: Event) => show(target(e));
+  const onHover = (e: Event) => {
+    swallow(e);
+    onMove(e);
+  };
   const onKey = (e: KeyboardEvent) => {
     if (!e.isTrusted) return;
     if (e.key === "Escape") {
@@ -157,13 +161,17 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
       pick(target(e)!);
     }
   };
-  const blocked = ["mousedown", "mouseup", "pointerdown", "pointerup", "submit"];
+  // Like uBlock Origin's picker, the page hears nothing of the pointer: no menu opens on hover, no link follows a
+  // middle click. (uBlock covers the page with a layer that takes the pointer; one over a cross-site frame keeps
+  // Chrome from sending that frame the click, and a frame picks its own fields.)
+  const blocked = ["mousedown", "mouseup", "pointerdown", "pointerup", "pointermove", "auxclick", "dblclick", "contextmenu", "submit"];
+  for (const edge of ["over", "out", "enter", "leave"]) blocked.push(`mouse${edge}`, `pointer${edge}`);
   const stop = () => {
     stopCurrent = undefined;
     host.remove();
     for (const type of blocked) removeEventListener(type, swallow, true);
     removeEventListener("click", onClick, true);
-    removeEventListener("mousemove", onMove, true);
+    removeEventListener("mousemove", onHover, true);
     removeEventListener("focusin", onMove, true);
     removeEventListener("keydown", onKey, true);
     removeEventListener("scroll", redraw, true);
@@ -177,7 +185,7 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
   }, 120_000);
   for (const type of blocked) addEventListener(type, swallow, true);
   addEventListener("click", onClick, true);
-  addEventListener("mousemove", onMove, true);
+  addEventListener("mousemove", onHover, true);
   addEventListener("focusin", onMove, true); // Tab and Enter pick too
   addEventListener("keydown", onKey, true);
   addEventListener("scroll", redraw, true);
