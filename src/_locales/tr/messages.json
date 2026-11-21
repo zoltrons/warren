@@ -1379,7 +1379,7 @@
     "message": "İçe aktar"
   },
   "importHint": {
-    "message": "Bitwarden JSON'dan (parola korumalı da olur) ya da Bitwarden, Chrome, Firefox, Edge, Brave, LastPass, 1Password, Keeper, KeePassXC, Proton Pass, NordPass veya RoboForm CSV dışa aktarımından"
+    "message": "Bitwarden JSON'dan (parola korumalı da olur), KeePass XML'den (KeePass, KeePassXC, KeeWeb), 1Password .1pux'tan ya da Bitwarden, Chrome, Firefox, Edge, Brave, LastPass, 1Password, Keeper, KeePassXC, Proton Pass, NordPass veya RoboForm CSV dışa aktarımından"
   },
   "imported": {
     "message": "$P1$ öğe içe aktarıldı.",

@@ -1,0 +1,152 @@
+// KeePass XML and 1Password .1pux become Bitwarden export items; the XML and ZIP readers under them hold their limits.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { onePuxDataToExport, onePuxToExport } from "./import-1password.ts";
+import { keepassXmlToExport } from "./import-keepass.ts";
+import { parseXml } from "./xml.ts";
+import { readZipEntry } from "./zip.ts";
+
+test("xml: entities, CDATA, self-closing tags; broken markup throws", () => {
+  const n = parseXml(`<?xml version="1.0"?><!-- c --><a x="1 &amp; 2"><b>p&lt;&#x41;&#66;</b><c/><d><![CDATA[<raw> & ]]></d></a>`);
+  assert.equal(n.attrs.x, "1 & 2");
+  assert.equal(n.children[0]!.text, "p<AB");
+  assert.equal(n.children[1]!.name, "c");
+  assert.equal(n.children[2]!.text, "<raw> & ");
+  assert.throws(() => parseXml("<a><b></a>"));
+  assert.throws(() => parseXml("<a>"));
+  // An entity a DTD would define is never expanded.
+  assert.equal(parseXml("<a>&xxe;</a>").text, "&xxe;");
+});
+
+const KEEPASS = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<KeePassFile><Meta><RecycleBinUUID>BIN</RecycleBinUUID></Meta><Root><Group><UUID>ROOT</UUID><Name>Database</Name>
+  <Entry><String><Key>Title</Key><Value>Top</Value></String><String><Key>Password</Key><Value ProtectInMemory="True">  p w  </Value></String></Entry>
+  <Group><UUID>G1</UUID><Name>Email</Name><Group><UUID>G2</UUID><Name>Work</Name>
+    <Entry>
+      <String><Key>Title</Key><Value>Mail</Value></String>
+      <String><Key>UserName</Key><Value>me@x.test</Value></String>
+      <String><Key>Password</Key><Value ProtectInMemory="True">s3cr&amp;t</Value></String>
+      <String><Key>URL</Key><Value>https://mail.x.test</Value></String>
+      <String><Key>Notes</Key><Value>line1
+line2</Value></String>
+      <String><Key>otp</Key><Value>otpauth://totp/x?secret=JBSWY3DP</Value></String>
+      <String><Key>PIN</Key><Value ProtectInMemory="True">1234</Value></String>
+      <String><Key>Recovery</Key><Value>abc</Value></String>
+      <History><Entry><String><Key>Title</Key><Value>Old</Value></String></Entry></History>
+    </Entry>
+    <Entry><String><Key>Title</Key><Value>Just a note</Value></String><String><Key>Notes</Key><Value>n</Value></String></Entry>
+  </Group></Group>
+  <Group><UUID>BIN</UUID><Name>Recycle Bin</Name><Entry><String><Key>Title</Key><Value>Gone</Value></String></Entry></Group>
+</Group></Root></KeePassFile>`;
+
+test("KeePass XML: groups are folders, protected strings hidden fields, the recycle bin and history left out", () => {
+  const r = keepassXmlToExport(KEEPASS);
+  assert.deepEqual(r.folders, [{ id: "0", name: "Email/Work" }]);
+  assert.deepEqual(
+    r.items.map((i) => i.name),
+    ["Top", "Mail", "Just a note"],
+  );
+  const [top, mail, note] = r.items as Record<string, any>[];
+  assert.equal(top!.folderId, null);
+  assert.equal(top!.login.password, "  p w  ", "a password is never trimmed");
+  assert.equal(mail!.folderId, "0");
+  assert.deepEqual(mail!.login, { username: "me@x.test", password: "s3cr&t", totp: "otpauth://totp/x?secret=JBSWY3DP", uris: [{ uri: "https://mail.x.test", match: null }] });
+  assert.equal(mail!.notes, "line1\nline2");
+  assert.deepEqual(mail!.fields, [
+    { name: "PIN", value: "1234", type: 1 },
+    { name: "Recovery", value: "abc", type: 0 },
+  ]);
+  assert.equal(note!.type, 2);
+  assert.throws(() => keepassXmlToExport("<other/>"), /KeePass/);
+});
+
+const ONEPUX = {
+  accounts: [
+    {
+      vaults: [
+        {
+          attrs: { name: "Private" },
+          items: [
+            {
+              categoryUuid: "001",
+              favIndex: 1,
+              state: "active",
+              overview: { title: "GitHub", urls: [{ url: "https://github.com" }, { url: "https://gist.github.com" }] },
+              details: {
+                loginFields: [
+                  { value: "octo", designation: "username", fieldType: "T", name: "login" },
+                  { value: "pw1", designation: "password", fieldType: "P", name: "password" },
+                  { value: "", fieldType: "B", name: "submit" },
+                ],
+                notesPlain: "hi",
+                sections: [{ fields: [{ title: "one-time password", id: "TOTP_1", value: { totp: "otpauth://totp/g?secret=AAAA" } }, { title: "recovery", id: "r", value: { concealed: "rc" } }] }],
+                passwordHistory: [{ value: "old", time: 1700000000 }],
+              },
+            },
+            { categoryUuid: "001", state: "active", trashed: true, overview: { title: "Trashed" }, details: {} },
+          ],
+        },
+        {
+          attrs: { name: "Shared" },
+          items: [
+            {
+              categoryUuid: "002",
+              overview: { title: "Visa" },
+              details: { sections: [{ fields: [{ id: "cardholder", value: { string: "Ada" } }, { id: "ccnum", value: { creditCardNumber: "4111111111111111" } }, { id: "cvv", value: { concealed: "123" } }, { id: "expiry", value: { monthYear: 202907 } }, { id: "type", value: { creditCardType: "visa" } }] }] },
+            },
+            {
+              categoryUuid: "004",
+              overview: { title: "Me" },
+              details: { sections: [{ fields: [{ id: "firstname", value: { string: "Ada" } }, { id: "lastname", value: { string: "L" } }, { id: "address", value: { address: { street: "1 Main", city: "Town", zip: "123", country: "tr" } } }, { id: "email", value: { email: { email_address: "a@x.test" } } }] }] },
+            },
+            { categoryUuid: "110", overview: { title: "Server" }, details: { sections: [{ fields: [{ title: "admin password", id: "p", value: { concealed: "root" } }, { title: "url", id: "u", value: { string: "ssh://h" } }] }] } },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+test("1pux: logins, cards and identities map to their types; other categories are notes; vaults are folders", async () => {
+  const r = onePuxDataToExport(ONEPUX);
+  assert.deepEqual(r.folders, [
+    { id: "0", name: "Private" },
+    { id: "1", name: "Shared" },
+  ]);
+  assert.deepEqual(
+    r.items.map((i) => i.name),
+    ["GitHub", "Visa", "Me", "Server"],
+  );
+  const [login, card, identity, server] = r.items as Record<string, any>[];
+  assert.equal(login!.favorite, true);
+  assert.deepEqual(login!.login, { username: "octo", password: "pw1", totp: "otpauth://totp/g?secret=AAAA", uris: [{ uri: "https://github.com", match: null }, { uri: "https://gist.github.com", match: null }] });
+  assert.deepEqual(login!.fields, [{ name: "recovery", value: "rc", type: 1 }]);
+  assert.equal(login!.passwordHistory[0].password, "old");
+  assert.deepEqual(card!.card, { cardholderName: "Ada", brand: "visa", number: "4111111111111111", code: "123", expMonth: "7", expYear: "2029" });
+  assert.equal(card!.folderId, "1");
+  assert.equal(identity!.identity.address1, "1 Main");
+  assert.equal(identity!.identity.country, "TR");
+  assert.equal(identity!.identity.email, "a@x.test");
+  assert.equal(server!.type, 2);
+  assert.deepEqual(server!.fields, [
+    { name: "admin password", value: "root", type: 1 },
+    { name: "url", value: "ssh://h", type: 0 },
+  ]);
+  // Through the ZIP reader, deflated.
+  const zip = await zipOf("export.data", new TextEncoder().encode(JSON.stringify(ONEPUX)));
+  assert.equal((await onePuxToExport(zip)).items.length, 4);
+  await assert.rejects(onePuxToExport(await zipOf("other.txt", new Uint8Array([1]))), /1Password/);
+  await assert.rejects(readZipEntry(zip, () => true, 10), /too large/);
+});
+
+/** A one-file ZIP with a deflated entry. */
+async function zipOf(name: string, data: Uint8Array): Promise<Uint8Array> {
+  const packed = new Uint8Array(await new Response(new Blob([data as BlobPart]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+  const n = new TextEncoder().encode(name);
+  const le = (v: number, bytes: number) => Array.from({ length: bytes }, (_, i) => (v >>> (8 * i)) & 0xff);
+  const local = [...le(0x04034b50, 4), ...le(20, 2), 0, 0, ...le(8, 2), 0, 0, 0, 0, ...le(0, 4), ...le(packed.length, 4), ...le(data.length, 4), ...le(n.length, 2), 0, 0, ...n];
+  const central = [...le(0x02014b50, 4), ...le(20, 2), ...le(20, 2), 0, 0, ...le(8, 2), 0, 0, 0, 0, ...le(0, 4), ...le(packed.length, 4), ...le(data.length, 4), ...le(n.length, 2), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le(0, 4), ...n];
+  const cdAt = local.length + packed.length;
+  const end = [...le(0x06054b50, 4), 0, 0, 0, 0, ...le(1, 2), ...le(1, 2), ...le(central.length, 4), ...le(cdAt, 4), 0, 0];
+  return new Uint8Array([...local, ...packed, ...central, ...end]);
+}

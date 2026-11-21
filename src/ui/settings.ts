@@ -4,6 +4,8 @@ import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, E
 import type { ExportFormat, Request, State } from "../shared/messages.ts";
 import { applyTheme, type Child, h, inPanel, leave, plural, rowOf, savedTheme, send, sessionNow, setUiPref, switchOf, t, THEMES, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
 import { icon } from "./icons.ts";
+import { onePuxToExport } from "../shared/import-1password.ts";
+import { keepassXmlToExport } from "../shared/import-keepass.ts";
 import { uriMatchLabel } from "./vault-edit.ts";
 import { clearOpened, hasOpened, iconButton, recentShown, resetVault, setRecentShown } from "./vault-shared.ts";
 import { act, armedLogout, busyBar, disableBiometric, draft, errorBox, host, inTab, render, setupBiometric, stateRequest, ui, windowId } from "./popup.ts";
@@ -378,7 +380,7 @@ export function settingsTab(s: State): HTMLElement {
         "label",
         { class: "row" },
         h("div", { class: "body" }, h("span", { class: "title" }, t("importVault")), h("span", { class: "sub wrap" }, t("importHint"))),
-        h("input", { type: "file", accept: ".json,.csv,application/json,text/csv", class: "sr-only", "aria-label": t("importVault"), disabled: ui.busy, onchange: (e: Event) => void importVault((e.target as HTMLInputElement).files?.[0]) }),
+        h("input", { type: "file", accept: ".json,.csv,.xml,.1pux,application/json,text/csv,text/xml", class: "sr-only", "aria-label": t("importVault"), disabled: ui.busy, onchange: (e: Event) => void importVault((e.target as HTMLInputElement).files?.[0]) }),
       ),
       ui.importing
         ? h(
@@ -510,7 +512,12 @@ async function importVault(file: File | undefined) {
   Object.assign(ui, { busy: true, error: undefined, info: undefined });
   render();
   const asked = sessionNow();
-  const text = await file.text();
+  let text: string;
+  try {
+    text = await foreignToBitwardenJson(file);
+  } catch (e) {
+    return void Object.assign(ui, { busy: false, error: (e as Error).message }), render();
+  }
   // A lock or another account while the file was read: the import was meant for the session before.
   if (asked !== sessionNow()) return void ((ui.busy = false), render());
   // A password-protected export: ask for its file password first (the worker opens it).
@@ -522,6 +529,17 @@ async function importVault(file: File | undefined) {
   }
   if (protectedFile) return void ((ui.busy = false), (ui.importing = text), render());
   await sendImport(text);
+}
+
+/**
+ * The file's text for the worker's importer (Bitwarden JSON or a CSV). KeePass XML and 1Password .1pux are turned
+ * into an unencrypted Bitwarden JSON export here: the popup can read a ZIP, and the worker gets one format less.
+ */
+async function foreignToBitwardenJson(file: File): Promise<string> {
+  const asJson = (r: { folders: unknown[]; items: unknown[] }) => JSON.stringify({ encrypted: false, ...r });
+  if (file.name.toLowerCase().endsWith(".1pux")) return asJson(await onePuxToExport(new Uint8Array(await file.arrayBuffer())));
+  const text = await file.text();
+  return text.trimStart().startsWith("<") && text.includes("<KeePassFile") ? asJson(keepassXmlToExport(text)) : text;
 }
 
 async function sendImport(text: string, password?: string) {
