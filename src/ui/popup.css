@@ -1037,6 +1037,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .generated-row { display: flex; align-items: center; gap: 8px; }
 .generated output { flex: 1; min-width: 0; font-size: var(--fs-title-sm); word-break: break-all; letter-spacing: 0.04em; }
 /* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
+.generated output.copyable { cursor: pointer; }
 .generated output.plain { font-size: var(--fs-title); font-weight: 500; letter-spacing: 0; word-break: normal; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .row.stack { align-items: stretch; gap: 8px; }

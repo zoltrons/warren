@@ -15,7 +15,7 @@ import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
 import { startEdit, strengthBar } from "./vault-edit.ts";
 import { actionRow, strength } from "./vault-item.ts";
-import { colorize, copy, copyButton, type Ctx, iconButton, sectionTitle, topBar } from "./vault-shared.ts";
+import { colorize, copy, copyButton, copyOnClick, type Ctx, iconButton, sectionTitle, topBar } from "./vault-shared.ts";
 
 type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -283,7 +283,7 @@ function historyScreen(ctx: Ctx, list: HistoryEntry[]): HTMLElement {
             h(
               "div",
               { class: "row", role: "listitem" },
-              h("div", { class: "body" }, h("span", { class: "title mono" }, e.value), h("span", { class: "sub" }, when(e.date))),
+              h("div", copyOnClick(ctx, "", () => e.value, e.value), h("span", { class: "title mono" }, e.value), h("span", { class: "sub" }, when(e.date))),
               iconButton("copy", t("copyField", e.value), () => void copy(ctx, e.value)),
             ),
           ),
@@ -309,6 +309,10 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   if (gst.prefs === undefined && !gst.error) void loadPrefs(ctx);
   if (gst.prefs === "loaded" && gst.gen.type !== "alias" && !gst.generated && !gst.error) void regenerate(ctx);
   const g = gst.gen;
+  const copyGenerated = () => {
+    void copy(ctx, gst.generated);
+    if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
+  };
   const set = (k: string, v: unknown) => {
     g[k] = v;
     if (k === "length") g.minNumber = g.minSpecial = scaledMin(Number(v));
@@ -464,7 +468,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   else if (g.type === "identity") {
     const p = gst.identity;
     const line = (key: string, title: string, value: string, sub?: string) =>
-      h("div", { class: "row" }, h("div", { class: "body" }, h("span", { class: "label" }, title), h("span", { class: "value" }, value), sub ? h("span", { class: "sub" }, sub) : null), copyButton(ctx, `id.${key}`, value, t("copyField", title)));
+      h("div", { class: "row" }, h("div", copyOnClick(ctx, `id.${key}`, () => value, title), h("span", { class: "label" }, title), h("span", { class: "value" }, value), sub ? h("span", { class: "sub" }, sub) : null), copyButton(ctx, `id.${key}`, value, t("copyField", title)));
     const country = h(
       "div",
       { class: "row" },
@@ -610,7 +614,14 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
         { class: "generated-row" },
         h(
           "output",
-          { class: g.type === "identity" ? "plain" : "mono", "aria-live": "off", "aria-label": t("generatedValue") },
+          {
+            class: `${g.type === "identity" ? "plain" : "mono"}${gst.generated ? " copyable" : ""}`,
+            "aria-live": "off",
+            "aria-label": t("generatedValue"),
+            title: gst.generated ? t("copyField", t("generatedValue")) : undefined,
+            // A click on the value copies it, as on an item's fields; a selection made in it is left alone.
+            onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
+          },
           ...(gst.generated ? colorize(gst.generated) : ["…"]),
         ),
         h(
@@ -620,10 +631,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
           iconButton(
             "copy",
             t("copyField", t("generatedValue")),
-            () => {
-              void copy(ctx, gst.generated);
-              if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
-            },
+            copyGenerated,
             { disabled: !gst.generated },
           ),
         ),
@@ -643,7 +651,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
           "div",
           {},
           sectionTitle(t("suggestions")),
-          h("div", { class: "group", role: "list" }, ...gst.suggestions.map((v, i) => h("div", { class: "row", role: "listitem" }, h("div", { class: "body" }, h("span", { class: "title mono break" }, ...colorize(v))), copyButton(ctx, `sug.${i}`, v, t("copyField", t("generatedValue")))))),
+          h("div", { class: "group", role: "list" }, ...gst.suggestions.map((v, i) => h("div", { class: "row", role: "listitem" }, h("div", copyOnClick(ctx, `sug.${i}`, () => v, t("generatedValue")), h("span", { class: "title mono break" }, ...colorize(v))), copyButton(ctx, `sug.${i}`, v, t("copyField", t("generatedValue")))))),
         )
       : null,
     pick && gst.generated
