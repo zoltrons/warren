@@ -665,14 +665,21 @@ a.row { text-decoration: none; color: var(--text); }
 .row .value.mono { font-size: var(--fs-body-sm); }
 /* The signature: digits in the link color, symbols amber. Used on secrets and nowhere else. */
 /* A shown secret (colorize): digits and symbols told apart by two cues each, not hue alone (color blindness):
-   a digit is colored and heavier, a symbol sits on a keycap tint; long values read in groups of four. */
+   a digit is colored and heavier, a symbol sits on a keycap (its own fixed-height box with a hairline edge, so every
+   one is the same size whatever the glyph). Long values read in groups of four, each underlined by its own segment:
+   a mark under the text, where a gap or a band between characters would read as a space or crowd the keycaps. */
 .pw .d { color: var(--digit); font-weight: 600; }
-.pw .s { color: var(--attention); background: var(--attention-weak); border-radius: 3px; box-shadow: 0 0 0 1px var(--attention-weak); }
-/* Groups of four told apart by a band behind every other one: a gap there would read as a space in the password. */
-.pw .grp { white-space: nowrap; padding-block: 1px; border-radius: 4px; }
-.pw .grp:nth-child(even) { background: var(--tint-strong); }
+.pw .s {
+  display: inline-block; line-height: 1.3em; padding-inline: 0.06em; border-radius: 0.25em;
+  color: var(--attention); background: var(--attention-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--attention) 24%, transparent);
+}
+.pw .grp {
+  display: inline-block; white-space: nowrap; padding-bottom: 4px; /* a box of its own: no row's overflow clips the mark */
+  background: linear-gradient(color-mix(in srgb, currentColor 26%, transparent) 0 0) bottom center / calc(100% - 0.5ch) 1.5px no-repeat;
+}
 /* The generator's value, character by character: the hovered one lifts and names its position. */
-.generated .pw .c { position: relative; display: inline-block; border-radius: 3px; transition: background-color var(--fast) var(--ease); }
+.generated .pw .c { position: relative; display: inline-block; line-height: 1.3em; border-radius: 0.25em; transition: background-color var(--fast) var(--ease); }
 .generated .pw .c:hover { background-color: var(--pressed); }
 .generated .pw .c:hover::after {
   content: attr(data-i); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);

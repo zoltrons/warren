@@ -19,9 +19,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
-- A shown password is easier to read: digits are colored and bold, symbols sit on a violet tint (two cues, not color
-  alone), and a long unbroken password or PIN reads in groups of four, marked by a band behind every other group
-  rather than a gap that would look like a space. The generator says what the value is made of (characters,
+- A shown password is easier to read: digits are colored and bold, symbols sit on a violet keycap (two cues, not color
+  alone), and a long unbroken password or PIN reads in groups of four, each underlined by its own short segment
+  rather than split by a gap that would look like a space. The generator says what the value is made of (characters,
   uppercase, lowercase, digits, symbols) in the same colors, colors its suggestions like the value, names a
   character's position when the pointer is on it, and decodes a new value into place, character by character (not
   with animations turned off).
