@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds the UI preview: the real popup/menu/bar code on top of a Chrome API stub.
-//   node dev/preview/build.mjs        -> dev/preview/out
+//   node dev/preview/build.mjs        -> dev/preview/out (PREVIEW_LOCALE=tr for another locale's strings)
 import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +27,9 @@ await esbuild.build({
   target: "chrome120",
   sourcemap: "inline",
   logLevel: "warning",
+  plugins: process.env.PREVIEW_LOCALE
+    ? [{ name: "locale", setup: (b) => b.onResolve({ filter: /_locales\/en\/messages\.json$/ }, () => ({ path: join(root, `src/_locales/${process.env.PREVIEW_LOCALE}/messages.json`) })) }]
+    : [],
 });
 
 copyFileSync(join(root, "src/ui/popup.css"), join(out, "popup.css"));

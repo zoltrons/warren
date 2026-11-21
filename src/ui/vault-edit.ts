@@ -4,7 +4,7 @@ import { cardBrand, luhnValid, storableBrand } from "../shared/card.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import type { VaultList } from "../shared/messages.ts";
-import { type Child, chipRow, enter, h, inPanel, leave, rowOf, send, t, uiPref, withChevron, switchOf } from "./dom.ts";
+import { type Child, chipRow, enter, h, inPanel, leave, rowOf, send, t, UI_LOCALE, uiPref, withChevron, switchOf } from "./dom.ts";
 import { type GeneratorPick, startGeneratorPick } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -372,7 +372,7 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     // Opt-in: a new login password is checked once, on save, and only warns.
     const pw = d.data.password ?? "";
     if (d.type === 1 && pw && pw !== str(obj(d.base.login)?.password) && uiPref("breachSave") === "on")
-      void pwnedCount(pw).then((n) => n > 0 && toast(ctx, t("pwnedFound", n.toLocaleString()), { error: true })).catch(() => undefined);
+      void pwnedCount(pw).then((n) => n > 0 && toast(ctx, t("pwnedFound", n.toLocaleString(UI_LOCALE)), { error: true })).catch(() => undefined);
   };
   const typeChip = (type: number, ic: IconName) =>
     h("button", { type: "button", class: "chip", "aria-pressed": String(d.type === type), onclick: () => {

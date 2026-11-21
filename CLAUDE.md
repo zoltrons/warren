@@ -50,7 +50,7 @@ page.js/content.js --CollectedPageDetails--> background/engine.ts --> crates/aut
 - `src/ui/` — `popup.ts` shell/auth, `settings.ts` settings tab (export/import); vault tab: `vault.ts` (router), `vault-list.ts`, `vault-item.ts`,
   `vault-edit.ts`, `vault-tools.ts` (folders/orgs/report), `vault-shared.ts` (state `st`, helpers); `generator.ts`,
   `send.ts`, `biometric.ts`, `dom.ts` (`h`, `send`, `t`), `icons.ts` (Lucide glyphs), `popup.css` (all theme tokens).
-- `src/_locales/{en,tr}` — en has every string; tr only name/description/disclaimer. `src/icons/` — generated PNGs.
+- `src/_locales/{en,tr}` — both carry every key (`locales.test.ts`); `uiLocale` sets dates and plurals. `src/icons/` — generated PNGs.
 - `brand/` — logo masters, palette, store text. `docs/` — `ARCHITECTURE`, `SECURITY` (numbered invariants),
   `COMPATIBILITY` (server quirks), `UPDATES` (release/self-update), `UPSTREAM_SYNC`, `LICENSING`, `PARITY_REPORT`,
   `VERIFICATION` (adversarial invariant pass, `tools/mutate.mjs`), `AGENT_MAP` (agent guide).

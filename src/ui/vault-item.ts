@@ -6,7 +6,7 @@ import { MAX_QR_BYTES } from "../shared/qr.ts";
 import { passwordLevel } from "../shared/strength.ts";
 import { isInsecureUri, mainPage, toHttps } from "../shared/uri-tools.ts";
 import type { VaultList } from "../shared/messages.ts";
-import { type Child, h, plural, send, t, when } from "./dom.ts";
+import { type Child, h, plural, send, t, UI_LOCALE, when } from "./dom.ts";
 import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { pwnedCount } from "./pwned.ts";
@@ -476,7 +476,7 @@ export async function checkBreach(ctx: Ctx, id: string, password: string) {
   let result: { text: string; bad: boolean };
   try {
     const n = await pwnedCount(password);
-    result = n > 0 ? { text: t("pwnedFound", n.toLocaleString()), bad: true } : { text: t("pwnedClean"), bad: false };
+    result = n > 0 ? { text: t("pwnedFound", n.toLocaleString(UI_LOCALE)), bad: true } : { text: t("pwnedClean"), bad: false };
   } catch {
     result = { text: t("pwnedFailed"), bad: false };
   }

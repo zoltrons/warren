@@ -93,7 +93,7 @@ file over 8 KiB gets a ceiling from its role.
 | Screen motion | `src/ui/motion.ts` (`navMotion`), `render` in `popup.ts` | View transitions; locks never animate (invariant 8b). |
 | Icons | `src/ui/icons.ts` (Lucide glyphs) | |
 | Theme tokens, all CSS | `src/ui/popup.css` | |
-| Strings | `src/_locales/en/messages.json` | `tr` has only name, description and disclaimer. |
+| Strings | `src/_locales/{en,tr}/messages.json` | Every locale has every key with the same placeholders (`src/shared/locales.test.ts`). Service-worker errors use `msg()` (`background/errors.ts`). |
 | Manifest, permissions, CSP | `src/manifest.json` | |
 
 ### Rust (`crates/`)
@@ -183,7 +183,7 @@ Frame requests carry the nonce or token (invariant 4).
 
 **UI change**
 1. Build DOM with `h()` from `src/ui/dom.ts`; text goes in as text (invariant 12).
-2. Strings: add a key to `src/_locales/en/messages.json` and use `t("key")`. Do not add keys to `tr`.
+2. Strings: add the key to `src/_locales/en/messages.json` and `tr/messages.json` (same placeholders) and use `t("key")` in the UI, `msg("key")` in the service worker. `PREVIEW_LOCALE=tr node dev/preview/build.mjs` previews another locale.
 3. Colors: add or reuse a token in `src/ui/popup.css`, in the light block and in **both** dark blocks, then
    `npm run check` (contrast).
 4. Icons: add a Lucide glyph to `src/ui/icons.ts` (ISC; keep the credit in NOTICE).

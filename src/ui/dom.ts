@@ -4,9 +4,10 @@ import { icon } from "./icons.ts";
 
 export const t = (key: string, ...subs: string[]): string => chrome.i18n.getMessage(key, subs) || key;
 
-// The UI strings are English (other locales carry only the store name and description): dates and plurals follow
-// the strings, so a sentence never mixes "Deletes" with "5 Kas 2026".
-const UI_LOCALE = "en";
+// Dates and plurals follow the language the strings came in (`uiLocale` of the messages file the browser picked),
+// not the browser's: a sentence never mixes "Deletes" with "5 Kas 2026".
+export const UI_LOCALE = t("uiLocale") === "uiLocale" ? "en" : t("uiLocale");
+if (typeof document !== "undefined") document.documentElement.lang = UI_LOCALE; // screen readers read it in that language
 const pluralRules = new Intl.PluralRules(UI_LOCALE);
 /** `key` with the count `n` in it, or `key_one` when English says "1 site", not "1 sites". */
 export const plural = (key: string, n: number): string =>

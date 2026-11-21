@@ -2648,5 +2648,9 @@
   },
   "errCannotReachServer": {
     "message": "Cannot reach the server. Check your connection and the server address."
+  },
+  "uiLocale": {
+    "message": "en",
+    "description": "BCP 47 tag of this messages file: dates and plurals follow it."
   }
 }

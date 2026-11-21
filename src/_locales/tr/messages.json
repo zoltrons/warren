@@ -13,5 +13,2643 @@
   },
   "testingNote": {
     "message": "Hâlâ test aşamasında: Warren henüz günlük kullanıma hazır olmayabilir ve yalnızca Vaultwarden'ın en son sürümüyle çalışır. Kasanın bir dışa aktarımını yakında tut."
+  },
+  "errNoReply": {
+    "message": "Eklenti yanıt vermedi. Yeniden dene."
+  },
+  "errStale": {
+    "message": "Bu arada kasa kilitlendi. Yeniden dene."
+  },
+  "showPassword": {
+    "message": "Parolayı göster"
+  },
+  "hidePassword": {
+    "message": "Parolayı gizle"
+  },
+  "masterPassword": {
+    "message": "Ana parola"
+  },
+  "setupSubtitle": {
+    "message": "Vaultwarden sunucuna bağlan"
+  },
+  "serverUrl": {
+    "message": "Sunucu adresi"
+  },
+  "continue": {
+    "message": "Devam"
+  },
+  "cancel": {
+    "message": "İptal"
+  },
+  "back": {
+    "message": "Geri"
+  },
+  "setupHint": {
+    "message": "Warren yalnızca bu tek sunucuya erişim ister"
+  },
+  "busyCheckingServer": {
+    "message": "Sunucu denetleniyor…"
+  },
+  "changeServer": {
+    "message": "Sunucuyu değiştir"
+  },
+  "loginTitle": {
+    "message": "Giriş yap"
+  },
+  "email": {
+    "message": "E-posta"
+  },
+  "logIn": {
+    "message": "Giriş yap"
+  },
+  "busyLoggingIn": {
+    "message": "Giriş yapılıyor…"
+  },
+  "twoFactorTitle": {
+    "message": "İki adımlı giriş"
+  },
+  "twoFactorSubtitle": {
+    "message": "Sen olduğunu doğrula: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "twoFactorMethod": {
+    "message": "Doğrulama yöntemi"
+  },
+  "providerAuthenticator": {
+    "message": "Doğrulayıcı uygulama"
+  },
+  "providerEmail": {
+    "message": "E-posta"
+  },
+  "twoFactorUnsupported": {
+    "message": "Bu hesap yalnızca Warren'ın henüz desteklemediği iki adımlı yöntemler sunuyor."
+  },
+  "busySendingEmail": {
+    "message": "Kod gönderiliyor…"
+  },
+  "sendEmailCode": {
+    "message": "Kodu gönder: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emailSent": {
+    "message": "Kod gönderildi: $P1$.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "verificationCode": {
+    "message": "Doğrulama kodu"
+  },
+  "rememberDevice": {
+    "message": "Bu cihazı hatırla"
+  },
+  "busyVerifying": {
+    "message": "Doğrulanıyor…"
+  },
+  "lockedTitle": {
+    "message": "Kasa kilitli"
+  },
+  "unlock": {
+    "message": "Kilidi aç"
+  },
+  "busyUnlocking": {
+    "message": "Kilit açılıyor…"
+  },
+  "logOut": {
+    "message": "Çıkış yap"
+  },
+  "searchVault": {
+    "message": "Kasada ara"
+  },
+  "vault": {
+    "message": "Kasa"
+  },
+  "settings": {
+    "message": "Ayarlar"
+  },
+  "navigation": {
+    "message": "Gezinme"
+  },
+  "account": {
+    "message": "Hesap"
+  },
+  "loggedIn": {
+    "message": "Giriş yapıldı"
+  },
+  "weakKdf": {
+    "message": "Ana parolan önerilenden zayıf bir anahtar türetmeyle korunuyor. Tahmin saldırılarına karşı daha güçlü koruma için web kasasında (Ayarlar → Güvenlik → Anahtarlar) Argon2id'ye geç (64 MiB ve en az 3 yineleme)."
+  },
+  "serverVersion": {
+    "message": "Sunucu sürümü $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "security": {
+    "message": "Güvenlik"
+  },
+  "autoLock": {
+    "message": "Otomatik kilit"
+  },
+  "autoLockRestart": {
+    "message": "Tarayıcı yeniden başlatılınca"
+  },
+  "minutes": {
+    "message": "$P1$ dk",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hours": {
+    "message": "$P1$ sa",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lockOnSystemLock": {
+    "message": "Bilgisayar kilitlenince kilitle"
+  },
+  "lockNow": {
+    "message": "Şimdi kilitle"
+  },
+  "decryptFailed": {
+    "message": "Bu öğenin şifresi çözülemedi"
+  },
+  "untitled": {
+    "message": "(adsız)"
+  },
+  "favorite": {
+    "message": "Sık kullanılan"
+  },
+  "noMatches": {
+    "message": "Eşleşen öğe yok"
+  },
+  "itemsFound": {
+    "message": "$P1$ öğe",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "itemsFound_one": {
+    "message": "$P1$ öğe",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noMatchesHint": {
+    "message": "Daha az ya da farklı sözcükler dene. Arama username:, url:, folder: ve \"tam ifade\" biçimlerini de anlar."
+  },
+  "vaultEmpty": {
+    "message": "Kasan boş"
+  },
+  "syncNow": {
+    "message": "Şimdi eşitle"
+  },
+  "folders": {
+    "message": "Klasörler"
+  },
+  "allItems": {
+    "message": "Tümü"
+  },
+  "noFolder": {
+    "message": "Klasör yok"
+  },
+  "newItem": {
+    "message": "Yeni öğe"
+  },
+  "editItem": {
+    "message": "Öğeyi düzenle"
+  },
+  "copiedOnly": {
+    "message": "Kopyalandı"
+  },
+  "nothingToCopy": {
+    "message": "Kopyalanacak bir şey yok"
+  },
+  "copiedClears": {
+    "message": "Kopyalandı. $P1$ sonra temizlenecek",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "copyOptions": {
+    "message": "Kopyala: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "moreOptions": {
+    "message": "Diğer seçenekler: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "copyField": {
+    "message": "Kopyala: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "charCount": {
+    "message": "$P1$ karakter",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "charCount_one": {
+    "message": "$P1$ karakter",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "digitCount": {
+    "message": "$P1$ rakam",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "digitCount_one": {
+    "message": "$P1$ rakam",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "symbolCount": {
+    "message": "$P1$ simge",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "symbolCount_one": {
+    "message": "$P1$ simge",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clickToCopy": {
+    "message": "Kopyalamak için tıkla"
+  },
+  "nextCode": {
+    "message": "Sonraki"
+  },
+  "copyNextCode": {
+    "message": "Sonraki kodu kopyala"
+  },
+  "oneTimeCode": {
+    "message": "Tek kullanımlık kod"
+  },
+  "secondsLeft": {
+    "message": "$P1$ saniye kaldı",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "secondsLeft_one": {
+    "message": "$P1$ saniye kaldı",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "movedToTrash": {
+    "message": "Çöp kutusuna taşındı"
+  },
+  "moveToTrash": {
+    "message": "Çöp kutusuna taşı"
+  },
+  "edit": {
+    "message": "Düzenle"
+  },
+  "readOnlyItem": {
+    "message": "Bu öğeyi yalnızca görüntüleyebilirsin."
+  },
+  "passwordHiddenByOrg": {
+    "message": "Kuruluşun bu öğenin parolasını gizliyor. Warren yine de onu doldurabilir."
+  },
+  "websites": {
+    "message": "Web siteleri"
+  },
+  "customFields": {
+    "message": "Özel alanlar"
+  },
+  "notes": {
+    "message": "Notlar"
+  },
+  "details": {
+    "message": "Ayrıntılar"
+  },
+  "folder": {
+    "message": "Klasör"
+  },
+  "username": {
+    "message": "Kullanıcı adı"
+  },
+  "password": {
+    "message": "Parola"
+  },
+  "nameRequired": {
+    "message": "Bir ad gir"
+  },
+  "saved": {
+    "message": "Kaydedildi"
+  },
+  "itemType": {
+    "message": "Öğe türü"
+  },
+  "typeLogin": {
+    "message": "Giriş"
+  },
+  "typeNote": {
+    "message": "Not"
+  },
+  "name": {
+    "message": "Ad"
+  },
+  "usePassword": {
+    "message": "Bu parolayı kullan"
+  },
+  "useUsername": {
+    "message": "Bu kullanıcı adını kullan"
+  },
+  "addAsCustomField": {
+    "message": "Özel alan olarak ekle ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "generateUsername": {
+    "message": "Kullanıcı adı üret"
+  },
+  "generatePassword": {
+    "message": "Parola üret"
+  },
+  "totpInvalid": {
+    "message": "Doğrulayıcı anahtarı geçerli değil"
+  },
+  "totpSecret": {
+    "message": "Doğrulayıcı anahtarı (TOTP)"
+  },
+  "websitesOnePerLine": {
+    "message": "Web siteleri (her satıra bir tane)"
+  },
+  "save": {
+    "message": "Kaydet"
+  },
+  "generator": {
+    "message": "Üretici"
+  },
+  "generatedValue": {
+    "message": "Üretilen değer"
+  },
+  "regenerate": {
+    "message": "Yeniden üret"
+  },
+  "typePassword": {
+    "message": "Parola"
+  },
+  "typePassphrase": {
+    "message": "Parola öbeği"
+  },
+  "length": {
+    "message": "Uzunluk"
+  },
+  "avoidAmbiguous": {
+    "message": "Karışabilen karakterlerden kaçın"
+  },
+  "words": {
+    "message": "Sözcükler"
+  },
+  "separator": {
+    "message": "Ayırıcı"
+  },
+  "separatorCustom": {
+    "message": "Özel"
+  },
+  "sepHyphen": {
+    "message": "Kısa çizgi (-)"
+  },
+  "sepSpace": {
+    "message": "Boşluk"
+  },
+  "sepPeriod": {
+    "message": "Nokta (.)"
+  },
+  "sepComma": {
+    "message": "Virgül (,)"
+  },
+  "sepUnderscore": {
+    "message": "Alt çizgi (_)"
+  },
+  "sepNone": {
+    "message": "Yok"
+  },
+  "capitalize": {
+    "message": "Büyük harfle başlat"
+  },
+  "includeNumber": {
+    "message": "Sayı ekle"
+  },
+  "copyCustomFieldName": {
+    "message": "Özel alan adını kopyala"
+  },
+  "ctxAutofill": {
+    "message": "Warren ile doldur"
+  },
+  "editConflict": {
+    "message": "Bu öğe, sen açtıktan sonra başka bir cihazda değiştirildi. Bu değişikliklerin yerine seninkileri yazmak için yeniden kaydet, onları korumak için iptal et."
+  },
+  "showAllResults": {
+    "message": "$COUNT$ sonucun tümünü göster",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "ctxMore": {
+    "message": "Warren'da $COUNT$ tane daha…",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "cmdAutofill": {
+    "message": "Bu sayfanın girişini doldur"
+  },
+  "cmdLock": {
+    "message": "Warren'ı kilitle"
+  },
+  "onThisSite": {
+    "message": "$P1$ üzerinde",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill": {
+    "message": "Doldur"
+  },
+  "saveFromPage": {
+    "message": "Bu sayfadaki girişi kaydet"
+  },
+  "noLoginOnPage": {
+    "message": "Bu sayfada doldurulmuş bir giriş formu bulunamadı"
+  },
+  "fillAnyway": {
+    "message": "Yine de doldur"
+  },
+  "fillNoMatch": {
+    "message": "Bu giriş $P1$ için kayıtlı değil. Orada doldurmak parolanı yanlış siteye verebilir.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fillFailed": {
+    "message": "Doldurulacak bir giriş formu bulunamadı"
+  },
+  "openSidePanel": {
+    "message": "Yan panelde aç"
+  },
+  "providerDuo": {
+    "message": "Duo"
+  },
+  "duoHint": {
+    "message": "Duo yeni bir sekmede açılır. Girişi orada onayla; sekme kapanır ve Warren girişi tamamlar. Sonra Warren'ı yeniden aç."
+  },
+  "launchDuo": {
+    "message": "Duo'yu başlat"
+  },
+  "providerWebAuthn": {
+    "message": "Güvenlik anahtarı"
+  },
+  "useSecurityKey": {
+    "message": "Güvenlik anahtarını kullan"
+  },
+  "openInTab": {
+    "message": "Yeni sekmede aç"
+  },
+  "send": {
+    "message": "Send"
+  },
+  "newSend": {
+    "message": "Yeni Send"
+  },
+  "noSends": {
+    "message": "Henüz Send yok"
+  },
+  "noSendsHint": {
+    "message": "Bir notu ya da dosyayı süresi dolan bir bağlantıyla paylaş."
+  },
+  "sendPasswordProtected": {
+    "message": "Parola korumalı"
+  },
+  "sendDeleted": {
+    "message": "Send silindi"
+  },
+  "sendDeletes": {
+    "message": "Silinme: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sendDisabled": {
+    "message": "Devre dışı"
+  },
+  "copyLink": {
+    "message": "Bağlantıyı kopyala"
+  },
+  "delete": {
+    "message": "Sil"
+  },
+  "hideEmail": {
+    "message": "E-posta adresimi alıcılardan gizle"
+  },
+  "tapAgainToDelete": {
+    "message": "Silmek için yeniden tıkla"
+  },
+  "chooseFile": {
+    "message": "Bir dosya seç"
+  },
+  "fileTooLarge": {
+    "message": "Dosya çok büyük (en çok 25 MB)"
+  },
+  "sendType": {
+    "message": "Send türü"
+  },
+  "sendText": {
+    "message": "Metin"
+  },
+  "sendFile": {
+    "message": "Dosya"
+  },
+  "hideText": {
+    "message": "Metni varsayılan olarak gizle"
+  },
+  "deleteAfter": {
+    "message": "Şu süre sonra sil"
+  },
+  "days": {
+    "message": "$P1$ gün",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "days_one": {
+    "message": "$P1$ gün",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sendPasswordOptional": {
+    "message": "Parola (isteğe bağlı)"
+  },
+  "maxAccessOptional": {
+    "message": "En çok erişim sayısı (isteğe bağlı)"
+  },
+  "createSendCopyLink": {
+    "message": "Oluştur ve bağlantıyı kopyala"
+  },
+  "passkeyUpgradedTitle": {
+    "message": "Geçiş anahtarı kaydedildi"
+  },
+  "passkeyUpgradedNote": {
+    "message": "Sen giriş yaptıktan sonra $P1$, $P2$ için bir geçiş anahtarı ekledi. Bu girişe kaydedildi.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "passkeySaveTitle": {
+    "message": "Geçiş anahtarını kaydet"
+  },
+  "passkeySignInTitle": {
+    "message": "Geçiş anahtarıyla giriş yap"
+  },
+  "passkeySaveFor": {
+    "message": "$P2$ üzerinde $P1$ için bir geçiş anahtarı kaydedilsin mi?",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "passkeySave": {
+    "message": "Geçiş anahtarını kaydet"
+  },
+  "passkeySaveNew": {
+    "message": "Yeni giriş olarak kaydet"
+  },
+  "passkeySaveTo": {
+    "message": "Ya da var olan bir girişe ekle:"
+  },
+  "passkeyHasOne": {
+    "message": "$P1$, zaten bir geçiş anahtarı var",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyReplaceTitle": {
+    "message": "Geçiş anahtarını değiştir"
+  },
+  "passkeyReplaceConfirm": {
+    "message": "$P1$ zaten bir geçiş anahtarına sahip. Yenisiyle değiştirilsin mi? Eskisi Warren'dan kaldırılır ve artık seni giriş yaptıramaz.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyReplace": {
+    "message": "Geçiş anahtarını değiştir"
+  },
+  "passkeyNone": {
+    "message": "Kasanda bu site için geçiş anahtarı yok"
+  },
+  "passkeyNoneFor": {
+    "message": "Warren'da $P1$ için geçiş anahtarı yok. Başka bir uygulamaya kaydettiysen onu kullan.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyNotAsked": {
+    "message": "Warren'da $P1$ için bir geçiş anahtarı var, ama site başka birini istedi: Warren'daki anahtarı artık tanımıyor ya da hesap farklı.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkeyUseBrowser": {
+    "message": "Başka bir cihaz ya da tarayıcı kullan"
+  },
+  "logInSso": {
+    "message": "SSO ile giriş yap"
+  },
+  "busyOpeningSso": {
+    "message": "Kimlik sağlayıcın açılıyor…"
+  },
+  "ssoHint": {
+    "message": "SSO seni giriş yaptırır; kasanın kilidini yine ana parolanla açarsın."
+  },
+  "createAccount": {
+    "message": "Hesap oluştur"
+  },
+  "inlineGenerate": {
+    "message": "Güçlü bir parola kullan"
+  },
+  "inlineGenerateSub": {
+    "message": "Yeni parola ve onay alanlarını doldurur"
+  },
+  "inlineMenuOpened": {
+    "message": "Warren önerileri var. Birini seçmek için aşağı oka bas."
+  },
+  "unlockToFill": {
+    "message": "Doldurmak için kilidi aç"
+  },
+  "generatorType": {
+    "message": "Tür"
+  },
+  "managePasswords": {
+    "message": "Parolaları yönet…"
+  },
+  "close": {
+    "message": "Kapat"
+  },
+  "barWhichLogin": {
+    "message": "Giriş"
+  },
+  "barLockedTitle": {
+    "message": "Bu girişi kaydetmek için Warren'ın kilidi açılsın mı?"
+  },
+  "barSaveTitle": {
+    "message": "Bu giriş Warren'a kaydedilsin mi?"
+  },
+  "barUpdateTitle": {
+    "message": "Kayıtlı parola güncellensin mi?"
+  },
+  "barNever": {
+    "message": "Bu sitede asla"
+  },
+  "barUpdate": {
+    "message": "Güncelle"
+  },
+  "autofill": {
+    "message": "Otomatik doldurma"
+  },
+  "inlineMenu": {
+    "message": "Alanlarda otomatik doldurma menüsü"
+  },
+  "inlineMenuHint": {
+    "message": "Giriş, kart ve kimlik alanlarının altında eşleşen öğeleri göster"
+  },
+  "savePrompt": {
+    "message": "Girişleri kaydetmeyi öner"
+  },
+  "savePromptHint": {
+    "message": "Yeni girişleri kaydetmeyi ve değişen parolaları güncellemeyi sor"
+  },
+  "neverSaveSites": {
+    "message": "$P1$ sitede asla kaydetme",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "neverSaveSites_one": {
+    "message": "$P1$ sitede asla kaydetme",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clear": {
+    "message": "Temizle"
+  },
+  "defaultManager": {
+    "message": "Varsayılan parola yöneticisi olarak kullan"
+  },
+  "defaultManagerHint": {
+    "message": "Tarayıcının kendi parola kaydetmesini ve adres/kart otomatik doldurmasını kapatır"
+  },
+  "typeCard": {
+    "message": "Kart"
+  },
+  "birthDate": {
+    "message": "Doğum tarihi"
+  },
+  "age": {
+    "message": "Yaş"
+  },
+  "ageYears": {
+    "message": "$P1$ yaşında",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "ageYears_one": {
+    "message": "$P1$ yaşında",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "anyCountry": {
+    "message": "Herhangi bir ülke"
+  },
+  "minAge": {
+    "message": "En küçük yaş"
+  },
+  "maxAge": {
+    "message": "En büyük yaş"
+  },
+  "createIdentityWithThis": {
+    "message": "Bununla bir kimlik oluştur"
+  },
+  "typeIdentity": {
+    "message": "Kimlik"
+  },
+  "typeCards": {
+    "message": "Kartlar"
+  },
+  "typeIdentities": {
+    "message": "Kimlikler"
+  },
+  "typeSshKey": {
+    "message": "SSH anahtarı"
+  },
+  "field_username": {
+    "message": "Kullanıcı adı"
+  },
+  "field_password": {
+    "message": "Parola"
+  },
+  "field_totp": {
+    "message": "Doğrulayıcı anahtarı (TOTP)"
+  },
+  "field_cardholderName": {
+    "message": "Kart sahibinin adı"
+  },
+  "field_brand": {
+    "message": "Marka"
+  },
+  "field_number": {
+    "message": "Numara"
+  },
+  "field_expMonth": {
+    "message": "Son kullanma ayı"
+  },
+  "field_expYear": {
+    "message": "Son kullanma yılı"
+  },
+  "field_code": {
+    "message": "Güvenlik kodu"
+  },
+  "field_title": {
+    "message": "Unvan"
+  },
+  "field_firstName": {
+    "message": "Ad"
+  },
+  "field_middleName": {
+    "message": "İkinci ad"
+  },
+  "field_lastName": {
+    "message": "Soyadı"
+  },
+  "field_company": {
+    "message": "Şirket"
+  },
+  "field_email": {
+    "message": "E-posta"
+  },
+  "field_phone": {
+    "message": "Telefon"
+  },
+  "field_ssn": {
+    "message": "Kimlik numarası"
+  },
+  "field_passportNumber": {
+    "message": "Pasaport numarası"
+  },
+  "field_licenseNumber": {
+    "message": "Ehliyet numarası"
+  },
+  "field_address1": {
+    "message": "Adres 1"
+  },
+  "field_address2": {
+    "message": "Adres 2"
+  },
+  "field_address3": {
+    "message": "Adres 3"
+  },
+  "field_city": {
+    "message": "İlçe / Şehir"
+  },
+  "field_state": {
+    "message": "İl / Eyalet"
+  },
+  "field_postalCode": {
+    "message": "Posta kodu"
+  },
+  "field_country": {
+    "message": "Ülke"
+  },
+  "field_privateKey": {
+    "message": "Özel anahtar"
+  },
+  "field_publicKey": {
+    "message": "Açık anahtar"
+  },
+  "field_keyFingerprint": {
+    "message": "Parmak izi"
+  },
+  "strengthWeak": {
+    "message": "Zayıf"
+  },
+  "strengthFair": {
+    "message": "Orta"
+  },
+  "strengthStrong": {
+    "message": "Güçlü"
+  },
+  "strengthVeryStrong": {
+    "message": "Çok güçlü"
+  },
+  "unfavorite": {
+    "message": "Sık kullanılanlardan çıkar"
+  },
+  "inTrash": {
+    "message": "Bu öğe çöp kutusunda"
+  },
+  "passwordChanged": {
+    "message": "Parola en son $P1$ tarihinde değişti",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "passkey": {
+    "message": "Geçiş anahtarı"
+  },
+  "passkeyCreated": {
+    "message": "Oluşturulma: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "yes": {
+    "message": "Evet"
+  },
+  "no": {
+    "message": "Hayır"
+  },
+  "passwordHistory": {
+    "message": "Parola geçmişi"
+  },
+  "showPasswordHistory": {
+    "message": "Önceki $P1$ parolayı göster",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "showPasswordHistory_one": {
+    "message": "Önceki $P1$ parolayı göster",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lastEdited": {
+    "message": "Son düzenleme"
+  },
+  "restore": {
+    "message": "Geri yükle"
+  },
+  "undo": {
+    "message": "Geri al"
+  },
+  "restored": {
+    "message": "Geri yüklendi"
+  },
+  "clone": {
+    "message": "Kopyasını oluştur"
+  },
+  "copySuffix": {
+    "message": "(kopya)"
+  },
+  "confirmPurge": {
+    "message": "Kalıcı olarak silmek için yeniden tıkla"
+  },
+  "confirmLogOut": {
+    "message": "Çıkış yapmak için yeniden tıkla"
+  },
+  "deleteForever": {
+    "message": "Kalıcı olarak sil"
+  },
+  "deleted": {
+    "message": "Silindi"
+  },
+  "fieldName": {
+    "message": "Sayfadaki alan"
+  },
+  "fieldValue": {
+    "message": "Doldurulacak değer"
+  },
+  "fieldText": {
+    "message": "Metin"
+  },
+  "fieldHidden": {
+    "message": "Gizli"
+  },
+  "fieldLinked": {
+    "message": "Bağlı"
+  },
+  "field_fullName": {
+    "message": "Tam ad"
+  },
+  "fieldBoolean": {
+    "message": "Onay kutusu"
+  },
+  "removeField": {
+    "message": "Alanı kaldır"
+  },
+  "fieldLinkedTo": {
+    "message": "Bu öğenin şu alanından gelir"
+  },
+  "fieldChecked": {
+    "message": "Kutuyu işaretle"
+  },
+  "fieldKind": {
+    "message": "Tür"
+  },
+  "fieldHintEmpty": {
+    "message": "Bunun sayfada hangi alanı doldurduğunu belirt: adını yaz ya da Sayfadan seç'i kullan"
+  },
+  "fieldHintText": {
+    "message": "“$P1$” alanını bu metinle doldurur",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintHidden": {
+    "message": "“$P1$” alanını bu metinle doldurur, ekranda gizli tutar",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintChecked": {
+    "message": "Sayfada “$P1$” kutusunu işaretler",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintUnchecked": {
+    "message": "Sayfada “$P1$” kutusunun işaretini kaldırır",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "fieldHintLinked": {
+    "message": "“$P1$” alanını bu öğenin $P2$ değeriyle doldurur ve o değişince onu izler",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "pickField": {
+    "message": "Sayfadan seç"
+  },
+  "pickFieldBanner": {
+    "message": "Warren: eklenecek alana tıkla. Esc iptal eder."
+  },
+  "pickFieldNoPage": {
+    "message": "Önce web sitesini aç: bu sekmede seçilecek alan yok."
+  },
+  "addField": {
+    "message": "Alan ekle"
+  },
+  "folderName": {
+    "message": "Klasör adı"
+  },
+  "rename": {
+    "message": "Yeniden adlandır"
+  },
+  "deleteFolder": {
+    "message": "Klasörü sil"
+  },
+  "newFolder": {
+    "message": "Yeni klasör"
+  },
+  "add": {
+    "message": "Ekle"
+  },
+  "filters": {
+    "message": "Filtreler"
+  },
+  "trashCount": {
+    "message": "Çöp kutusu ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "theme": {
+    "message": "Tema"
+  },
+  "extensionWidth": {
+    "message": "Eklenti genişliği"
+  },
+  "width_default": {
+    "message": "Varsayılan"
+  },
+  "width_wide": {
+    "message": "Geniş"
+  },
+  "width_extraWide": {
+    "message": "Çok geniş"
+  },
+  "compactMode": {
+    "message": "Sıkışık görünüm"
+  },
+  "showAnimations": {
+    "message": "Animasyonları göster"
+  },
+  "badgeCounter": {
+    "message": "Eşleşme sayısını araç çubuğu simgesinde göster"
+  },
+  "badgeCounterHint": {
+    "message": "Açık sayfaya uyan kayıtlı giriş sayısı."
+  },
+  "theme_system": {
+    "message": "Sistem"
+  },
+  "theme_light": {
+    "message": "Açık"
+  },
+  "theme_dark": {
+    "message": "Koyu"
+  },
+  "theme_black": {
+    "message": "Tam siyah"
+  },
+  "timeoutAction": {
+    "message": "Zaman aşımı eylemi"
+  },
+  "lock": {
+    "message": "Kilitle"
+  },
+  "providerYubiKey": {
+    "message": "YubiKey"
+  },
+  "yubiKeyHint": {
+    "message": "YubiKey'ine dokun (kodu o yazar)"
+  },
+  "favicons": {
+    "message": "Web sitesi simgelerini göster"
+  },
+  "faviconsHint": {
+    "message": "Sunucun ve yönlendirdiği simge hizmeti, kasandaki her web sitesinin adresini görür"
+  },
+  "autoCopyTotp": {
+    "message": "Doldurduktan sonra tek kullanımlık kodu kopyala"
+  },
+  "autoCopyTotpHint": {
+    "message": "TOTP anahtarı olan girişler için"
+  },
+  "editSend": {
+    "message": "Send'i düzenle"
+  },
+  "disableSend": {
+    "message": "Bu Send'i devre dışı bırak"
+  },
+  "newPasswordOptional": {
+    "message": "Yeni parola (isteğe bağlı)"
+  },
+  "usernameType": {
+    "message": "Kullanıcı adı türü"
+  },
+  "usernameWord": {
+    "message": "Rastgele sözcük"
+  },
+  "usernamePlus": {
+    "message": "Artı adresli e-posta"
+  },
+  "usernameCatchAll": {
+    "message": "Tümünü yakalayan e-posta"
+  },
+  "domain": {
+    "message": "Alan adı"
+  },
+  "generatorHistory": {
+    "message": "Üretici geçmişi"
+  },
+  "generatorHistoryEmpty": {
+    "message": "Kopyalanan değerler burada görünür"
+  },
+  "pin": {
+    "message": "PIN"
+  },
+  "unlockWithPin": {
+    "message": "PIN ile kilidi aç"
+  },
+  "unlockWithPinHint": {
+    "message": "Ana parola yerine kısa bir PIN ile kilidi aç"
+  },
+  "pinLockOnRestart": {
+    "message": "Tarayıcı yeniden başlayınca ana parolayı sor"
+  },
+  "pinLockOnRestartHint": {
+    "message": "Önerilir. Kapalıyken yeniden başlatmadan sonra kasayı tek başına PIN açar ve tarayıcı profilini kopyalayan herkes biri tutana dek PIN deneyebilir; bu yüzden PIN en az 8 karakter olmalı ve rakam olmayan bir karakter içermeli."
+  },
+  "setPin": {
+    "message": "PIN belirle"
+  },
+  "useMasterPassword": {
+    "message": "Ana parolayı kullan"
+  },
+  "usePin": {
+    "message": "PIN kullan"
+  },
+  "attachments": {
+    "message": "Ekler"
+  },
+  "download": {
+    "message": "İndir"
+  },
+  "addAttachment": {
+    "message": "Ek ekle"
+  },
+  "organization": {
+    "message": "Kuruluş"
+  },
+  "collections": {
+    "message": "Koleksiyonlar"
+  },
+  "owner": {
+    "message": "Sahip"
+  },
+  "ownerMe": {
+    "message": "Ben (kişisel kasa)"
+  },
+  "pickCollection": {
+    "message": "En az bir koleksiyon seç"
+  },
+  "moveToOrg": {
+    "message": "Kuruluşa taşı"
+  },
+  "moveToOrgHint": {
+    "message": "Öğe artık kuruluşa ait olur: bu koleksiyonlara erişimi olan üyeler onu görebilir ve sen onu geri taşıyamazsın."
+  },
+  "editCollections": {
+    "message": "Koleksiyonlar"
+  },
+  "collectionsReadOnly": {
+    "message": "Ayrıca değiştiremeyeceğin $P1$ koleksiyonda da var.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "exportVault": {
+    "message": "Kasayı dışa aktar"
+  },
+  "exportHint": {
+    "message": "Bitwarden JSON ya da CSV, veya dosya parolasıyla korunan JSON"
+  },
+  "exportFormat": {
+    "message": "Dosya biçimi"
+  },
+  "exportFormat_json": {
+    "message": "JSON"
+  },
+  "exportFormat_encrypted": {
+    "message": "JSON (parola korumalı)"
+  },
+  "exportFormat_csv": {
+    "message": "CSV"
+  },
+  "exportEncryptedHint": {
+    "message": "Onu yalnızca bu dosya parolası açar: her Bitwarden uygulaması içe aktarabilir."
+  },
+  "exportCsvHint": {
+    "message": "Yalnızca girişler ve güvenli notlar, şifresiz: dosyayı güvende tut."
+  },
+  "filePassword": {
+    "message": "Dosya parolası"
+  },
+  "exportConfirm": {
+    "message": "Dışa aktar"
+  },
+  "importVault": {
+    "message": "Öğeleri içe aktar"
+  },
+  "importConfirm": {
+    "message": "İçe aktar"
+  },
+  "importHint": {
+    "message": "Bitwarden JSON'dan (parola korumalı da olur) ya da Bitwarden, Chrome, Firefox, Edge, Brave, LastPass, 1Password, Keeper, KeePassXC, Proton Pass, NordPass veya RoboForm CSV dışa aktarımından"
+  },
+  "imported": {
+    "message": "$P1$ öğe içe aktarıldı.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "importSkipped": {
+    "message": "Desteklenmeyen $P1$ öğe atlandı.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "favorites": {
+    "message": "Sık kullanılanlar"
+  },
+  "sort": {
+    "message": "Sırala"
+  },
+  "sortNameAsc": {
+    "message": "Ad (A–Z)"
+  },
+  "sortNameDesc": {
+    "message": "Ad (Z–A)"
+  },
+  "sortUpdated": {
+    "message": "Son düzenlenenler"
+  },
+  "sortCreated": {
+    "message": "Son oluşturulanlar"
+  },
+  "clearSearch": {
+    "message": "Aramayı temizle"
+  },
+  "openWebsite": {
+    "message": "Web sitesini aç"
+  },
+  "fillThisSite": {
+    "message": "Bu siteyi doldur"
+  },
+  "copyUserNameShort": {
+    "message": "Kullanıcıyı kopyala"
+  },
+  "passwordStrength": {
+    "message": "Parola gücü"
+  },
+  "itemActions": {
+    "message": "Öğe eylemleri"
+  },
+  "unsavedChanges": {
+    "message": "Kaydedilmemiş değişiklikler var. Korumak için kaydet."
+  },
+  "discard": {
+    "message": "Vazgeç"
+  },
+  "discardChanges": {
+    "message": "Değişikliklerden vazgeç"
+  },
+  "keepEditing": {
+    "message": "Düzenlemeye devam et"
+  },
+  "selectFolder": {
+    "message": "Klasör"
+  },
+  "noFolderHint": {
+    "message": "Klasör yok"
+  },
+  "itemTypeHint": {
+    "message": "Bir tür seç"
+  },
+  "searchHint": {
+    "message": "Adlarda, kullanıcı adlarında ve web sitelerinde ara. \"Tırnak\", -hariç ya da title: username: domain: url: folder: type: is: kullan. Buraya gelmek için / tuşuna bas. Listedeki bir girişte Ctrl+C (⌘C) parolayı, Shift ile kullanıcı adını, Alt ile kodu kopyalar."
+  },
+  "searchShortcutHint": {
+    "message": "Buraya gelmek için / tuşuna bas"
+  },
+  "showItem": {
+    "message": "Aç: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "moreActions": {
+    "message": "Diğer eylemler"
+  },
+  "dismiss": {
+    "message": "Kapat"
+  },
+  "trashEmpty": {
+    "message": "Çöp kutusu boş"
+  },
+  "trashEmptyHint": {
+    "message": "Çöp kutusuna taşıdığın öğeler, geri yükleyene ya da kalıcı olarak silene dek burada bekler."
+  },
+  "vaultEmptyHint": {
+    "message": "İlk girişini ekle ya da öğelerini başka bir parola yöneticisinden getir."
+  },
+  "searchSettings": {
+    "message": "Ayarlarda ara"
+  },
+  "noMatchingSettings": {
+    "message": "Aramana uyan ayar yok"
+  },
+  "appearance": {
+    "message": "Görünüm"
+  },
+  "favoritesEmpty": {
+    "message": "Henüz sık kullanılan yok. Burada tutmak için bir öğeye yıldız ver."
+  },
+  "clearFilters": {
+    "message": "Filtreleri temizle"
+  },
+  "copiedShort": {
+    "message": "Kopyalandı"
+  },
+  "sidebarTheme": {
+    "message": "Görünüm"
+  },
+  "about": {
+    "message": "Hakkında"
+  },
+  "sectionAll": {
+    "message": "Tüm öğeler"
+  },
+  "syncHint": {
+    "message": "Son eşitleme $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "loading": {
+    "message": "Yükleniyor…"
+  },
+  "strengthShort": {
+    "message": "Güç"
+  },
+  "uriMatchBaseDomain": {
+    "message": "Ana alan adı (önerilir)"
+  },
+  "uriMatchHost": {
+    "message": "Ana makine"
+  },
+  "uriMatchExact": {
+    "message": "Tam"
+  },
+  "uriMatchNever": {
+    "message": "Asla"
+  },
+  "uriMatchAdvanced": {
+    "message": "Gelişmiş"
+  },
+  "uriMatchStartsWith": {
+    "message": "Şununla başlar"
+  },
+  "uriMatchRegex": {
+    "message": "Düzenli ifade"
+  },
+  "uriMatchHint": {
+    "message": "Kayıtlı web sitesinin sayfa adresiyle nasıl eşleştirileceği"
+  },
+  "uriMatchStartsWithHint": {
+    "message": "\"Şununla başlar\" istenmeyen sitelerle eşleşebilir. Kayıtlı adresi denetle."
+  },
+  "uriMatchRegExHint": {
+    "message": "Düzenli ifadeler güçlüdür ve istenmeyen sitelerle eşleşebilir. İfadeyi denetle."
+  },
+  "uriMatchDefaultHint": {
+    "message": "Varsayılan olarak ayarlanmış kayıtlı web sitelerine uygulanır"
+  },
+  "uriMatchDefaultAdvancedHint": {
+    "message": "Gelişmiş bir varsayılan, Varsayılan olarak ayarlanmış her kayıtlı web sitesine uygulanır. Dikkatle denetle."
+  },
+  "uriLabel": {
+    "message": "Web sitesi $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "matchDetection": {
+    "message": "Eşleşme algılama"
+  },
+  "addWebsite": {
+    "message": "Web sitesi ekle"
+  },
+  "removeWebsite": {
+    "message": "Web sitesini kaldır"
+  },
+  "autosubmit": {
+    "message": "Doldurduktan sonra gönder"
+  },
+  "autosubmitHint": {
+    "message": "Bir girişi doldurur doldurmaz giriş yap. Sayfa açılınca otomatik doldurmada kullanılmaz. Form sen görmeden gönderilir, bu yüzden tanıdığın sitelerde kullan."
+  },
+  "autofillOnPageLoad": {
+    "message": "Sayfa açılınca otomatik doldur"
+  },
+  "autofillOnPageLoadHint": {
+    "message": "Sayfa açılır açılmaz girişi doldurur. Deneysel: yüklendikten sonra formunu yeniden kuran bir sayfa yanlış yere doldurulabilir."
+  },
+  "autofillOnPageLoadDefault": {
+    "message": "Sayfa açılınca otomatik doldurma varsayılanı"
+  },
+  "autofillOnPageLoadDefaultHint": {
+    "message": "Kendi ayarı Varsayılan olan girişler için kullanılır"
+  },
+  "on": {
+    "message": "Açık"
+  },
+  "off": {
+    "message": "Kapalı"
+  },
+  "defaultLabelWithValue": {
+    "message": "Varsayılan ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "inlineMenuCards": {
+    "message": "Kartları ekle"
+  },
+  "inlineMenuIdentities": {
+    "message": "Kimlikleri ekle"
+  },
+  "showCardsOnTab": {
+    "message": "Açılır pencerede bu sayfa için kart öner"
+  },
+  "showIdentitiesOnTab": {
+    "message": "Açılır pencerede bu sayfa için kimlik öner"
+  },
+  "quickActionMenus": {
+    "message": "Sıkışık satır eylemleri"
+  },
+  "quickActionMenusHint": {
+    "message": "Her eylem için bir düğme yerine her kasa satırında bir kopyalama menüsü ve bir diğer menüsü"
+  },
+  "clearClipboard": {
+    "message": "Panoyu temizle"
+  },
+  "clearClipboardDesc": {
+    "message": "Kopyalanan değerlerin panoda ne kadar kalacağı"
+  },
+  "never": {
+    "message": "Asla"
+  },
+  "thirtySeconds": {
+    "message": "30 saniye"
+  },
+  "oneMinute": {
+    "message": "1 dakika"
+  },
+  "twoMinutes": {
+    "message": "2 dakika"
+  },
+  "fiveMinutes": {
+    "message": "5 dakika"
+  },
+  "defaultUriMatchDetection": {
+    "message": "Varsayılan URI eşleşme algılama"
+  },
+  "syncComplete": {
+    "message": "Eşitleme tamamlandı"
+  },
+  "syncing": {
+    "message": "Eşitleniyor…"
+  },
+  "lastSync": {
+    "message": "Son eşitleme: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "helpCenter": {
+    "message": "Yardım merkezi"
+  },
+  "webVault": {
+    "message": "Web kasası"
+  },
+  "removePassword": {
+    "message": "Parolayı kaldır"
+  },
+  "removeSendPasswordHint": {
+    "message": "Bağlantı aynı kalır ve ona sahip olan herkes Send'i açabilir"
+  },
+  "additionalOptions": {
+    "message": "Pano ve web sitesi eşleştirme"
+  },
+  "uriMatchBaseDomainShort": {
+    "message": "Ana alan adı"
+  },
+  "enableContextMenu": {
+    "message": "Sağ tık menüsü girdisini göster"
+  },
+  "addNeverSave": {
+    "message": "Asla kaydetme"
+  },
+  "blockedSites": {
+    "message": "Engellenen web siteleri"
+  },
+  "blockedSitesHint": {
+    "message": "Bu sitelerde ve alt alan adlarında satır içi menü, sayfa açılınca doldurma ya da geçiş anahtarı istemi yok. Liste şifreli kasada saklanır, bu yüzden kasa açıkken geçerlidir."
+  },
+  "hideOnSite": {
+    "message": "Bu sitede gösterme (Ayarlar → Engellenen web siteleri'nden geri al)"
+  },
+  "blockSite": {
+    "message": "Engelle"
+  },
+  "unblockSite": {
+    "message": "Engeli kaldır: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "removeNeverSave": {
+    "message": "$P1$ için yeniden kaydetmeyi öner",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "biometricUnlock": {
+    "message": "Biyometrik kilit açma"
+  },
+  "biometricUnlockHint": {
+    "message": "Bu cihazın Touch ID, Windows Hello ya da ekran kilidini kullan. Tarayıcının bu girişi bir anahtara dönüştürebildiği yerlerde çalışır; bu cihaz yapamıyorsa Warren söyler."
+  },
+  "unlockWithBiometrics": {
+    "message": "Biyometrikle kilidi aç"
+  },
+  "biometricEnabled": {
+    "message": "Biyometrik kilit açma açık"
+  },
+  "biometricRemoved": {
+    "message": "Biyometrik kilit açma kapalı"
+  },
+  "biometricUnavailable": {
+    "message": "Biyometrik kilit açma bu cihazda kullanılamıyor."
+  },
+  "biometricCancelled": {
+    "message": "Biyometrik doğrulama iptal edildi."
+  },
+  "biometricAlreadySetUp": {
+    "message": "Bu cihazda Warren için zaten bir biyometrik kimlik bilgisi var."
+  },
+  "biometricPrfUnsupported": {
+    "message": "Bu doğrulayıcı anahtar türetemiyor (WebAuthn PRF desteği yok), bu yüzden biyometrik kilit açma kullanılamıyor. Ana parolayı ya da PIN'i kullan."
+  },
+  "busyBiometric": {
+    "message": "Biyometrik doğrulama bekleniyor…"
+  },
+  "openInTabHint": {
+    "message": "Biyometrik istemler bu açılır pencereyi kapatabilir; bir sekme açık kalır"
+  },
+  "repromptTitle": {
+    "message": "Ana parola gerekli"
+  },
+  "repromptHint": {
+    "message": "Bu öğe için ana parolanın sorulması işaretlenmiş"
+  },
+  "repromptConfirm": {
+    "message": "Onayla"
+  },
+  "include": {
+    "message": "Dahil et"
+  },
+  "minimums": {
+    "message": "Her karakter türünden en az"
+  },
+  "increase": {
+    "message": "Artır: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "decrease": {
+    "message": "Azalt: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "minDigits": {
+    "message": "En az rakam"
+  },
+  "minSymbols": {
+    "message": "En az simge"
+  },
+  "wordlist": {
+    "message": "Sözcük listesi"
+  },
+  "wordlistCustom": {
+    "message": "Özel liste ($P1$ sözcük)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "wordlistDefault": {
+    "message": "EFF uzun listesi"
+  },
+  "wordlistReset": {
+    "message": "Varsayılan listeyi kullan"
+  },
+  "wordlistImport": {
+    "message": "İçe aktar"
+  },
+  "wordlistTooShort": {
+    "message": "Listede her satıra bir tane olmak üzere en az 100 sözcük olmalı."
+  },
+  "typePin": {
+    "message": "PIN"
+  },
+  "usernameSubdomain": {
+    "message": "Alt alan adlı e-posta"
+  },
+  "suggestions": {
+    "message": "Öneriler"
+  },
+  "createLoginWithPassword": {
+    "message": "Bu değerle bir giriş oluştur"
+  },
+  "createLoginWithUsername": {
+    "message": "Bu kullanıcı adıyla bir giriş oluştur"
+  },
+  "largeType": {
+    "message": "Büyük yazı"
+  },
+  "shareAsSend": {
+    "message": "Send olarak paylaş"
+  },
+  "checkBreaches": {
+    "message": "Veri sızıntılarında ara"
+  },
+  "checking": {
+    "message": "Denetleniyor…"
+  },
+  "pwnedFound": {
+    "message": "Bilinen $P1$ veri sızıntısında bulundu. Bu parolayı değiştir.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "pwnedClean": {
+    "message": "Bilinen veri sızıntılarında bulunmadı"
+  },
+  "pwnedFailed": {
+    "message": "Sızıntı hizmetine ulaşılamadı. Daha sonra yeniden dene."
+  },
+  "memoryTest": {
+    "message": "Bu parolayı yazma alıştırması"
+  },
+  "memoryHint": {
+    "message": "Parolayı ezberden yaz. Bu cihazda kayıtlı olanla karşılaştırılır."
+  },
+  "check": {
+    "message": "Denetle"
+  },
+  "memoryMatch": {
+    "message": "Parola eşleşiyor"
+  },
+  "memoryMismatch": {
+    "message": "Parola eşleşmiyor"
+  },
+  "expiry": {
+    "message": "Son kullanma"
+  },
+  "copyMonth": {
+    "message": "Ayı kopyala"
+  },
+  "copyYear": {
+    "message": "Yılı kopyala"
+  },
+  "expired": {
+    "message": "Süresi doldu"
+  },
+  "expiringSoon": {
+    "message": "Süresi yakında doluyor"
+  },
+  "sendEmail": {
+    "message": "E-posta gönder"
+  },
+  "callPhone": {
+    "message": "Ara"
+  },
+  "textPhone": {
+    "message": "Mesaj gönder"
+  },
+  "showOnMap": {
+    "message": "Haritada göster"
+  },
+  "openMainPage": {
+    "message": "Ana sayfayı aç"
+  },
+  "changePasswordPage": {
+    "message": "Bu sitede parolayı değiştir"
+  },
+  "switchToHttps": {
+    "message": "https'ye geç"
+  },
+  "insecureUri": {
+    "message": "Güvenli değil (http)"
+  },
+  "reusedNotice": {
+    "message": "Bu parolayı $P1$ öğe kullanıyor.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "reusedNotice_one": {
+    "message": "Bu parolayı $P1$ öğe kullanıyor.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "showReused": {
+    "message": "Göster"
+  },
+  "filterReused": {
+    "message": "Yeniden kullanılan"
+  },
+  "filterWeak": {
+    "message": "Zayıf"
+  },
+  "copyAuthKey": {
+    "message": "Doğrulayıcı anahtarını kopyala"
+  },
+  "formatNotes": {
+    "message": "Biçimlendir"
+  },
+  "showQr": {
+    "message": "QR kod olarak göster"
+  },
+  "qrCode": {
+    "message": "QR kod"
+  },
+  "showAuthQr": {
+    "message": "Doğrulayıcı QR kodunu göster"
+  },
+  "authQrNote": {
+    "message": "Anahtarı kopyalamak için bunu başka bir doğrulayıcı uygulamayla tara"
+  },
+  "invalidCardNumber": {
+    "message": "Bu numara kart sağlama denetiminden geçmiyor. Yazım hatası olup olmadığına bak."
+  },
+  "scanQrImage": {
+    "message": "Anahtarı bir QR görüntüsünden oku"
+  },
+  "qrNotFound": {
+    "message": "Bu görüntüde QR kod bulunamadı."
+  },
+  "qrNotAuthenticator": {
+    "message": "Bu QR kod bir doğrulayıcı anahtarı değil."
+  },
+  "moveUp": {
+    "message": "Yukarı taşı"
+  },
+  "moveDown": {
+    "message": "Aşağı taşı"
+  },
+  "previewNotes": {
+    "message": "Önizleme"
+  },
+  "repromptToggle": {
+    "message": "Ana parolayı sor"
+  },
+  "repromptToggleHint": {
+    "message": "Bu öğe gösterilmeden, kopyalanmadan ya da doldurulmadan önce"
+  },
+  "sortOpened": {
+    "message": "En çok açılanlar"
+  },
+  "recentlyOpened": {
+    "message": "Son açılanlar"
+  },
+  "showRecent": {
+    "message": "Son açılanları göster"
+  },
+  "showRecentHint": {
+    "message": "Son açtığın öğeler, kasa listesinin en üstünde. Yalnızca bu cihazda tutulur."
+  },
+  "recentCleared": {
+    "message": "Son açılan öğeler temizlendi"
+  },
+  "minUppercase": {
+    "message": "En az büyük harf"
+  },
+  "minLowercase": {
+    "message": "En az küçük harf"
+  },
+  "forwardedEmailShort": {
+    "message": "Takma ad"
+  },
+  "aliasService": {
+    "message": "Hizmet"
+  },
+  "aliasServiceHint": {
+    "message": "Oradaki hesabın"
+  },
+  "aliasApiKey": {
+    "message": "API anahtarı"
+  },
+  "aliasApiKeyHint": {
+    "message": "Kasa anahtarınla şifrelenerek saklanır"
+  },
+  "aliasDomain": {
+    "message": "E-posta alan adı"
+  },
+  "aliasDomainHint": {
+    "message": "Hesabında doğrulanmış"
+  },
+  "aliasBaseUrl": {
+    "message": "Kendi barındırdığın sunucunun adresi"
+  },
+  "aliasBaseUrlHint": {
+    "message": "Herkese açık API için boş bırak"
+  },
+  "aliasWebsitePrefix": {
+    "message": "Web sitesi öneki ekle"
+  },
+  "aliasWebsitePrefixHint": {
+    "message": "Yeni adresin önüne web sitesinin alan adını koy"
+  },
+  "aliasGetToken": {
+    "message": "$P1$ için bir API anahtarı al",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasNotConfigured": {
+    "message": "Takma ad oluşturmak için API anahtarını ekle"
+  },
+  "createLoginWithEmail": {
+    "message": "Bu e-postayla bir giriş oluştur"
+  },
+  "generateEmail": {
+    "message": "E-posta üret"
+  },
+  "aliasGeneratedBy": {
+    "message": "Warren tarafından üretildi."
+  },
+  "aliasGeneratedByWithWebsite": {
+    "message": "Web sitesi: $P1$. Warren tarafından üretildi.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasUnreachable": {
+    "message": "$P1$ hizmetine ulaşılamıyor",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasInvalidToken": {
+    "message": "$P1$ API anahtarını kabul etmedi",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasRefused": {
+    "message": "$P1$ isteği reddetti: $P2$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "aliasHttpError": {
+    "message": "$P1$ hatası: $P2$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "aliasNoToken": {
+    "message": "Önce $P1$ API anahtarını gir",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasNoDomain": {
+    "message": "Önce $P1$ e-posta alan adını gir",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasNoAccount": {
+    "message": "Bu $P1$ hesabında maskeli e-posta hesabı yok",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aliasBadResponse": {
+    "message": "$P1$ bir e-posta adresi döndürmedi",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logInWithDevice": {
+    "message": "Cihazla giriş yap"
+  },
+  "busyRequesting": {
+    "message": "Giriş isteği gönderiliyor…"
+  },
+  "deviceLoginHint": {
+    "message": "İsteği $P1$ hesabının açık olduğu başka bir cihazda onayla ve şu ifadeyi gösterdiğini denetle:",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "deviceLoginWaiting": {
+    "message": "Onay bekleniyor…"
+  },
+  "fingerprintPhrase": {
+    "message": "Parmak izi ifadesi"
+  },
+  "loginRequestTitle": {
+    "message": "Giriş isteği"
+  },
+  "loginRequestNote": {
+    "message": "Bir cihaz $P1$ olarak giriş yapmaya çalışıyor. Onaylamak ya da reddetmek için Warren'ı aç.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "loginRequestQuestion": {
+    "message": "$P1$ olarak giriş yapmaya çalışan sen misin? Yalnızca diğer cihaz aynı ifadeyi gösteriyorsa onayla.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "loginRequestDevice": {
+    "message": "Cihaz türü"
+  },
+  "loginRequestIp": {
+    "message": "IP adresi"
+  },
+  "loginRequestTime": {
+    "message": "Saat"
+  },
+  "confirmLogin": {
+    "message": "Girişi onayla"
+  },
+  "denyLogin": {
+    "message": "Girişi reddet"
+  },
+  "fillNamed": {
+    "message": "Doldur: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "copyLinkNamed": {
+    "message": "Bağlantıyı kopyala: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "deleteNamed": {
+    "message": "Sil: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "showFolderItems": {
+    "message": "$P1$ içindeki öğeleri göster",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadNamed": {
+    "message": "İndir: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "archiveCount": {
+    "message": "Arşiv ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "archive": {
+    "message": "Arşivle"
+  },
+  "unarchive": {
+    "message": "Arşivden çıkar"
+  },
+  "archived": {
+    "message": "Arşivlendi"
+  },
+  "unarchived": {
+    "message": "Kasaya geri taşındı"
+  },
+  "inArchive": {
+    "message": "Bu öğe arşivlendi. Listede, aramada ve otomatik doldurmada gizlenir."
+  },
+  "archiveEmpty": {
+    "message": "Arşivde bir şey yok"
+  },
+  "archiveEmptyHint": {
+    "message": "Seyrek kullandığın öğeleri arşivle. Kasanda kalırlar ama listeden, aramadan ve otomatik doldurmadan çıkarlar."
+  },
+  "securityReport": {
+    "message": "Güvenlik raporu"
+  },
+  "reportReused": {
+    "message": "Yeniden kullanılan parolalar"
+  },
+  "reportWeak": {
+    "message": "Zayıf parolalar"
+  },
+  "reportInsecure": {
+    "message": "https olmayan siteler"
+  },
+  "reportExposed": {
+    "message": "Sızıntılarda bulunan parolalar"
+  },
+  "reportCheckExposed": {
+    "message": "Sızmış parolaları ara"
+  },
+  "reportChecking": {
+    "message": "$P1$ / $P2$ denetleniyor…",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "reportExposedNote": {
+    "message": "Tek bir girişteki denetimde olduğu gibi, her parolanın SHA-1 özetinin yalnızca ilk 5 karakteri cihazından çıkar."
+  },
+  "reportClean": {
+    "message": "Burada düzeltilecek bir şey yok"
+  },
+  "reportCleanHint": {
+    "message": "Girişlerinde yeniden kullanılan ya da zayıf parola ve https olmayan site yok."
+  },
+  "reportExposedNone": {
+    "message": "Parolalarının hiçbiri bilinen sızıntılarda bulunmadı."
+  },
+  "reportFailed": {
+    "message": "Sızıntı hizmetine ulaşılamadı. Daha sonra yeniden dene."
+  },
+  "field_bankName": {
+    "message": "Banka adı"
+  },
+  "field_nameOnAccount": {
+    "message": "Hesap sahibinin adı"
+  },
+  "field_accountType": {
+    "message": "Hesap türü"
+  },
+  "field_accountNumber": {
+    "message": "Hesap numarası"
+  },
+  "field_routingNumber": {
+    "message": "Banka kodu"
+  },
+  "field_branchNumber": {
+    "message": "Şube numarası"
+  },
+  "field_pin": {
+    "message": "PIN"
+  },
+  "field_swiftCode": {
+    "message": "SWIFT kodu"
+  },
+  "field_iban": {
+    "message": "IBAN"
+  },
+  "field_bankContactPhone": {
+    "message": "Banka telefonu"
+  },
+  "field_dateOfBirth": {
+    "message": "Doğum tarihi"
+  },
+  "field_issuingCountry": {
+    "message": "Veren ülke"
+  },
+  "field_issuingState": {
+    "message": "Veren il / eyalet"
+  },
+  "field_issueDate": {
+    "message": "Veriliş tarihi"
+  },
+  "field_expirationDate": {
+    "message": "Son geçerlilik tarihi"
+  },
+  "field_issuingAuthority": {
+    "message": "Veren makam"
+  },
+  "field_licenseClass": {
+    "message": "Ehliyet sınıfı"
+  },
+  "field_surname": {
+    "message": "Soyadı"
+  },
+  "field_givenName": {
+    "message": "Adı"
+  },
+  "field_sex": {
+    "message": "Cinsiyet"
+  },
+  "field_birthPlace": {
+    "message": "Doğum yeri"
+  },
+  "field_nationality": {
+    "message": "Uyruk"
+  },
+  "field_passportType": {
+    "message": "Pasaport türü"
+  },
+  "field_nationalIdentificationNumber": {
+    "message": "Kimlik numarası"
+  },
+  "typeBankAccount": {
+    "message": "Banka hesabı"
+  },
+  "typeDriversLicense": {
+    "message": "Sürücü belgesi"
+  },
+  "typePassport": {
+    "message": "Pasaport"
+  },
+  "breachOnSave": {
+    "message": "Kaydederken yeni parolaları sızıntılarda ara"
+  },
+  "breachOnSaveHint": {
+    "message": "Have I Been Pwned'e parolanın SHA-1 özetinin yalnızca ilk 5 karakterini gönderir. Varsayılan olarak kapalı."
+  },
+  "defaultAskTitle": {
+    "message": "Bu tarayıcıda parolaları Warren yönetsin"
+  },
+  "defaultAskBody": {
+    "message": "Sana iki yönetici birden önerilmesin diye tarayıcının kendi parola kaydetmesini kapat."
+  },
+  "defaultAskOpen": {
+    "message": "Ayarı aç"
+  },
+  "defaultAskLater": {
+    "message": "Şimdi değil"
+  },
+  "attentionNever": {
+    "message": "Bir daha gösterme"
+  },
+  "attentionBanner": {
+    "message": "Zayıf ve yeniden kullanılan parola uyarısı"
+  },
+  "attentionBannerHint": {
+    "message": "Girişlerin ilgi gerektirdiğinde kasa listesinde görünür. Güvenlik raporu kendi düğmesinin altında kalır."
+  },
+  "reportCheckEmails": {
+    "message": "E-posta adreslerini sunucun üzerinden ara"
+  },
+  "reportEmailsNote": {
+    "message": "Her adresi Have I Been Pwned'e kendi sunucun sorar; yalnızca sunucu yöneticisi bir HIBP API anahtarı ayarladıysa çalışır."
+  },
+  "reportEmailsUnconfigured": {
+    "message": "Sunucunda HIBP API anahtarı yok, bu yüzden adresleri denetleyemiyor."
+  },
+  "reportEmailsNone": {
+    "message": "Giriş e-posta adreslerinin hiçbiri bilinen sızıntılarda bulunmadı."
+  },
+  "reportEmailsFound": {
+    "message": "Sızıntılarda bulunan e-posta adresleri"
+  },
+  "reportEmailsStopped": {
+    "message": "Her adres denetlenmedi: sunucu yarı yolda yanıt vermeyi bıraktı (HIBP istekleri sınırlar) ya da 40'tan fazla adres vardı. Aşağıdaki liste denetlenenlerdir."
+  },
+  "attentionTitle": {
+    "message": "İlgi gerektiren girişler ($P1$)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "attentionBody": {
+    "message": "Parolaları yeniden kullanılmış ya da zayıf."
+  },
+  "attentionReview": {
+    "message": "İncele"
+  },
+  "reportNoTotp": {
+    "message": "İki adımlı kod sunulan ama kurulmamış siteler"
+  },
+  "inlineAlias": {
+    "message": "Yeni e-posta takma adı"
+  },
+  "errNoServerConfigured": {
+    "message": "Sunucu ayarlanmamış"
+  },
+  "errTheServerAsksForA": {
+    "message": "Sunucu, bu hesabın daha önce kullandığından çok daha zayıf bir anahtar türetme istiyor. Ana parolan gönderilmedi. KDF'yi web kasasında sen değiştirmediysen sunucu ele geçirilmiş olabilir."
+  },
+  "errTheVaultWasLockedMeanwhile": {
+    "message": "Bu arada kasa kilitlendi, lütfen yeniden dene"
+  },
+  "errServerDidNotReturnAn": {
+    "message": "Sunucu şifreli bir kullanıcı anahtarı döndürmedi"
+  },
+  "errEmailAndMasterPasswordAre": {
+    "message": "E-posta ve ana parola gerekli"
+  },
+  "errNoLoginInProgress": {
+    "message": "Süren bir giriş yok"
+  },
+  "errTheLoginAttemptExpiredPlease": {
+    "message": "Giriş denemesinin süresi doldu, lütfen yeniden giriş yap"
+  },
+  "errProviderNotOfferedByServer": {
+    "message": "Bu yöntem sunucu tarafından sunulmuyor"
+  },
+  "errEnterTheVerificationCode": {
+    "message": "Doğrulama kodunu gir"
+  },
+  "errTheServerSentADuo": {
+    "message": "Sunucu Duo'ya ait olmayan bir Duo adresi gönderdi"
+  },
+  "errDuoTwoStepLoginIs": {
+    "message": "Bu hesapta Duo ile iki adımlı giriş açık değil"
+  },
+  "errEmailTwoStepLoginIs": {
+    "message": "Bu hesapta e-postayla iki adımlı giriş açık değil"
+  },
+  "errNotLoggedIn": {
+    "message": "Giriş yapılmamış"
+  },
+  "errWrongMasterPassword": {
+    "message": "Ana parola yanlış"
+  },
+  "errEnterYourEmailAddress": {
+    "message": "E-posta adresini gir"
+  },
+  "errLogInWithDeviceWorks": {
+    "message": "Cihazla giriş, bu tarayıcı hesaba bir kez ana parolayla giriş yaptıktan sonra çalışır"
+  },
+  "errNoLoginRequestInProgress": {
+    "message": "Süren bir giriş isteği yok"
+  },
+  "errTheLoginRequestExpiredPlease": {
+    "message": "Giriş isteğinin süresi doldu, lütfen yeniden dene"
+  },
+  "errTheLoginRequestWasDenied": {
+    "message": "Giriş isteği reddedildi"
+  },
+  "errApproveTheRequestFromAn": {
+    "message": "İsteği güncel bir uygulamadan onayla"
+  },
+  "errPleaseLogInAgain": {
+    "message": "Lütfen yeniden giriş yap"
+  },
+  "errTheRequestChangedOnThe": {
+    "message": "İstek sunucuda değişti; hiçbir şey onaylanmadı"
+  },
+  "errTheBiometricCredentialIsIncomplete": {
+    "message": "Biyometrik kimlik bilgisi eksik"
+  },
+  "errBiometricUnlockIsNotSet": {
+    "message": "Biyometrik kilit açma kurulmamış"
+  },
+  "errBiometricVerificationFailedUnlockWith": {
+    "message": "Biyometrik doğrulama başarısız. Ana parolanla kilidi aç ve yeniden kur."
+  },
+  "errUnlockWithTheMasterPassword": {
+    "message": "Ana parolayla kilidi aç"
+  },
+  "errTooManyWrongPinsYou": {
+    "message": "Çok fazla yanlış PIN, oturumun kapatıldı"
+  },
+  "errWrongPin": {
+    "message": "PIN yanlış"
+  },
+  "errUnlockToConnectToThe": {
+    "message": "Sunucuya bağlanmak için kilidi aç"
+  },
+  "errYourSessionExpiredPleaseLog": {
+    "message": "Oturumunun süresi doldu, lütfen yeniden giriş yap"
+  },
+  "errSsoIsNotEnabledOn": {
+    "message": "Bu sunucuda SSO açık değil"
+  },
+  "errTheSsoLoginExpiredOr": {
+    "message": "SSO girişinin süresi doldu ya da bu tarayıcıdan gelmedi, lütfen yeniden dene"
+  },
+  "errTheIdentityProviderDidNot": {
+    "message": "Kimlik sağlayıcı seni giriş yaptırmadı"
+  },
+  "errTwoStepLoginTogetherWith": {
+    "message": "SSO ile birlikte iki adımlı giriş henüz desteklenmiyor"
+  },
+  "errTheServerDidNotReturn": {
+    "message": "Sunucu hesabın e-posta adresini döndürmedi"
+  },
+  "errThisAccountHasNoMaster": {
+    "message": "Bu hesabın henüz ana parolası yok; önce web kasasında bir tane belirle"
+  },
+  "errThisPageCannotBeFilled": {
+    "message": "Bu sayfa doldurulamaz"
+  },
+  "errThePageChangedCheckThe": {
+    "message": "Sayfa değişti. Siteyi denetle ve yeniden dene."
+  },
+  "errThisAddressRedirectsElsewhereEnter": {
+    "message": "Bu adres başka bir yere yönlendiriyor. Sunucunun vardığı adresi gir (https:// ve yolu denetle)."
+  },
+  "errThisDoesNotLookLike": {
+    "message": "Bu bir Vaultwarden sunucusuna benzemiyor"
+  },
+  "errEnterAWebsiteSuchAs": {
+    "message": "example.com gibi bir web sitesi gir"
+  },
+  "errPickTheLoginToUpdate": {
+    "message": "Güncellenecek girişi seç"
+  },
+  "errTheAccountChangedMeanwhilePlease": {
+    "message": "Bu arada hesap değişti, lütfen yeniden dene"
+  },
+  "errThisPasskeyRequestIsNo": {
+    "message": "Bu geçiş anahtarı isteği artık etkin değil"
+  },
+  "errChooseOneOfThePasskeys": {
+    "message": "Bu sitenin geçiş anahtarlarından birini seç"
+  },
+  "errTheSiteCancelledThePasskey": {
+    "message": "Site geçiş anahtarı isteğini iptal etti"
+  },
+  "errChooseOneOfTheLogins": {
+    "message": "Bu sitenin girişlerinden birini seç"
+  },
+  "errThisLoginAlreadyHasA": {
+    "message": "Bu girişin zaten bir geçiş anahtarı var: değiştirmeyi onayla"
+  },
+  "errTheVaultIsLocked": {
+    "message": "Kasa kilitli"
+  },
+  "errThisItemWasChangedOn": {
+    "message": "Bu öğe, sen açtıktan sonra başka bir cihazda değiştirildi."
+  },
+  "errEnterAFilePassword": {
+    "message": "Bir dosya parolası gir"
+  },
+  "errNothingToImport": {
+    "message": "İçe aktarılacak bir şey yok"
+  },
+  "errTheFileIsTooLarge": {
+    "message": "Dosya çok büyük (en çok 25 MB)"
+  },
+  "errKdfTooWeak": {
+    "message": "Bu hesabın anahtar türetmesi ($p1$) çok zayıf: Warren, PBKDF2 $p2$ yinelemeden ya da Argon2id $p3$ MiB x $p4$ değerinden zayıf yapılmış bir ana parola özetini göndermez. Web kasasında yükselt (Ayarlar → Güvenlik → Anahtarlar, Argon2id önerilir) ve yeniden giriş yap.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      },
+      "p4": {
+        "content": "$4"
+      }
+    }
+  },
+  "errAccountKeyDecrypt": {
+    "message": "Hesap anahtarının şifresi çözülemedi: $p1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errInvalidVerificationCode": {
+    "message": "Doğrulama kodu geçersiz"
+  },
+  "errKdfTooWeakToConfirm": {
+    "message": "Bu hesabın anahtar türetmesi ($p1$), ana parolayı sunucuyla doğrulamak için çok zayıf. Web kasasında yükselt (Ayarlar → Güvenlik → Anahtarlar) ve yeniden giriş yap.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errPinOnlyWeak": {
+    "message": "Yeniden başlatmadan sonra ana parola sorulmayacaksa PIN en az $p1$ karakter olmalı ve rakam olmayan bir karakter içermeli",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errReprompt": {
+    "message": "Bu öğeyi kullanmak için Warren'da ana parolanı gir"
+  },
+  "errCannotReachServer": {
+    "message": "Sunucuya ulaşılamıyor. Bağlantını ve sunucu adresini denetle."
+  },
+  "uiLocale": {
+    "message": "tr"
   }
 }

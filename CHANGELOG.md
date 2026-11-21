@@ -12,6 +12,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- Turkish: the whole interface, error messages included, follows the browser's language, and dates follow it too.
 - Warren can run in private (incognito) windows: turn on "Allow in Incognito" on the extension's details page.
   Private windows use the same vault and the same lock as the normal ones; it stays off until you allow it.
 
