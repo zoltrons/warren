@@ -54,6 +54,26 @@ on 2026-10-29, unless marked otherwise.
   `access_token, expires_in, refresh_token, scope, token_type`.
 * JWT `sub` is the user id (needed for `encryptedFor`, below).
 
+## Transport: TLS, HTTP version, compression (read from the 1.37.5 source)
+
+The extension does not pick any of these, and cannot: its `fetch` and `WebSocket` go through Chromium's network
+stack, which negotiates them with whatever answers at the server address (usually the reverse proxy).
+
+* **TLS**: Chromium offers TLS 1.3 first, 1.2 as fallback (1.0 and 1.1 are gone). An extension can pin neither a
+  version nor a certificate; a TLS 1.3-only proxy is the server-side way to require it.
+* **HTTP/2 and HTTP/3 (QUIC)**: Vaultwarden builds Rocket without its `http2` feature, so on its own it speaks
+  HTTP/1.1. Behind a proxy, HTTP/2 comes from ALPN and HTTP/3 once the proxy advertises it (`Alt-Svc: h3=":443"`),
+  after which Chromium races QUIC against TCP (Caddy does both by default). The hub WebSocket uses HTTP/1.1, or
+  HTTP/2 where the proxy enables extended CONNECT (RFC 8441).
+* **Compression**: Chromium sends `Accept-Encoding` itself (`gzip, deflate, br, zstd` over https; `fetch` cannot
+  change it). Vaultwarden compresses nothing it serves (its `brotli`/`gzip`/`zstd` features are for its own outgoing
+  `reqwest` calls), so `/api/sync`, the largest answer, arrives uncompressed unless the proxy compresses it (Caddy
+  `encode zstd gzip`, nginx `gzip on; gzip_types application/json;`). Request bodies stay uncompressed: Vaultwarden
+  does not decode a `Content-Encoding` on a request.
+* Every request: `credentials: "omit"`, `cache: "no-store"`, `redirect: "error"`, `referrerPolicy: "no-referrer"`
+  (`src/transport/http.ts`). It gives up once nothing has arrived for 30 s (`STALL_MS`), not after a fixed total
+  time, so a large sync on a slow link completes.
+
 ## Sync
 
 * `GET /api/sync?excludeDomains=true` → camelCase: `ciphers, collections, domains, folders, object,
