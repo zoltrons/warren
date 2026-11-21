@@ -31,19 +31,20 @@ Edit only the two masters (variants swap the icon's `<style>` palette), then run
 
 ### Inks
 
-Six muted hues for content, after the Kanagawa idea (one family of low-chroma inks over quiet ground): a password's
+Six hues for content, Kanagawa's idea (one family of inks over quiet ground) blended half and half in OKLab with
+Catppuccin's pastels (Latte for light, Mocha for dark), then lightened or darkened only as far as contrast needs: a password's
 digits and symbols, status (success, warning, critical, attention) and monogram tiles. The chrome keeps the one
 accent above. Each ink is tuned per theme to 4.5:1 on every surface (`tools/check-contrast.mjs`). Still no orange:
 straw takes its place.
 
 | Ink | Light | Dark | Used for |
 |---|---|---|---|
-| Rose | `#B23A48` | `#E0908A` | password symbols, critical |
-| Sage | `#4A7337` | `#98BB8C` | success, strong passwords |
-| Dusk | `#3B6591` | `#93B4CC` | password digits |
-| Wisteria | `#6B4F94` | `#B4A6D6` | attention |
-| Tide | `#2F7470` | `#8FBDB6` | tiles |
-| Straw | `#80650E` | `#D9C48F` | warning |
+| Rose | `#C22C41` | `#E98E99` | password symbols, critical |
+| Sage | `#387A23` | `#9FCF96` | success, strong passwords |
+| Dusk | `#2D68C3` | `#8EB4E3` | password digits |
+| Wisteria | `#7949C1` | `#C0A6E6` | attention |
+| Tide | `#157778` | `#92CFC5` | tiles |
+| Straw | `#925F00` | `#E9D39F` | warning |
 
 Text on a pink fill is night cherry (5.8:1). White text only on raspberry (6.1:1). Snow on pink (3.0:1) is for
 large or decorative marks only; night cherry and raspberry are never paired. `tools/check-contrast.mjs` checks

@@ -19,7 +19,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
-- A wider, calmer palette: six muted inks (rose, sage, dusk, wisteria, tide, straw), tuned per theme. Status colors,
+- A wider palette: six inks (rose, sage, dusk, wisteria, tide, straw), Kanagawa's restraint blended with Catppuccin's
+  pastels and tuned per theme. Status colors,
   monogram tiles and passwords now draw from it instead of saturated one-off hues.
 - A shown password is easier to read: digits are blue and symbols rose, so look-alikes such as O/0, l/1 and S/$ part
   by hue as well as shape. The generator's line under the value names its digits and symbols in the same colors.
