@@ -59,7 +59,8 @@ Rendered from the popup with a stubbed worker (`node dev/preview/build.mjs && no
 **Autofill and passkeys**
 - Fill from the popup, `Ctrl+Shift+L` (`⌘⇧L` on macOS), the context menu or an inline menu on the field; optional
   page-load fill, TOTP code copied after a fill, and autosubmit that never presses a destructive button.
-  `Ctrl+Shift+Y` (`⌘⇧Y`) opens Warren; "Lock Warren" can be given a shortcut in the browser's settings.
+  `Ctrl+Shift+Y` (`⌘⇧Y`) opens Warren; "Lock Warren" can be given a shortcut in the browser's settings. On a login
+  in the list, `Ctrl+C` (`⌘C`) copies its password, `Ctrl+Shift+C` the username and `Ctrl+Alt+C` the code.
 - The inline menu also works inside modal dialogs, closed shadow roots and a checkout's one-field iframes (a card
   pick fills every frame of the payment form), and offers a strong generated password and a new e-mail alias on
   registration forms.

@@ -1393,7 +1393,7 @@
     "message": "Pick a type"
   },
   "searchHint": {
-    "message": "Search names, usernames and websites. Use \"quotes\", -exclude, or title: username: domain: url: folder: type: is:. Press / to jump here."
+    "message": "Search names, usernames and websites. Use \"quotes\", -exclude, or title: username: domain: url: folder: type: is:. Press / to jump here. On a login in the list, Ctrl+C (⌘C) copies the password, with Shift the username, with Alt the code."
   },
   "searchShortcutHint": {
     "message": "Press / to jump here"

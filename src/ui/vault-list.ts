@@ -178,6 +178,24 @@ export function rowActions(ctx: Ctx, i: VaultItem): Child[] {
   return [copyBtn, moreBtn];
 }
 
+/**
+ * Copy from a focused login row without opening it: Ctrl/Cmd+C the password, +Shift the username, +Alt the code.
+ * e.code, as Alt changes e.key on a Mac. Secrets still go through the worker's re-prompt check (copyOf, copyTotp).
+ */
+function copyKeys(ctx: Ctx, i: VaultItem): Record<string, unknown> {
+  if (i.failed || i.type !== 1) return {};
+  return {
+    "aria-keyshortcuts": "Control+C Meta+C Control+Shift+C Meta+Shift+C Control+Alt+C Meta+Alt+C",
+    onkeydown: (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.code !== "KeyC" || (e.shiftKey && e.altKey)) return;
+      e.preventDefault();
+      if (e.altKey) return void (i.hasTotp ? copyTotp(ctx, i.id) : toast(ctx, t("nothingToCopy")));
+      if (e.shiftKey) return void (i.sub ? copy(ctx, i.sub) : toast(ctx, t("nothingToCopy")));
+      void copyOf(ctx, i.id, (item) => str(obj(item.login)?.password));
+    },
+  };
+}
+
 /** The status marks after a row's name (code, weak or reused, favorite), the same in every list section. */
 export function rowMarks(i: VaultItem): Child[] {
   return [
@@ -207,6 +225,7 @@ export function itemRow(ctx: Ctx, i: VaultItem): HTMLElement {
         "data-item": i.id,
         "aria-label": rowLabel(i, name),
         onclick: () => open(ctx, { kind: "item", id: i.id }),
+        ...copyKeys(ctx, i),
       },
       tile(i.name, i.type, i.uris, i.brand),
       h(
@@ -642,7 +661,7 @@ export function suggestionRow(ctx: Ctx, i: VaultItem): HTMLElement {
     { class: "row", role: "listitem" },
     h(
       "button",
-      { type: "button", class: "row-main", "data-item": i.id, "aria-label": rowLabel(i, name), onclick: () => open(ctx, { kind: "item", id: i.id }) },
+      { type: "button", class: "row-main", "data-item": i.id, "aria-label": rowLabel(i, name), onclick: () => open(ctx, { kind: "item", id: i.id }), ...copyKeys(ctx, i) },
       tile(i.name, i.type, i.uris, i.brand),
       h("div", { class: "body" }, h("span", { class: "title" }, name), i.sub ? h("span", { class: "sub" }, i.sub) : null),
       ...rowMarks(i),
