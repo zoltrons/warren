@@ -6,6 +6,7 @@
 // UI, so every path that returns secrets is covered (view, copy, fill, TOTP, attachments).
 import type { VaultItem } from "../shared/messages.ts";
 import { ci } from "../shared/validate.ts";
+import { msg } from "./errors.ts";
 
 /** Bitwarden CipherRepromptType.Password. (None = 0.) */
 const REPROMPT_PASSWORD = 1;
@@ -15,7 +16,7 @@ const GRANT_MS = 5 * 60_000;
 /** cipher id -> epoch ms the confirmation expires. In memory on purpose. */
 const grants = new Map<string, number>();
 
-export const REPROMPT_MESSAGE = "Enter your master password in Warren to use this item";
+export const REPROMPT_MESSAGE = msg("errReprompt");
 
 /**
  * True when the item (decrypted or a list summary) is flagged for a re-prompt. Case-insensitive like the

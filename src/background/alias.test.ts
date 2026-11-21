@@ -1,13 +1,14 @@
 import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const local: Record<string, unknown> = {};
 const enc = (s: string) => `2.${Buffer.from(s).toString("base64")}`;
 const dec = (s: string) => (s.startsWith("2.") ? Buffer.from(s.slice(2), "base64").toString() : "");
 const noop = async () => undefined;
 (globalThis as { chrome?: unknown }).chrome = {
-  i18n: { getMessage: () => "" },
+  i18n,
   alarms: { create: noop, clear: noop },
   offscreen: { hasDocument: async () => true },
   runtime: {

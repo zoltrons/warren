@@ -5,6 +5,7 @@ import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const session: Record<string, unknown> = {};
 const area = (data: Record<string, unknown>) => ({
@@ -24,7 +25,7 @@ const noop = async () => undefined;
 (globalThis as { chrome?: unknown }).chrome = {
   storage: { session: area(session), local: area({}) },
   alarms: { create: noop, clear: noop },
-  i18n: { getMessage: () => "" },
+  i18n,
   action: { openPopup: noop },
   tabs: { query: async () => [{ id: 1, url: "https://a.test/" }], sendMessage: noop },
   offscreen: {

@@ -17,6 +17,7 @@ import {
   type VaultItem,
 } from "../shared/messages.ts";
 import { UserError } from "./account.ts";
+import { msg } from "./errors.ts";
 import { ApiError } from "../transport/http.ts";
 import { coreCall } from "./core.ts";
 import { assertEpoch, lockEpoch } from "./lock.ts";
@@ -352,7 +353,7 @@ export function onWindowRemoved(windowId: number): void {
 
 function get(id: string): Pending {
   const p = pending.get(id);
-  if (!p) throw new UserError("sessionExpired", "This passkey request is no longer active");
+  if (!p) throw new UserError("sessionExpired", msg("errThisPasskeyRequestIsNo"));
   return p;
 }
 
@@ -393,7 +394,7 @@ export async function conditionalReady(tabId: number, frameId: number): Promise<
  */
 export async function openConditional(tabId: number, frameId: number): Promise<void> {
   const p = conditionalFor(tabId, frameId);
-  if (!p) throw new UserError("sessionExpired", "This passkey request is no longer active");
+  if (!p) throw new UserError("sessionExpired", msg("errThisPasskeyRequestIsNo"));
   if (p.call.kind === "get") {
     await requireUnlocked();
     const found = await candidates(p, p.call.options.allow);
@@ -439,14 +440,14 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
   try {
     if (p.call.kind === "get") {
       const c = (await candidates(p, p.call.options.allow)).find((x) => x.itemId === itemId && x.credentialId === credentialId);
-      if (!c) throw new UserError("invalid", "Choose one of the passkeys for this site");
+      if (!c) throw new UserError("invalid", msg("errChooseOneOfThePasskeys"));
       // The window has no password prompt: a flagged item must be confirmed in the popup first (the grant is per item).
       if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: c.itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
       const { cipher, ...credential } = await coreCall<Record<string, unknown>>({ op: "passkeyAssert", itemId: c.itemId, credentialId: c.credentialId, rpId: p.rpId, origin: p.origin, challenge: p.call.options.challenge, uv: true, ...(p.topOrigin ? { topOrigin: p.topOrigin } : {}) });
       // An imported passkey's raised sign counter (offscreen/vault.ts passkeyAssert) is saved before the site gets it.
       if (cipher)
         await putCipher(cipher as Record<string, unknown>, () => {
-          if (pending.get(id) !== p) throw new UserError("sessionExpired", "The site cancelled the passkey request");
+          if (pending.get(id) !== p) throw new UserError("sessionExpired", msg("errTheSiteCancelledThePasskey"));
           assertEpoch(epoch);
         });
       p.done({ credential });
@@ -457,9 +458,9 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       // Joining an existing login: only one offered for this site, and a flagged one is confirmed in the popup first.
       if (itemId) {
         const target = (await joinable(p)).find((c) => c.itemId === itemId);
-        if (!target) throw new UserError("invalid", "Choose one of the logins for this site");
+        if (!target) throw new UserError("invalid", msg("errChooseOneOfTheLogins"));
         // Never overwrite a passkey the window did not ask the user about.
-        if (target.replaces && !replace) throw new UserError("invalid", "This login already has a passkey: confirm replacing it");
+        if (target.replaces && !replace) throw new UserError("invalid", msg("errThisLoginAlreadyHasA"));
         if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: itemId }))) throw new UserError("reprompt", REPROMPT_MESSAGE);
       }
       // The worker returns the item already encrypted: the new private key never passes through here.
@@ -471,7 +472,7 @@ export async function passkeyDecision(id: string, action: "use" | "fallback", it
       // The page aborted (or the vault locked) before the save went out: the site never gets this credential, so it
       // must not replace one. Checked right before the request, after every await on the way.
       const saved = await putCipher(r.cipher, () => {
-        if (pending.get(id) !== p) throw new UserError("sessionExpired", "The site cancelled the passkey request");
+        if (pending.get(id) !== p) throw new UserError("sessionExpired", msg("errTheSiteCancelledThePasskey"));
         assertEpoch(epoch);
       }).catch(async (e: unknown) => {
         // No answer (or a gateway's): the server may have taken the replacement all the same, and the site gets none.

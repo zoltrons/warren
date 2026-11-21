@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const local: Record<string, unknown> = {};
 const tick = () => new Promise((r) => setTimeout(r));
@@ -7,6 +8,7 @@ const tick = () => new Promise((r) => setTimeout(r));
 const enc = (s: string) => `2.${Buffer.from(s).toString("base64")}`;
 const dec = (s: string) => (s.startsWith("2.") ? Buffer.from(s.slice(2), "base64").toString() : "");
 (globalThis as { chrome?: unknown }).chrome = {
+  i18n,
   offscreen: { hasDocument: async () => true },
   runtime: {
     sendMessage: async ({ req }: { req: { op: string; values: string[] } }) => {

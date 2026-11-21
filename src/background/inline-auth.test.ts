@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseFrameRequest, parsePageRequest } from "../shared/messages.ts";
+import { i18n } from "./i18n-stub.test.ts";
 
 const session: Record<string, unknown> = {};
 const local: Record<string, unknown> = { account: { email: "a@b.test" } };
@@ -22,6 +23,7 @@ let offscreen = false;
 let matched: ((items: unknown[]) => void) | undefined;
 const tabMessages: string[] = [];
 (globalThis as { chrome?: unknown }).chrome = {
+  i18n,
   storage: { session: area(session), local: area(local) },
   alarms: { create: noop, clear: noop },
   offscreen: {

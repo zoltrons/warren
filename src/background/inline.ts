@@ -6,7 +6,7 @@ import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest,
 import { httpUrl } from "../shared/url.ts";
 import { type PasswordConstraints, ruleOptions } from "../shared/password-rules.ts";
 import { coreCall } from "./core.ts";
-import { UserError } from "./errors.ts";
+import { UserError, msg } from "./errors.ts";
 import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadline } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill, rememberLockedFill } from "./autofill.ts";
@@ -305,7 +305,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
       if (p.kind === "update") {
         // One of the logins this prompt offered, never an id the bar makes up.
         const choice = p.itemId ? { id: p.itemId, revisionDate: p.revisionDate } : p.choices?.find((c) => c.id === req.itemId);
-        if (!choice) throw new UserError("invalid", "Pick the login to update");
+        if (!choice) throw new UserError("invalid", msg("errPickTheLoginToUpdate"));
         // flagged after the prompt was queued
         if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: choice.id }))) throw new Error(REPROMPT_MESSAGE);
         // Against the revision the prompt was made for: an older prompt never undoes a newer password.

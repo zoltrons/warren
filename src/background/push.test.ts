@@ -1,9 +1,11 @@
 // The hub socket notices a silently dead link (pings that stop coming back) and asks to reconnect.
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const noop = async () => undefined;
-(globalThis as { chrome?: unknown }).chrome = { alarms: { create: noop, clear: noop } };
+(globalThis as { chrome?: unknown }).chrome = {
+  i18n, alarms: { create: noop, clear: noop } };
 
 class FakeSocket {
   static readonly OPEN = 1;

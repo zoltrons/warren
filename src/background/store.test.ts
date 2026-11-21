@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const session: Record<string, unknown> = {};
 const local: Record<string, unknown> = {};
@@ -17,7 +18,8 @@ const area = (data: Record<string, unknown>) => ({
     for (const k of keys) delete data[k];
   },
 });
-(globalThis as { chrome?: unknown }).chrome = { storage: { session: area(session), local: area(local) } };
+(globalThis as { chrome?: unknown }).chrome = {
+  i18n, storage: { session: area(session), local: area(local) } };
 
 const { clearPendingSaves, getSettings, updateSession } = await import("./store.ts");
 

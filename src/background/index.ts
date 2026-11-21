@@ -33,6 +33,7 @@ import {
   unlockWithPin,
   UserError,
 } from "./account.ts";
+import { msg } from "./errors.ts";
 import { HUB, type HubUpdate } from "../transport/hub.ts";
 import { PUSH_ALARM, pushUp, startPush, stopPush } from "./push.ts";
 import { REPROMPT_MESSAGE, repromptGranted, repromptPending } from "./reprompt.ts";
@@ -100,9 +101,9 @@ async function setServer(input: string): Promise<void> {
   }
   const info = await getServerInfo(url).catch(async (e: unknown) => {
     // API calls refuse redirects (invariant 7), which reads as unreachable: say so when that is the reason.
-    if (e instanceof NetworkError && (await redirects(url))) throw new UserError("badServer", "This address redirects elsewhere. Enter the address the server ends up at (check https:// and the path).");
+    if (e instanceof NetworkError && (await redirects(url))) throw new UserError("badServer", msg("errThisAddressRedirectsElsewhereEnter"));
     if (e instanceof NetworkError) throw e;
-    throw new UserError("badServer", "This does not look like a Vaultwarden server");
+    throw new UserError("badServer", msg("errThisDoesNotLookLike"));
   });
   const previous = await getLocal("server");
   if (previous && previous.url !== url) await logout();
@@ -333,7 +334,7 @@ async function handle(req: Request): Promise<unknown> {
         await requireUnlocked(); // the lists are encrypted
         const add = (v: string | undefined) => {
           const host = v === undefined ? undefined : hostOf(v);
-          if (v !== undefined && !host) throw new UserError("invalid", "Enter a website such as example.com");
+          if (v !== undefined && !host) throw new UserError("invalid", msg("errEnterAWebsiteSuchAs"));
           return host;
         };
         const never = add(req.addNeverSave);
@@ -368,7 +369,7 @@ function toError(e: unknown): Response<unknown> {
   else if (e instanceof ValidationError) code = "invalid";
   else if (e instanceof NetworkError) {
     code = "network";
-    error = "Cannot reach the server. Check your connection and the server address.";
+    error = msg("errCannotReachServer");
   } else console.error(e);
   return { ok: false, error, ...(code ? { code } : {}) };
 }

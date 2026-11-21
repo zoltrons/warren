@@ -505,11 +505,19 @@
   },
   "showAllResults": {
     "message": "Show all $COUNT$ results",
-    "placeholders": { "count": { "content": "$1" } }
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "ctxMore": {
     "message": "$COUNT$ more in Warren…",
-    "placeholders": { "count": { "content": "$1" } }
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "cmdAutofill": {
     "message": "Fill the login for this page"
@@ -2431,5 +2439,214 @@
   },
   "inlineAlias": {
     "message": "New e-mail alias"
+  },
+  "errNoServerConfigured": {
+    "message": "No server configured"
+  },
+  "errTheServerAsksForA": {
+    "message": "The server asks for a much weaker key derivation than this account used before. Your master password was not sent. If you did not change the KDF in the web vault, the server may be compromised."
+  },
+  "errTheVaultWasLockedMeanwhile": {
+    "message": "The vault was locked meanwhile, please try again"
+  },
+  "errServerDidNotReturnAn": {
+    "message": "Server did not return an encrypted user key"
+  },
+  "errEmailAndMasterPasswordAre": {
+    "message": "Email and master password are required"
+  },
+  "errNoLoginInProgress": {
+    "message": "No login in progress"
+  },
+  "errTheLoginAttemptExpiredPlease": {
+    "message": "The login attempt expired, please log in again"
+  },
+  "errProviderNotOfferedByServer": {
+    "message": "Provider not offered by server"
+  },
+  "errEnterTheVerificationCode": {
+    "message": "Enter the verification code"
+  },
+  "errTheServerSentADuo": {
+    "message": "The server sent a Duo address that is not Duo's"
+  },
+  "errDuoTwoStepLoginIs": {
+    "message": "Duo two-step login is not enabled for this account"
+  },
+  "errEmailTwoStepLoginIs": {
+    "message": "Email two-step login is not enabled for this account"
+  },
+  "errNotLoggedIn": {
+    "message": "Not logged in"
+  },
+  "errWrongMasterPassword": {
+    "message": "Wrong master password"
+  },
+  "errEnterYourEmailAddress": {
+    "message": "Enter your email address"
+  },
+  "errLogInWithDeviceWorks": {
+    "message": "Log in with device works once this browser has logged in to the account with the master password"
+  },
+  "errNoLoginRequestInProgress": {
+    "message": "No login request in progress"
+  },
+  "errTheLoginRequestExpiredPlease": {
+    "message": "The login request expired, please try again"
+  },
+  "errTheLoginRequestWasDenied": {
+    "message": "The login request was denied"
+  },
+  "errApproveTheRequestFromAn": {
+    "message": "Approve the request from an up-to-date app"
+  },
+  "errPleaseLogInAgain": {
+    "message": "Please log in again"
+  },
+  "errTheRequestChangedOnThe": {
+    "message": "The request changed on the server; nothing was approved"
+  },
+  "errTheBiometricCredentialIsIncomplete": {
+    "message": "The biometric credential is incomplete"
+  },
+  "errBiometricUnlockIsNotSet": {
+    "message": "Biometric unlock is not set up"
+  },
+  "errBiometricVerificationFailedUnlockWith": {
+    "message": "Biometric verification failed. Unlock with your master password and set it up again."
+  },
+  "errUnlockWithTheMasterPassword": {
+    "message": "Unlock with the master password"
+  },
+  "errTooManyWrongPinsYou": {
+    "message": "Too many wrong PINs, you have been logged out"
+  },
+  "errWrongPin": {
+    "message": "Wrong PIN"
+  },
+  "errUnlockToConnectToThe": {
+    "message": "Unlock to connect to the server"
+  },
+  "errYourSessionExpiredPleaseLog": {
+    "message": "Your session expired, please log in again"
+  },
+  "errSsoIsNotEnabledOn": {
+    "message": "SSO is not enabled on this server"
+  },
+  "errTheSsoLoginExpiredOr": {
+    "message": "The SSO login expired or did not come from this browser, please try again"
+  },
+  "errTheIdentityProviderDidNot": {
+    "message": "The identity provider did not sign you in"
+  },
+  "errTwoStepLoginTogetherWith": {
+    "message": "Two-step login together with SSO is not supported yet"
+  },
+  "errTheServerDidNotReturn": {
+    "message": "The server did not return the account email"
+  },
+  "errThisAccountHasNoMaster": {
+    "message": "This account has no master password yet; set one in the web vault first"
+  },
+  "errThisPageCannotBeFilled": {
+    "message": "This page cannot be filled"
+  },
+  "errThePageChangedCheckThe": {
+    "message": "The page changed. Check the site and try again."
+  },
+  "errThisAddressRedirectsElsewhereEnter": {
+    "message": "This address redirects elsewhere. Enter the address the server ends up at (check https:// and the path)."
+  },
+  "errThisDoesNotLookLike": {
+    "message": "This does not look like a Vaultwarden server"
+  },
+  "errEnterAWebsiteSuchAs": {
+    "message": "Enter a website such as example.com"
+  },
+  "errPickTheLoginToUpdate": {
+    "message": "Pick the login to update"
+  },
+  "errTheAccountChangedMeanwhilePlease": {
+    "message": "The account changed meanwhile, please try again"
+  },
+  "errThisPasskeyRequestIsNo": {
+    "message": "This passkey request is no longer active"
+  },
+  "errChooseOneOfThePasskeys": {
+    "message": "Choose one of the passkeys for this site"
+  },
+  "errTheSiteCancelledThePasskey": {
+    "message": "The site cancelled the passkey request"
+  },
+  "errChooseOneOfTheLogins": {
+    "message": "Choose one of the logins for this site"
+  },
+  "errThisLoginAlreadyHasA": {
+    "message": "This login already has a passkey: confirm replacing it"
+  },
+  "errTheVaultIsLocked": {
+    "message": "The vault is locked"
+  },
+  "errThisItemWasChangedOn": {
+    "message": "This item was changed on another device since you opened it."
+  },
+  "errEnterAFilePassword": {
+    "message": "Enter a file password"
+  },
+  "errNothingToImport": {
+    "message": "Nothing to import"
+  },
+  "errTheFileIsTooLarge": {
+    "message": "The file is too large (max 25 MB)"
+  },
+  "errKdfTooWeak": {
+    "message": "This account's key derivation ($p1$) is too weak: Warren does not send a hash of your master password made with less than PBKDF2 $p2$ iterations or Argon2id $p3$ MiB x $p4$. Raise it in the web vault (Settings → Security → Keys, Argon2id recommended) and log in again.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      },
+      "p4": {
+        "content": "$4"
+      }
+    }
+  },
+  "errAccountKeyDecrypt": {
+    "message": "Could not decrypt the account key: $p1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errInvalidVerificationCode": {
+    "message": "Invalid verification code"
+  },
+  "errKdfTooWeakToConfirm": {
+    "message": "This account's key derivation ($p1$) is too weak to confirm the master password with the server. Raise it in the web vault (Settings → Security → Keys) and log in again.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errPinOnlyWeak": {
+    "message": "Without the master password after a restart, the PIN needs at least $p1$ characters and one that is not a digit",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errReprompt": {
+    "message": "Enter your master password in Warren to use this item"
+  },
+  "errCannotReachServer": {
+    "message": "Cannot reach the server. Check your connection and the server address."
   }
 }

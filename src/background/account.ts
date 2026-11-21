@@ -25,7 +25,7 @@ import { ApiError } from "../transport/http.ts";
 import { b64u } from "../shared/url.ts";
 import { verifyPassword } from "../transport/vault.ts";
 import { CoreError, coreAlive, coreCall } from "./core.ts";
-import { UserError } from "./errors.ts";
+import { UserError, msg } from "./errors.ts";
 import { ARGON2_MIN, kdfDowngrade, kdfText, PBKDF2_MIN, PIN_ONLY_MIN, pinOnlyStrong, raiseFloor, tooWeak } from "./kdf.ts";
 import { assertEpoch, assertOwner, lockEpoch, lockNow, newOwner, ownerEpoch, touchAutoLock } from "./lock.ts";
 import { migratePrivate } from "./private.ts";
@@ -59,7 +59,7 @@ const rememberKey = async (serverUrl: string, email: string) =>
 
 async function requireServer(): Promise<string> {
   const server = await getLocal("server");
-  if (!server) throw new UserError("wrongPhase", "No server configured");
+  if (!server) throw new UserError("wrongPhase", msg("errNoServerConfigured"));
   return server.url;
 }
 
@@ -79,12 +79,12 @@ async function guardKdf(serverUrl: string, email: string, kdf: KdfParams): Promi
   if (tooWeak(kdf))
     throw new UserError(
       "badServer",
-      `This account's key derivation (${kdfText(kdf)}) is too weak: Warren does not send a hash of your master password made with less than PBKDF2 ${PBKDF2_MIN} iterations or Argon2id ${ARGON2_MIN.memory} MiB x ${ARGON2_MIN.iterations}. Raise it in the web vault (Settings → Security → Keys, Argon2id recommended) and log in again.`,
+      msg("errKdfTooWeak", kdfText(kdf), String(PBKDF2_MIN), String(ARGON2_MIN.memory), String(ARGON2_MIN.iterations)),
     );
   const key = await rememberKey(`kdf|${serverUrl}`, email);
   const floors = (await getLocal("kdfFloors")) ?? {};
   if (kdfDowngrade(kdf, floors[key]))
-    throw new UserError("badServer", "The server asks for a much weaker key derivation than this account used before. Your master password was not sent. If you did not change the KDF in the web vault, the server may be compromised.");
+    throw new UserError("badServer", msg("errTheServerAsksForA"));
   await setLocal("kdfFloors", { ...floors, [key]: raiseFloor(kdf, floors[key]) });
   return kdf;
 }
@@ -113,12 +113,12 @@ async function checkEpoch<T>(epoch: number, write: () => Promise<T>): Promise<T>
 async function checkEpoch<T>(epoch: number, write?: () => Promise<T>): Promise<T | undefined> {
   if (lockEpoch() === epoch) return write?.();
   await lockNow();
-  throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
+  throw new UserError("sessionExpired", msg("errTheVaultWasLockedMeanwhile"));
 }
 
 async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, via: Opener, t: TokenResponse, epoch: number): Promise<void> {
   await checkEpoch(epoch);
-  if (!t.Key) throw new UserError("badServer", "Server did not return an encrypted user key");
+  if (!t.Key) throw new UserError("badServer", msg("errServerDidNotReturnAn"));
   // The KDF later unlocks and re-prompts use (and send a hash of): the token's, checked like prelogin's.
   const accountKdf = await guardKdf(serverUrl, email, kdfFromToken(t, kdf));
   const op: CoreRequest = via.device
@@ -127,7 +127,7 @@ async function completeLogin(serverUrl: string, email: string, kdf: KdfParams, v
   try {
     await coreCall(op);
   } catch (e) {
-    throw new UserError("badServer", `Could not decrypt the account key: ${(e as Error).message}`);
+    throw new UserError("badServer", msg("errAccountKeyDecrypt", (e as Error).message));
   }
   const tokens = toTokens(t);
   const account: Account = {
@@ -176,7 +176,7 @@ function mapLoginError(e: unknown): never {
  */
 async function loginLock(before: number): Promise<number> {
   const epoch = await lockNow();
-  if (epoch !== before + 1) throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
+  if (epoch !== before + 1) throw new UserError("sessionExpired", msg("errTheVaultWasLockedMeanwhile"));
   return epoch;
 }
 
@@ -184,7 +184,7 @@ export async function login(rawEmail: string, password: string): Promise<void> {
   const before = lockEpoch();
   const base = await requireServer();
   const email = rawEmail.trim().toLowerCase();
-  if (!email || !password) throw new UserError("invalid", "Email and master password are required");
+  if (!email || !password) throw new UserError("invalid", msg("errEmailAndMasterPasswordAre"));
   const epoch = await loginLock(before);
 
   const kdf = await guardKdf(base, email, await prelogin(base, email));
@@ -240,17 +240,17 @@ async function passwordLogin(base: string, email: string, kdf: KdfParams, authHa
 
 async function requirePending() {
   const { pending } = await getSession();
-  if (!pending) throw new UserError("wrongPhase", "No login in progress");
+  if (!pending) throw new UserError("wrongPhase", msg("errNoLoginInProgress"));
   if (pending.expiresAt < Date.now()) {
     await cancelTwoFactor();
-    throw new UserError("sessionExpired", "The login attempt expired, please log in again");
+    throw new UserError("sessionExpired", msg("errTheLoginAttemptExpiredPlease"));
   }
   try {
     return { pending, authHash: pending.device?.accessCode ?? (await coreCall<string>({ op: "authHash", handle: pending.handle })) };
   } catch (e) {
     if (!(e instanceof CoreError)) throw e;
     await updateSession({ pending: undefined });
-    throw new UserError("sessionExpired", "The login attempt expired, please log in again");
+    throw new UserError("sessionExpired", msg("errTheLoginAttemptExpiredPlease"));
   }
 }
 
@@ -258,10 +258,10 @@ export async function submitTwoFactor(provider: number, token: string, remember:
   const epoch = lockEpoch();
   const base = await requireServer();
   const { pending, authHash } = await requirePending();
-  if (!pending.challenge.providers.includes(provider)) throw new UserError("invalid", "Provider not offered by server");
+  if (!pending.challenge.providers.includes(provider)) throw new UserError("invalid", msg("errProviderNotOfferedByServer"));
   // WebAuthn tokens are the assertion JSON from the connector page; codes may be typed with spaces.
   const code = provider === TWO_FACTOR.WebAuthn ? token : token.replace(/\s+/g, "");
-  if (!code) throw new UserError("invalid", "Enter the verification code");
+  if (!code) throw new UserError("invalid", msg("errEnterTheVerificationCode"));
   const grant = { email: pending.email, authHash, deviceId: await getDeviceId(), authRequest: pending.device?.id };
   try {
     const t = await passwordToken(base, { ...grant, twoFactor: { provider, token: code, remember } });
@@ -274,7 +274,7 @@ export async function submitTwoFactor(provider: number, token: string, remember:
         if (r instanceof TwoFactorRequired) await updateSession({ pending: { ...pending, challenge: r.challenge } });
       });
     }
-    throw new UserError("badTwoFactor", e instanceof ApiError ? e.message : "Invalid verification code");
+    throw new UserError("badTwoFactor", e instanceof ApiError ? e.message : msg("errInvalidVerificationCode"));
   }
 }
 
@@ -282,14 +282,14 @@ export async function submitTwoFactor(provider: number, token: string, remember:
 export function duoUrl(raw: string): string {
   const u = URL.parse(raw);
   if (!u || u.protocol !== "https:" || u.username || u.password || (u.port && u.port !== "443") || u.pathname !== "/oauth/v1/authorize" || !/^api-[a-zA-Z0-9]+\.(duosecurity|duofederal)\.com$/.test(u.hostname))
-    throw new UserError("badServer", "The server sent a Duo address that is not Duo's");
+    throw new UserError("badServer", msg("errTheServerSentADuo"));
   return u.href;
 }
 
 export async function startDuo(remember: boolean): Promise<void> {
   const { pending } = await requirePending();
   const duo = pending.challenge.duo;
-  if (!duo) throw new UserError("invalid", "Duo two-step login is not enabled for this account");
+  if (!duo) throw new UserError("invalid", msg("errDuoTwoStepLoginIs"));
   const tab = await chrome.tabs.create({ url: duoUrl(duo.url) });
   if (tab.id !== undefined) await updateSession({ duo: { tabId: tab.id, provider: duo.provider, remember }, ssoError: undefined });
 }
@@ -326,7 +326,7 @@ export async function sendTwoFactorEmail(): Promise<void> {
   const base = await requireServer();
   const { pending, authHash } = await requirePending();
   if (!pending.challenge.providers.includes(TWO_FACTOR.Email))
-    throw new UserError("invalid", "Email two-step login is not enabled for this account");
+    throw new UserError("invalid", msg("errEmailTwoStepLoginIs"));
   await sendEmailLogin(base, pending.email, authHash, await getDeviceId(), pending.device?.id);
 }
 
@@ -344,7 +344,7 @@ export async function unlock(password: string): Promise<void> {
   // Before the first await: a lock that comes during any of them ends this unlock.
   const epoch = lockEpoch();
   const account = await getLocal("account");
-  if (!account) throw new UserError("wrongPhase", "Not logged in");
+  if (!account) throw new UserError("wrongPhase", msg("errNotLoggedIn"));
   const { handle } = await prepareKey(account.email, password, account.kdf);
   try {
     await coreCall({
@@ -355,7 +355,7 @@ export async function unlock(password: string): Promise<void> {
     });
   } catch (e) {
     await coreCall({ op: "freeKey", handle }).catch(() => undefined);
-    if (e instanceof CoreError) throw new UserError("wrongPassword", "Wrong master password");
+    if (e instanceof CoreError) throw new UserError("wrongPassword", msg("errWrongMasterPassword"));
     throw e;
   }
   await afterUnlock(account, epoch);
@@ -408,14 +408,14 @@ export async function startDeviceLogin(rawEmail: string): Promise<void> {
   const before = lockEpoch();
   const base = await requireServer();
   const email = rawEmail.trim().toLowerCase();
-  if (!email) throw new UserError("invalid", "Enter your email address");
+  if (!email) throw new UserError("invalid", msg("errEnterYourEmailAddress"));
   const epoch = await loginLock(before);
   const { publicKey, fingerprint } = await coreCall<{ publicKey: string; fingerprint: string }>({ op: "authRequestCreate", email });
   const accessCode = b64u(crypto.getRandomValues(new Uint8Array(24)));
   const r = await createAuthRequest(base, { email, publicKey, deviceId: await getDeviceId(), accessCode }).catch((e: unknown) => {
     // Vaultwarden refuses an unknown account and a device id it has never seen log in to that account (both 400).
     if (e instanceof ApiError && e.status === 400)
-      throw new UserError("badCredentials", "Log in with device works once this browser has logged in to the account with the master password");
+      throw new UserError("badCredentials", msg("errLogInWithDeviceWorks"));
     throw e;
   });
   const expiresAt = Date.now() + DEVICE_LOGIN_TTL_MS;
@@ -429,21 +429,21 @@ export async function checkDeviceLogin(): Promise<void> {
   const epoch = lockEpoch();
   const base = await requireServer();
   const { deviceLogin: d } = await getSession();
-  if (!d) throw new UserError("wrongPhase", "No login request in progress");
+  if (!d) throw new UserError("wrongPhase", msg("errNoLoginRequestInProgress"));
   if (d.expiresAt < Date.now()) {
     await cancelTwoFactor();
-    throw new UserError("sessionExpired", "The login request expired, please try again");
+    throw new UserError("sessionExpired", msg("errTheLoginRequestExpiredPlease"));
   }
   const r = await authRequestStatus(base, d.id, d.accessCode).catch(async (e: unknown) => {
     if (!(e instanceof ApiError && e.status === 400)) throw e;
     await cancelTwoFactor(); // a denied request is deleted
-    throw new UserError("badCredentials", "The login request was denied");
+    throw new UserError("badCredentials", msg("errTheLoginRequestWasDenied"));
   });
   if (!r.requestApproved || !r.key) return;
   // Clients before 2023 sent the master key instead of the user key; none still in support does.
   if (r.masterPasswordHash) {
     await cancelTwoFactor();
-    throw new UserError("badServer", "Approve the request from an up-to-date app");
+    throw new UserError("badServer", msg("errApproveTheRequestFromAn"));
   }
   await updateSession({ deviceLogin: undefined });
   try {
@@ -457,7 +457,7 @@ export async function checkDeviceLogin(): Promise<void> {
 export async function loginRequests(): Promise<LoginRequest[]> {
   const owner = ownerEpoch();
   const account = await getLocal("account");
-  if (!account) throw new UserError("sessionExpired", "Please log in again");
+  if (!account) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   const { base, token } = await auth(owner);
   const all = await pendingAuthRequests(base, token);
   const list: LoginRequest[] = [];
@@ -483,7 +483,7 @@ export async function answerLoginRequest(id: string, approve: boolean, fingerpri
     const account = await getLocal("account");
     const { publicKey } = await getAuthRequest(base, token, id);
     if (!account || (await coreCall<string>({ op: "authRequestFingerprint", email: account.email, publicKey })) !== fingerprint)
-      throw new UserError("badServer", "The request changed on the server; nothing was approved");
+      throw new UserError("badServer", msg("errTheRequestChangedOnThe"));
     key = await coreCall<string>({ op: "authRequestApprove", publicKey });
   }
   const deviceId = await getDeviceId();
@@ -508,8 +508,8 @@ export async function dropLoginRequest(id: string): Promise<void> {
 export async function setBiometric(credentialId: string, prfSalt: string, prf: string): Promise<void> {
   const epoch = lockEpoch();
   const account = await getLocal("account");
-  if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
-  if (!credentialId || !prfSalt || !prf) throw new UserError("invalid", "The biometric credential is incomplete");
+  if (!account?.userId) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
+  if (!credentialId || !prfSalt || !prf) throw new UserError("invalid", msg("errTheBiometricCredentialIsIncomplete"));
   const protectedUserKey = await coreCall<string>({ op: "prfProtect", prf });
   // A logout meanwhile removed biometric unlock: it stays removed.
   await checkEpoch(epoch, () => setLocal("biometric", { email: account.email, credentialId, prfSalt, protectedUserKey, createdAt: Date.now() }));
@@ -520,7 +520,7 @@ export const removeBiometric = () => removeLocal("biometric").then(() => undefin
 export async function unlockWithBiometric(prf: string): Promise<void> {
   const epoch = lockEpoch();
   const [account, bio] = await Promise.all([getLocal("account"), getLocal("biometric")]);
-  if (!account || !bio || bio.email !== account.email) throw new UserError("wrongPhase", "Biometric unlock is not set up");
+  if (!account || !bio || bio.email !== account.email) throw new UserError("wrongPhase", msg("errBiometricUnlockIsNotSet"));
   try {
     await coreCall({
       op: "unlockPrf",
@@ -530,7 +530,7 @@ export async function unlockWithBiometric(prf: string): Promise<void> {
     });
   } catch (e) {
     // A different authenticator/user (or a broken credential) fails the MAC: never retry silently.
-    if (e instanceof CoreError) throw new UserError("badBiometric", "Biometric verification failed. Unlock with your master password and set it up again.");
+    if (e instanceof CoreError) throw new UserError("badBiometric", msg("errBiometricVerificationFailedUnlockWith"));
     throw e;
   }
   await afterUnlock(account, epoch);
@@ -546,16 +546,16 @@ export async function unlockWithBiometric(prf: string): Promise<void> {
 export async function verifyMasterPassword(password: string): Promise<void> {
   const owner = ownerEpoch();
   const account = await getLocal("account");
-  if (!account) throw new UserError("sessionExpired", "Please log in again");
+  if (!account) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   // An account stored by a build before the KDF floor may still have one too weak to send a hash of (see guardKdf).
   if (tooWeak(account.kdf))
-    throw new UserError("badServer", `This account's key derivation (${kdfText(account.kdf)}) is too weak to confirm the master password with the server. Raise it in the web vault (Settings → Security → Keys) and log in again.`);
+    throw new UserError("badServer", msg("errKdfTooWeakToConfirm", kdfText(account.kdf)));
   const { handle, authHash } = await coreCall<Prepared>({ op: "prepareKey", email: account.email, password, kdf: account.kdf });
   await coreCall({ op: "freeKey", handle }).catch(() => undefined);
   // The hash, the account it was made for and the token are one account's: a switch meanwhile sends nothing.
   const { base, token } = await auth(owner);
   await verifyPassword(base, token, authHash).catch((e: unknown) => {
-    throw e instanceof ApiError && e.status === 400 ? new UserError("wrongPassword", "Wrong master password") : e;
+    throw e instanceof ApiError && e.status === 400 ? new UserError("wrongPassword", msg("errWrongMasterPassword")) : e;
   });
 }
 
@@ -581,7 +581,7 @@ async function armPin(account: Account, pin: string, epoch: number): Promise<str
 export async function setPin(pin?: string, pinOnly = false): Promise<void> {
   const epoch = lockEpoch();
   const account = await getLocal("account");
-  if (!account) throw new UserError("wrongPhase", "Not logged in");
+  if (!account) throw new UserError("wrongPhase", msg("errNotLoggedIn"));
   if (pin === undefined) {
     const { protectedPin: _, pinKey: __, pinKdf: ___, ...rest } = account;
     await checkEpoch(epoch, () => setLocal("account", rest)); // a logout meanwhile: no account to write back
@@ -591,7 +591,7 @@ export async function setPin(pin?: string, pinOnly = false): Promise<void> {
   // PIN-only keeps the PIN-wrapped key on disk, where the 5-try cap does not hold: only a PIN that is not a short
   // number may open the vault alone.
   if (pinOnly && !pinOnlyStrong(pin))
-    throw new UserError("invalid", `Without the master password after a restart, the PIN needs at least ${PIN_ONLY_MIN} characters and one that is not a digit`);
+    throw new UserError("invalid", msg("errPinOnlyWeak", String(PIN_ONLY_MIN)));
   const [protectedPin] = await seal([pin], BLOCK.secret);
   const key = await armPin(account, pin, epoch);
   const { pinKey: _, pinKdf: __, ...rest } = account;
@@ -611,7 +611,7 @@ export async function unlockWithPin(pin: string): Promise<void> {
       : account?.pinKey
         ? { email: account.email, key: account.pinKey, attempts: onDisk, kdf: account.pinKdf ?? account.kdf }
         : undefined;
-  if (!account?.protectedPin || !p) throw new UserError("wrongPhase", "Unlock with the master password");
+  if (!account?.protectedPin || !p) throw new UserError("wrongPhase", msg("errUnlockWithTheMasterPassword"));
   try {
     await coreCall({ op: "unlockPin", pin, email: account.email, kdf: p.kdf, protectedUserKey: p.key, encryptedPrivateKey: account.encryptedPrivateKey });
   } catch (e) {
@@ -619,14 +619,14 @@ export async function unlockWithPin(pin: string): Promise<void> {
     // Like the official clients: a few wrong PINs end the session instead of allowing a slow brute force.
     if (p.attempts + 1 >= PIN_MAX_ATTEMPTS) {
       await logout();
-      throw new UserError("wrongPassword", "Too many wrong PINs, you have been logged out");
+      throw new UserError("wrongPassword", msg("errTooManyWrongPinsYou"));
     }
     // Counted across a lock (one would otherwise reset the cap), never into the session of a later login.
     assertOwner(owner);
     await updateSession({ pin: { ...p, attempts: p.attempts + 1 } });
     // PIN-only: the session count goes with a browser restart, so the cap would reset with it.
     if (account.pinKey) await setLocal("account", { ...account, pinAttempts: p.attempts + 1 });
-    throw new UserError("wrongPassword", "Wrong PIN");
+    throw new UserError("wrongPassword", msg("errWrongPin"));
   }
   await afterUnlock(account, epoch); // also resets the wrong-PIN count
 }
@@ -653,7 +653,7 @@ async function currentRefreshToken(owner: number): Promise<string | undefined> {
   const account = await getLocal("account");
   if (account?.refreshToken) return account.refreshToken; // clear text of older builds, sealed on the next unlock
   if (!account?.refreshTokenEnc) return undefined;
-  if (!s.unlocked) throw new UserError("wrongPhase", "Unlock to connect to the server");
+  if (!s.unlocked) throw new UserError("wrongPhase", msg("errUnlockToConnectToThe"));
   const [plain] = await unseal([account.refreshTokenEnc]);
   assertOwner(owner);
   if (plain) await updateSession({ refreshToken: plain });
@@ -716,7 +716,7 @@ async function refreshAccessToken(): Promise<{ token: string; owner: number }> {
   if (!current) {
     // Kept in memory only ("log out" timeout action) and gone with an extension update: the session is over.
     if ((await getSettings()).timeoutAction === "logout" && (await getLocal("account")) && owner === ownerEpoch()) await logout();
-    throw new UserError("sessionExpired", "Please log in again");
+    throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   }
   let t: TokenResponse;
   try {
@@ -729,7 +729,7 @@ async function refreshAccessToken(): Promise<{ token: string; owner: number }> {
     // with a page of its own says nothing about the token, and logging out would wipe this device's data.
     if (e instanceof ApiError && (e.status === 400 || e.status === 401) && typeof e.body === "object" && e.body !== null && owner === ownerEpoch()) {
       await logout();
-      throw new UserError("sessionExpired", "Your session expired, please log in again");
+      throw new UserError("sessionExpired", msg("errYourSessionExpiredPleaseLog"));
     }
     throw e;
   }
@@ -752,7 +752,7 @@ const connectorUrl = (base: string) => `${base}/sso-connector.html`;
 export async function startSso(): Promise<void> {
   const base = await requireServer();
   await ssoPrevalidate(base).catch((e: unknown) => {
-    if (e instanceof ApiError) throw new UserError("badServer", "SSO is not enabled on this server");
+    if (e instanceof ApiError) throw new UserError("badServer", msg("errSsoIsNotEnabledOn"));
     throw e;
   });
   const verifier = b64u(crypto.getRandomValues(new Uint8Array(32)));
@@ -787,20 +787,20 @@ export async function finishSso(url: string, tabId: number): Promise<void> {
   const params = new URL(url).searchParams;
   try {
     if (!sso || sso.expiresAt < Date.now() || params.get("state") !== sso.state)
-      throw new UserError("sessionExpired", "The SSO login expired or did not come from this browser, please try again");
+      throw new UserError("sessionExpired", msg("errTheSsoLoginExpiredOr"));
     const code = params.get("code");
-    if (!code) throw new UserError("badCredentials", "The identity provider did not sign you in");
+    if (!code) throw new UserError("badCredentials", msg("errTheIdentityProviderDidNot"));
     let t: TokenResponse;
     try {
       t = await authorizationCodeToken(base, code, sso.verifier, connectorUrl(base), await getDeviceId());
     } catch (e) {
-      if (e instanceof TwoFactorRequired) throw new UserError("badTwoFactor", "Two-step login together with SSO is not supported yet");
+      if (e instanceof TwoFactorRequired) throw new UserError("badTwoFactor", msg("errTwoStepLoginTogetherWith"));
       mapLoginError(e);
     }
     // Normalized like login(): the KDF floor is keyed by the email, and the server writes this one.
     const email = jwtClaim(t.access_token, "email")?.trim().toLowerCase();
-    if (!email) throw new UserError("badServer", "The server did not return the account email");
-    if (!t.Key) throw new UserError("badServer", "This account has no master password yet; set one in the web vault first");
+    if (!email) throw new UserError("badServer", msg("errTheServerDidNotReturn"));
+    if (!t.Key) throw new UserError("badServer", msg("errThisAccountHasNoMaster"));
     const kdf = await guardKdf(base, email, kdfFromToken(t, await prelogin(base, email)));
     const tokens = toTokens(t);
     assertOwner(owner);

@@ -23,11 +23,14 @@ export function cardBrand(n: string): string | undefined {
   if (/^3[47]/.test(d)) return "Amex";
   if (/^(5018|5020|5038|5893|6304|6759|676[1-3])/.test(d)) return "Maestro";
   if (/^(60(?!11)|652[12]|8[12]|508)/.test(d)) return "RuPay";
+  // Troy: 9792 is its own range; the rest are single Troy BINs inside 65 (Discover's) and 900, from
+  // github.com/berkaybucan/turkey-bin-list (2026-01) plus 650173 (İş Bankası, Turkish BIN lists).
+  // shortcut: no official Troy BIN list exists publicly; add BINs as they are confirmed.
+  if (/^(9792|650052|650173|654997|657366|657998|900002|900017|900020|900029|900210)/.test(d)) return "Troy";
   if (/^(6011|65|64[4-9])/.test(d)) return "Discover";
   if (/^3(0[0-5]|[68])/.test(d)) return "Diners Club";
   if (/^35(2[89]|[3-8])/.test(d)) return "JCB";
   if (/^62/.test(d)) return "UnionPay";
-  if (/^9792/.test(d)) return "Troy";
   return undefined;
 }
 
@@ -36,8 +39,8 @@ export function shownBrand(stored: string, number: string): string {
   return (stored && stored !== "Other" ? stored : cardBrand(number)) ?? stored;
 }
 
-/** Troy is not in Bitwarden's brand list, so it is stored as "Other" and shown from the number. */
-export const storedBrand = (brand: string): string => (brand === "Troy" ? "Other" : brand);
+/** Troy is not in Bitwarden's brand list: it is shown from the number and never written to the item. */
+export const storableBrand = (brand: string | undefined): string | undefined => (brand === "Troy" ? undefined : brand);
 
 /** `4111 1111 1111 1111`; American Express reads 4-6-5. Non-numeric input is returned untouched. */
 export function groupCardNumber(n: string): string {

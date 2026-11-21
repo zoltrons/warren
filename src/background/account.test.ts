@@ -4,6 +4,7 @@
 import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const session: Record<string, unknown> = {};
 const local: Record<string, unknown> = {};
@@ -22,6 +23,7 @@ let wrongPin = false;
 const coreOps: string[] = [];
 const noop = async () => undefined;
 (globalThis as { chrome?: unknown }).chrome = {
+  i18n,
   storage: { session: area(session), local: area(local) },
   alarms: { create: noop, clear: noop },
   tabs: { query: async () => [], sendMessage: noop, remove: noop },

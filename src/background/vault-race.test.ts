@@ -4,6 +4,7 @@
 import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const session: Record<string, unknown> = {};
 const local: Record<string, unknown> = {};
@@ -27,6 +28,7 @@ const noop = async () => undefined;
 /** The passkey approval window's url: it carries the request id. */
 let windowUrl = "";
 (globalThis as { chrome?: unknown }).chrome = {
+  i18n,
   storage: { session: area(session), local: area(local) },
   alarms: { create: noop, clear: noop },
   tabs: { query: async () => [], sendMessage: noop, get: async () => ({ windowId: 1 }) },

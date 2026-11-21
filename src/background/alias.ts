@@ -21,6 +21,7 @@ import {
 import { readBytes } from "../transport/http.ts";
 import { ci } from "../shared/validate.ts";
 import { UserError } from "./account.ts";
+import { msg } from "./errors.ts";
 import { coreCall } from "./core.ts";
 import { getLocal, setLocal } from "./store.ts";
 import { BLOCK, seal, unseal } from "./seal.ts";
@@ -29,7 +30,6 @@ import { BLOCK, seal, unseal } from "./seal.ts";
 const MAX_ALIAS_BYTES = 64 * 1024;
 const ALIAS_TIMEOUT_MS = 15_000;
 
-const msg = (key: string, ...subs: string[]): string => chrome.i18n.getMessage(key, subs) || key;
 
 type AliasStore = Partial<Record<AliasVendor, AliasSettings>>;
 

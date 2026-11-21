@@ -5,6 +5,7 @@ import type { PageMatches, VaultItem, VaultList } from "../shared/messages.ts";
 import { pickPageLoadLogin } from "../shared/pageload.ts";
 import { httpUrl } from "../shared/url.ts";
 import { UserError } from "./account.ts";
+import { msg } from "./errors.ts";
 import { coreCall } from "./core.ts";
 import { customFieldsOf, type FillRequest, fillInFrames, pageCall } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
@@ -109,7 +110,7 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
   // Before any value is read: a lock from here on stops the fill before a frame gets one (engine.ts).
   const epoch = lockEpoch();
   const url = httpUrl(tab);
-  if (!url || tab?.id === undefined) throw new UserError("invalid", "This page cannot be filled");
+  if (!url || tab?.id === undefined) throw new UserError("invalid", msg("errThisPageCannotBeFilled"));
   let item: VaultItem | undefined;
   let values: Record<string, string> | undefined;
   // A login filled with "Fill anyway" is not this site's: it must not count as a recent fill here (passkey upgrades).
@@ -160,7 +161,7 @@ async function fillTab(tab: chrome.tabs.Tab | undefined, id?: string, anyway = f
  */
 export async function fillShownTab(id: string, tabId: number, origin: string, anyway = false): Promise<FillResult> {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
-  if (!tab?.active || httpUrl(tab)?.origin !== origin) throw new UserError("invalid", "The page changed. Check the site and try again.");
+  if (!tab?.active || httpUrl(tab)?.origin !== origin) throw new UserError("invalid", msg("errThePageChangedCheckThe"));
   return fillTab(tab, id, anyway);
 }
 
@@ -232,7 +233,7 @@ async function copyFieldName(tab: chrome.tabs.Tab | undefined, frameId: number |
 /** The login typed on the page the popup showed: another one (the tab navigated, the panel lags) gives nothing. */
 export async function readPageLogin(tabId: number, origin: string): Promise<PageLogin | null> {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
-  if (!tab?.active || httpUrl(tab)?.origin !== origin || tab.id === undefined) throw new UserError("invalid", "The page changed. Check the site and try again.");
+  if (!tab?.active || httpUrl(tab)?.origin !== origin || tab.id === undefined) throw new UserError("invalid", msg("errThePageChangedCheckThe"));
   const [res] = await pageCall<PageLogin | null>({ tabId: tab.id, frameIds: [0] }, "readLogin", undefined);
   const login = res?.result ?? null;
   return login && { ...login, url: tab.url! }; // the browser's URL, not the page's own location.href

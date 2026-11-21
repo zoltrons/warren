@@ -17,7 +17,7 @@ const rings = (a: string, b: string, mid: string): Shape[] => [
   ["path", { d: "M16 5.3a6 6 0 0 1 0 9.4a6 6 0 0 1 0-9.4z", fill: mid }],
 ];
 
-/** Keys are the brand names the Bitwarden clients store (see BRANDS in vault-item.ts), plus Troy, which is shown from the number only. */
+/** Keys are the brand names the Bitwarden clients store (see BRANDS in vault-item.ts), plus Troy, which is worked out from the number only. */
 const MARKS: Record<string, Shape[]> = {
   Visa: word("#1a1f71", "VISA"),
   Mastercard: rings("#eb001b", "#f79e1b", "#ff5f00"),

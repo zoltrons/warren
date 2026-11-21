@@ -2,7 +2,7 @@
 // work already in flight.
 import { httpUrl } from "../shared/url.ts";
 import { coreShutdown } from "./core.ts";
-import { UserError } from "./errors.ts";
+import { UserError, msg } from "./errors.ts";
 import { revokeReprompts } from "./reprompt.ts";
 import { clearPendingSaves, getSettings, updateSession } from "./store.ts";
 
@@ -44,12 +44,12 @@ export const ownerEpoch = (): number => owner;
 export const newOwner = (): number => ++owner;
 
 export function assertEpoch(e: number): void {
-  if (e !== epoch) throw new UserError("sessionExpired", "The vault was locked meanwhile, please try again");
+  if (e !== epoch) throw new UserError("sessionExpired", msg("errTheVaultWasLockedMeanwhile"));
 }
 
 /** Every owner in `taken` must still be the current one. */
 export function assertOwner(...taken: number[]): void {
-  if (taken.some((o) => o !== owner)) throw new UserError("sessionExpired", "The account changed meanwhile, please try again");
+  if (taken.some((o) => o !== owner)) throw new UserError("sessionExpired", msg("errTheAccountChangedMeanwhilePlease"));
 }
 
 /** Resolves to the epoch this lock started: a login that begins with a lock owns that one, not a later lock's. */

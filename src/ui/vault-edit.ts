@@ -1,6 +1,6 @@
 // Item editor (Login, Secure note, Card, Identity, SSH key, bank account): fields, URIs, custom fields, save.
 import { URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
-import { cardBrand, luhnValid, storedBrand } from "../shared/card.ts";
+import { cardBrand, luhnValid, storableBrand } from "../shared/card.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import type { VaultList } from "../shared/messages.ts";
@@ -283,8 +283,7 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     const shownWarn = cardNumber && cardWarn();
     const onchange = cardNumber
       ? () => {
-          const found = d.data.brand ? undefined : cardBrand(get());
-          const brand = found && storedBrand(found);
+          const brand = d.data.brand ? undefined : storableBrand(cardBrand(get()));
           if (brand) d.data.brand = brand;
           if (brand || cardWarn() !== shownWarn) ctx.rerender();
         }

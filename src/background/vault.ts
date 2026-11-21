@@ -31,6 +31,7 @@ import {
 } from "../transport/vault.ts";
 import { ApiError } from "../transport/http.ts";
 import { auth, UserError, verifyMasterPassword } from "./account.ts";
+import { msg } from "./errors.ts";
 import { coreAlive, coreCall } from "./core.ts";
 import { assertEpoch, lockEpoch, ownerEpoch } from "./lock.ts";
 import { readPrivate, updatePrivate } from "./private.ts";
@@ -43,12 +44,12 @@ export const CLIPBOARD_ALARM = "clipboard";
 export const isUnlocked = async (): Promise<boolean> => (await getSession()).unlocked && (await coreAlive());
 
 export async function requireUnlocked(): Promise<void> {
-  if (!(await isUnlocked())) throw new UserError("wrongPhase", "The vault is locked");
+  if (!(await isUnlocked())) throw new UserError("wrongPhase", msg("errTheVaultIsLocked"));
 }
 
 async function server(): Promise<string> {
   const s = await getLocal("server");
-  if (!s) throw new UserError("wrongPhase", "No server configured");
+  if (!s) throw new UserError("wrongPhase", msg("errNoServerConfigured"));
   return s.url;
 }
 
@@ -161,7 +162,7 @@ export const save = async (item: Record<string, unknown>, collectionIds?: string
 export async function moveToOrg(id: string, organizationId: string, collectionIds: string[]): Promise<VaultList> {
   const epoch = lockEpoch();
   const account = await getLocal("account");
-  if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
+  if (!account?.userId) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   const enc = await coreCall<Record<string, unknown>>({ op: "prepareShare", id, organizationId });
   return thenSync((b, t) => shareCipher(b, t, id, { ...enc, encryptedFor: account.userId }, collectionIds), epoch);
 }
@@ -176,7 +177,7 @@ export async function putCipher(enc: Record<string, unknown>, guard?: () => void
   const epoch = lockEpoch();
   const owner = ownerEpoch();
   const account = await getLocal("account");
-  if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
+  if (!account?.userId) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   // The item, the account it is for and the token are one account's (auth checks `owner` once all are read).
   const { base, token } = await auth(owner);
   // Right before the request, with no await in between: a change a lock overtook is never sent.
@@ -186,7 +187,7 @@ export async function putCipher(enc: Record<string, unknown>, guard?: () => void
     if (!(e instanceof ApiError && e.status === 400 && /out of date/i.test(e.message))) throw e;
     // Fetch the newer copy, so the editor can show what it is overwriting and a second save carries its revision.
     await refreshAfter(sync(false));
-    throw new UserError("conflict", "This item was changed on another device since you opened it.");
+    throw new UserError("conflict", msg("errThisItemWasChangedOn"));
   });
   changes++;
   await refreshAfter(
@@ -267,7 +268,7 @@ export async function clearClipboard(): Promise<void> {
 export async function exportVault(password: string, format: ExportFormat, filePassword?: string): Promise<string> {
   // The whole vault in clear text: ask the server to confirm the master password first, like the official clients.
   await verifyMasterPassword(password);
-  if (format === "encrypted" && !filePassword) throw new UserError("invalid", "Enter a file password");
+  if (format === "encrypted" && !filePassword) throw new UserError("invalid", msg("errEnterAFilePassword"));
   await ensureLoaded();
   // A file can be attacked offline: it gets the account's KDF only when that is a strong one.
   const account = await getLocal("account");
@@ -279,12 +280,12 @@ export async function importVault(text: string, password?: string): Promise<{ im
   const epoch = lockEpoch();
   const owner = ownerEpoch();
   const account = await getLocal("account");
-  if (!account?.userId) throw new UserError("sessionExpired", "Please log in again");
+  if (!account?.userId) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   await ensureLoaded();
   const r = await coreCall<{ ciphers: Record<string, unknown>[]; folders: unknown[]; folderRelationships: unknown[]; skipped: number }>({ op: "prepareImport", text, ...(password ? { password } : {}) }).catch((e: unknown) => {
     throw new UserError("invalid", (e as Error).message);
   });
-  if (!r.ciphers.length) throw new UserError("invalid", "Nothing to import");
+  if (!r.ciphers.length) throw new UserError("invalid", msg("errNothingToImport"));
   const ciphers = r.ciphers.map((c) => ({ ...c, encryptedFor: account.userId }));
   const { base, token } = await auth(owner);
   assertEpoch(epoch);
@@ -306,7 +307,7 @@ export async function downloadAttachment(cipherId: string, attachmentId: string)
 }
 
 export async function addAttachment(cipherId: string, file: { name: string; data: string }): Promise<VaultList> {
-  if ((file.data.length * 3) / 4 > MAX_SEND_FILE_BYTES) throw new UserError("invalid", "The file is too large (max 25 MB)");
+  if ((file.data.length * 3) / 4 > MAX_SEND_FILE_BYTES) throw new UserError("invalid", msg("errTheFileIsTooLarge"));
   const epoch = lockEpoch();
   const enc = await coreCall<{ key: string; fileName: string; data: string }>({ op: "encryptAttachment", cipherId, fileName: file.name, data: file.data });
   return thenSync((b, t) => apiAddAttachment(b, t, cipherId, { key: enc.key, fileName: enc.fileName }, Uint8Array.fromBase64(enc.data)), epoch);
@@ -371,7 +372,7 @@ export async function saveSend(send: Json, file?: { name: string; data: string }
     return sendList();
   }
   if (file) {
-    if ((file.data.length * 3) / 4 > MAX_SEND_FILE_BYTES) throw new UserError("invalid", "The file is too large (max 25 MB)");
+    if ((file.data.length * 3) / 4 > MAX_SEND_FILE_BYTES) throw new UserError("invalid", msg("errTheFileIsTooLarge"));
     const enc = await coreCall<Json>({ op: "prepareSend", send: { ...send, type: 1, text: undefined, file: { fileName: file.name } } });
     const body = Uint8Array.fromBase64(await coreCall<string>({ op: "encryptSendFile", key: String(enc.key), data: file.data }));
     assertEpoch(epoch);

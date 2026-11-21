@@ -2,6 +2,7 @@
 import "../shared/uint8-polyfill.ts"; // Node 24 in CI
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { i18n } from "./i18n-stub.test.ts";
 
 const local: Record<string, unknown> = { settings: { autofillOnPageLoad: true } };
 const area = (data: Record<string, unknown>) => ({
@@ -15,6 +16,7 @@ const noop = async () => undefined;
 let tab: { id: number; url: string; active: boolean } | undefined;
 let fillBegan = false;
 (globalThis as { chrome?: unknown }).chrome = {
+  i18n,
   storage: { session: area(session), local: area(local) },
   alarms: { create: noop, clear: noop },
   runtime: { id: "warren" },
