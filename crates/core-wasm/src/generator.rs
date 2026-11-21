@@ -51,7 +51,8 @@ fn opt_u32(o: &Map<String, Value>, k: &str, d: u32) -> u32 {
 
 /// Options (camelCase, all optional): `type` ("password" | "passphrase"),
 /// password: `length` (5..=128, default 14), `lowercase`, `uppercase`, `numbers`, `special`,
-/// `minLowercase`, `minUppercase`, `minNumber`, `minSpecial`, `avoidAmbiguous`;
+/// `minLowercase`, `minUppercase`, `minNumber`, `minSpecial`, `avoidAmbiguous`, `maxConsecutive`;
+/// or a site's own classes `sets: [{ chars, min }]` in place of the four flags (see shared/password-rules.ts);
 /// passphrase: `numWords` (3..=20, default 6), `wordSeparator`, `capitalize`, `includeNumber`.
 pub fn generate(options_json: &str) -> Result<String> {
     let v: Value = serde_json::from_str(options_json).map_err(crate::api::err)?;
@@ -63,9 +64,46 @@ pub fn generate(options_json: &str) -> Result<String> {
     }
 }
 
+/// A site's own character classes (`sets`: `[{ chars, min }]`, from its `passwordrules`): printable ASCII only,
+/// each set non-empty after `avoidAmbiguous` (an all-ambiguous set keeps its characters rather than vanish).
+fn custom_sets(list: &[Value], avoid: bool) -> Result<Vec<(bool, Vec<char>, u32)>> {
+    if list.len() > 16 {
+        return Err("too many character sets".into());
+    }
+    list.iter()
+        .map(|s| {
+            let chars = s.get("chars").and_then(Value::as_str).unwrap_or("");
+            let mut set: Vec<char> = chars.chars().filter(char::is_ascii_graphic).collect();
+            set.sort_unstable();
+            set.dedup();
+            let unambiguous: Vec<char> = set
+                .iter()
+                .copied()
+                .filter(|c| !"lIO01".contains(*c))
+                .collect();
+            if avoid && !unambiguous.is_empty() {
+                set = unambiguous;
+            }
+            if set.is_empty() {
+                return Err("empty character set".into());
+            }
+            let min = s.get("min").and_then(Value::as_u64).unwrap_or(0).min(128) as u32;
+            Ok((true, set, min))
+        })
+        .collect()
+}
+
+/// No run of more than `max` identical characters (`maxConsecutive`, 0 = no limit).
+fn within_consecutive(p: &[char], max: usize) -> bool {
+    max == 0 || p.windows(max + 1).all(|w| w.iter().any(|c| *c != w[0]))
+}
+
 fn password(o: &Map<String, Value>) -> Result<String> {
     let avoid = opt_bool(o, "avoidAmbiguous", false);
-    let sets = [
+    if let Some(list) = o.get("sets").and_then(Value::as_array) {
+        return password_from(o, custom_sets(list, avoid)?);
+    }
+    let sets = vec![
         (
             opt_bool(o, "lowercase", true),
             charset(LOWER, LOWER_AMBIGUOUS, avoid),
@@ -87,26 +125,39 @@ fn password(o: &Map<String, Value>) -> Result<String> {
             opt_u32(o, "minSpecial", 1),
         ),
     ];
+    password_from(o, sets)
+}
+
+fn password_from(o: &Map<String, Value>, sets: Vec<(bool, Vec<char>, u32)>) -> Result<String> {
     let enabled: Vec<_> = sets.into_iter().filter(|(on, ..)| *on).collect();
     if enabled.is_empty() {
         return Err("at least one character set must be enabled".into());
     }
     let required: u32 = enabled.iter().map(|(_, _, min)| *min).sum();
     let length = opt_u32(o, "length", 14).clamp(5, 128).max(required);
+    let max_consecutive = opt_u32(o, "maxConsecutive", 0) as usize;
 
-    let all: Vec<char> = enabled
+    let mut all: Vec<char> = enabled
         .iter()
         .flat_map(|(_, set, _)| set.iter().copied())
         .collect();
-    let mut out: Vec<char> = enabled
-        .iter()
-        .flat_map(|(_, set, min)| (0..*min).map(|_| pick(set)))
-        .collect();
-    out.extend((out.len() as u32..length).map(|_| pick(&all)));
-    for i in (1..out.len()).rev() {
-        out.swap(i, rand_below(i as u32 + 1) as usize);
+    all.sort_unstable();
+    all.dedup(); // overlapping site sets must not weigh a character twice
+    // A random password breaks the limit only by chance; a rule that leaves no room (one character, limit 1) errors.
+    for _ in 0..1000 {
+        let mut out: Vec<char> = enabled
+            .iter()
+            .flat_map(|(_, set, min)| (0..*min).map(|_| pick(set)))
+            .collect();
+        out.extend((out.len() as u32..length).map(|_| pick(&all)));
+        for i in (1..out.len()).rev() {
+            out.swap(i, rand_below(i as u32 + 1) as usize);
+        }
+        if within_consecutive(&out, max_consecutive) {
+            return Ok(out.into_iter().collect());
+        }
     }
-    Ok(out.into_iter().collect())
+    Err("no password meets the maximum run of identical characters".into())
 }
 
 fn passphrase(o: &Map<String, Value>) -> Result<String> {
@@ -159,6 +210,25 @@ mod tests {
             assert!(p.chars().filter(char::is_ascii_lowercase).count() >= 5);
             assert!(p.chars().filter(char::is_ascii_uppercase).count() >= 4);
         }
+    }
+
+    #[test]
+    fn password_from_site_sets() {
+        for _ in 0..200 {
+            let p = generate(r#"{"length":10,"maxConsecutive":2,"sets":[{"chars":"ab","min":1},{"chars":"-_","min":2},{"chars":"ab-_é ","min":0}]}"#).unwrap();
+            assert_eq!(p.chars().count(), 10);
+            assert!(p.chars().all(|c| "ab-_".contains(c)));
+            assert!(p.chars().filter(|c| "-_".contains(*c)).count() >= 2);
+            assert!(within_consecutive(&p.chars().collect::<Vec<_>>(), 2));
+        }
+        assert!(generate(r#"{"sets":[{"chars":"é","min":1}]}"#).is_err());
+        assert!(generate(r#"{"maxConsecutive":1,"sets":[{"chars":"a","min":1}]}"#).is_err());
+        // avoidAmbiguous drops 0 and 1 unless they are all the set has
+        let p = generate(
+            r#"{"avoidAmbiguous":true,"sets":[{"chars":"01","min":1},{"chars":"0123","min":3}]}"#,
+        )
+        .unwrap();
+        assert!(p.contains(['0', '1']) && p.contains(['2', '3']));
     }
 
     #[test]

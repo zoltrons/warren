@@ -107,6 +107,10 @@
   local: crates/core-wasm/src/cipher.rs (decrypt_attachment, encrypt_attachment)
   sync: Attachment key wrapping (cipher key vs org/user key), body format, keyless legacy attachments.
 - repo: sdk-internal
+  path: crates/bitwarden-generators/src/passwordrules.rs
+  local: src/shared/password-rules.ts, crates/core-wasm/src/generator.rs (sets, maxConsecutive)
+  sync: passwordrules properties and classes (required, allowed, max-consecutive, minlength, maxlength).
+- repo: sdk-internal
   path: crates/bitwarden-generators/src/username.rs
   local: src/offscreen/vault.ts (generate)
   sync: Username types (word, subaddress, catch-all), random string length/charset, number suffix.

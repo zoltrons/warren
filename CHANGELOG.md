@@ -4,6 +4,12 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ## Unreleased
 
+### Added
+
+- "Use a strong password" in the inline menu follows the site's rules: the password field's `passwordrules`
+  (required and allowed characters, maximum run of the same character, length) and its minlength/maxlength, so the
+  password it fills is one the site accepts and is not cut short by the field.
+
 ### Changed
 
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own

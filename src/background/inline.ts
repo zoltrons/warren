@@ -4,6 +4,7 @@
 import type { FillResult } from "../autofill/types.ts";
 import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest, VaultItem } from "../shared/messages.ts";
 import { httpUrl } from "../shared/url.ts";
+import { type PasswordConstraints, ruleOptions } from "../shared/password-rules.ts";
 import { coreCall } from "./core.ts";
 import { UserError } from "./errors.ts";
 import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadline } from "./engine.ts";
@@ -16,7 +17,7 @@ import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/a
 import { generateAlias, getAliasSettings } from "./alias.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { addGeneratorHistory, copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
-import { generatorPrefs, hostOf, isBlocked, readPrivate, updatePrivate, withWordlist } from "./private.ts";
+import { type GeneratorPrefs, generatorPrefs, hostOf, isBlocked, readPrivate, updatePrivate, withWordlist } from "./private.ts";
 
 export interface InlineContext {
   frameId: number;
@@ -26,6 +27,8 @@ export interface InlineContext {
   nonce: string;
   /** The field is in a registration form (the engine's form_clues). */
   signup: boolean;
+  /** The form's password fields: `passwordrules` and length limits, for "Use a strong password". */
+  password?: PasswordConstraints;
 }
 
 export interface PendingSave {
@@ -100,7 +103,7 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
       async () => {
         const field = await analyzeFocus(req.details);
         if (!field.kind) return { rows: 0 };
-        return { kind: field.kind, ...(await onFocus(field.kind, req.nonce, field.signup, url, tabId, sender.frameId!)) };
+        return { kind: field.kind, ...(await onFocus(field.kind, req.nonce, field.signup, field.password, url, tabId, sender.frameId!)) };
       },
       { rows: 0 },
     );
@@ -139,13 +142,25 @@ async function aliasVendor(): Promise<AliasVendor | undefined> {
   return undefined;
 }
 
+/**
+ * The user's own password or passphrase settings, unless the form limits what it accepts: then a password of the
+ * user's length within those limits, from the site's character classes. A rule the generator cannot meet falls back
+ * to the user's settings (the site may refuse it, but the user still gets a password).
+ */
+async function generateFor(ctx: InlineContext, options: GeneratorPrefs["options"]): Promise<string> {
+  const plain = async () => coreCall<string>({ op: "generate", options: await withWordlist(options.type === "passphrase" ? options : { ...options, type: "password" }) });
+  const ruled = ctx.password && ruleOptions(ctx.password, Number(options.length) || 14);
+  if (!ruled) return plain();
+  return coreCall<string>({ op: "generate", options: { ...options, ...ruled, type: "password" } }).catch(plain);
+}
+
 /** A new alias is offered on a registration form's fields, once a service is set up. */
 const offerGenerate = (ctx: InlineContext) => ctx.kind === "login" && ctx.signup;
 const offerAlias = async (ctx: InlineContext) => ctx.kind === "login" && ctx.signup && !!(await aliasVendor());
 
-async function onFocus(kind: FieldKind, nonce: string, signup: boolean, url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
+async function onFocus(kind: FieldKind, nonce: string, signup: boolean, password: PasswordConstraints | undefined, url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
   if (!(await getSettings()).inlineMenu || !(await getLocal("account"))) return { rows: 0 };
-  const ctx: InlineContext = { frameId, url, kind, nonce, signup };
+  const ctx: InlineContext = { frameId, url, kind, nonce, signup, ...(password ? { password } : {}) };
   await setTabState("inline", tabId, ctx);
   if (!(await isUnlocked())) return { rows: 1 }; // "Unlock to fill"
   if (await isBlocked(url, true)) return { rows: 0 };
@@ -335,7 +350,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     await touchAutoLock();
     // The user's own password or passphrase settings; a username-generator setting gets a default password.
     const { options } = await generatorPrefs();
-    const password = await coreCall<string>({ op: "generate", options: await withWordlist(options.type === "passphrase" ? options : { ...options, type: "password" }) });
+    const password = await generateFor(ctx, options);
     // Kept like any generated value, so it is not lost if the page never submits.
     await addGeneratorHistory(password);
     await closeMenu(tabId, ctx);

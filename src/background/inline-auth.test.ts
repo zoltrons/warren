@@ -169,3 +169,31 @@ test("Use a strong password: only on a registration form, filled into the menu's
     delete c.scripting;
   }
 });
+
+test("Use a strong password: a form's passwordrules shape the password; a rule it cannot meet falls back", async () => {
+  session.session = { unlocked: true };
+  offscreen = true;
+  const c = chrome as unknown as { runtime: { sendMessage: (m: { req: { op: string; options?: Record<string, unknown> } }) => Promise<unknown> }; scripting?: unknown };
+  const worker = c.runtime.sendMessage;
+  const asked: Record<string, unknown>[] = [];
+  let refuse = false;
+  c.runtime.sendMessage = async (m) =>
+    m.req.op === "generate"
+      ? (asked.push(m.req.options!), refuse && m.req.options!.sets ? { ok: false, error: "no password meets the rule" } : { ok: true, value: "Gen-pw" })
+      : m.req.op === "encryptText" ? { ok: true, value: ["2.e|e|e"] } : worker(m);
+  c.scripting = { executeScript: async () => [] };
+  try {
+    const password = { rules: "required: digit; allowed: lower; max-consecutive: 2", maxLength: 12 };
+    session["inline:1"] = { frameId: 3, url: "https://site.test/signup", kind: "login", nonce: "r1", signup: true, password };
+    await handleFrame(parseFrameRequest({ type: "inlineGenerate", nonce: "r1" }), 1);
+    assert.deepEqual([asked[0]?.type, asked[0]?.length, asked[0]?.maxConsecutive, (asked[0]?.sets as unknown[]).length], ["password", 12, 2, 2]);
+    refuse = true;
+    asked.length = 0;
+    session["inline:1"] = { frameId: 3, url: "https://site.test/signup", kind: "login", nonce: "r2", signup: true, password };
+    await handleFrame(parseFrameRequest({ type: "inlineGenerate", nonce: "r2" }), 1);
+    assert.deepEqual(asked.map((o) => !!o.sets), [true, false], "the user's own settings after the refusal");
+  } finally {
+    c.runtime.sendMessage = worker;
+    delete c.scripting;
+  }
+});

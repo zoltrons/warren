@@ -6,6 +6,7 @@ import type { PageApi } from "../autofill/page.ts";
 import { coreCall } from "./core.ts";
 import { assertEpoch } from "./lock.ts";
 import { type CollectedPageDetails, type FieldKind, parsePageDetails } from "../shared/messages.ts";
+import type { PasswordConstraints } from "../shared/password-rules.ts";
 
 // A global, but one that rebuilds itself: after the service worker restarts this just loads again.
 let ready: ReturnType<typeof init> | undefined;
@@ -19,13 +20,23 @@ interface AnalyzedField {
 }
 
 /** What the focused field of `details` is. Anything the engine cannot make sense of gets no menu. */
-export async function analyzeFocus(details: CollectedPageDetails): Promise<{ kind?: FieldKind; signup: boolean; autofillType?: string }> {
-  const activeId = details.fields.find((f) => f.isActive)?.fieldId;
-  if (activeId === undefined) return { signup: false };
+export async function analyzeFocus(details: CollectedPageDetails): Promise<{ kind?: FieldKind; signup: boolean; autofillType?: string; password?: PasswordConstraints }> {
+  const active = details.fields.find((f) => f.isActive);
+  if (active === undefined) return { signup: false };
   await engine();
   const result = JSON.parse(analyze_page(JSON.stringify(details))) as { fields: AnalyzedField[] };
-  const field = result.fields.find((f) => f.fieldId === activeId);
-  return { kind: field?.menu, signup: !!field?.signup, autofillType: field?.designation.autofillType };
+  const field = result.fields.find((f) => f.fieldId === active.fieldId);
+  return { kind: field?.menu, signup: !!field?.signup, autofillType: field?.designation.autofillType, password: passwordConstraints(details, active.formId) };
+}
+
+/** What the password fields of the focused field's form accept: what "Use a strong password" generates for. */
+function passwordConstraints(details: CollectedPageDetails, formId: number | undefined): PasswordConstraints | undefined {
+  const fields = details.fields.filter((f) => f.type === "password" && f.formId === formId && !f.isHidden);
+  const rules = fields.find((f) => f.passwordRules?.trim())?.passwordRules;
+  const minLength = Math.max(0, ...fields.map((f) => f.minLength ?? 0)) || undefined;
+  const maxLength = Math.min(Infinity, ...fields.map((f) => f.maxLength ?? Infinity));
+  if (!rules && !minLength && maxLength === Infinity) return undefined;
+  return { ...(rules ? { rules } : {}), ...(minLength ? { minLength } : {}), ...(maxLength < Infinity ? { maxLength } : {}) };
 }
 
 export type FillRequest = (
