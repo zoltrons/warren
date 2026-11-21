@@ -24,6 +24,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   as the generator does.
 - A one-time code reads in halves split by a faint dot (123 · 456) instead of a gap that looked like a space; the dot
   is not part of the code, so a selection copies the digits only.
+- An item's websites lead with the host (github.com) and keep the scheme and path quiet, so which site it is reads at a
+  glance.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.

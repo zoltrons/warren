@@ -543,6 +543,19 @@ export function identityActions(data: Json): Child {
 }
 
 /** A website row: open, copy, and a menu with the main page and the https upgrade. */
+/**
+ * A URI with its host leading and the scheme and path quiet around it, so which site it is reads at a glance. Cut on
+ * the text as saved (not a parsed URL), so what is shown is exactly what is stored; no "://" leaves it whole.
+ */
+function uriParts(uri: string): Child[] {
+  const at = uri.indexOf("://");
+  if (at < 0) return [uri];
+  const start = at + 3;
+  const end = uri.slice(start).search(/[/?#]/);
+  const stop = end < 0 ? uri.length : start + end;
+  return [h("span", { class: "quiet" }, uri.slice(0, start)), uri.slice(start, stop), stop < uri.length ? h("span", { class: "quiet" }, uri.slice(stop)) : null];
+}
+
 export function uriRow(ctx: Ctx, index: number, uri: string, match: number | null, onHttps: ((to: string) => void) | undefined): HTMLElement {
   const href = webUrl(uri);
   const insecure = isInsecureUri(uri);
@@ -558,7 +571,7 @@ export function uriRow(ctx: Ctx, index: number, uri: string, match: number | nul
     "div",
     { class: "row" },
     icon(insecure ? "error" : "globe"),
-    h("div", copyOnClick(ctx, `uri.${index}`, () => uri, uri), h("span", { class: "title ellipsis" }, uri), sub ? h("span", { class: `sub${insecure ? " warn" : ""}` }, sub) : null),
+    h("div", copyOnClick(ctx, `uri.${index}`, () => uri, uri), h("span", { class: "title ellipsis" }, ...uriParts(uri)), sub ? h("span", { class: `sub${insecure ? " warn" : ""}` }, sub) : null),
     h("span", { class: "field-actions" }, href ? iconButton("external", t("openWebsite"), () => void chrome.tabs.create({ url: href })) : null, copyButton(ctx, `uri.${index}`, uri, t("copyField", uri)), moreButton(ctx, uri, items)),
   );
 }

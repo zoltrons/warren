@@ -968,6 +968,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 /* one-time code: a small determinate ring next to the value */
 .totp { font-size: var(--fs-title-sm); letter-spacing: 0.06em; }
+.title .quiet { color: var(--muted); }
 .half + .half::before { content: "·"; margin-inline: 0.3em; color: var(--faint); letter-spacing: 0; }
 /* The next code: a quiet pill under the current one, tinted in its last seconds. */
 .totp-next {
