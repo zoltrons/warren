@@ -15,8 +15,7 @@ import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
 import { startEdit } from "./vault-edit.ts";
 import { actionRow, strength } from "./vault-item.ts";
-import { charKind } from "./readable.ts";
-import { colorize, copy, copyButton, copyOnClick, type Ctx, iconButton, sectionTitle, st, topBar } from "./vault-shared.ts";
+import { charKind, colorize, copy, copyButton, copyOnClick, type Ctx, iconButton, sectionTitle, st, topBar } from "./vault-shared.ts";
 
 type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -719,7 +718,8 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
             role: "button",
             tabindex: gst.generated ? "0" : "-1",
             "aria-disabled": String(!gst.generated),
-            title: gst.generated ? t("copyField", t("generatedValue")) : undefined,
+            // Not on a value drawn in cells: its hover badge names the character's position there instead.
+            title: gst.generated && !chunked ? t("copyField", t("generatedValue")) : undefined,
             onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
             onkeydown: (e: KeyboardEvent) => {
               if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ") || !gst.generated) return;

@@ -6,7 +6,6 @@ import type { BreachResults, PageMatches, Response as Reply, SecurityReport, Set
 import { type Child, h, send, t } from "./dom.ts";
 import { type GeneratorPick, resetGenerator } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
-import { charKind } from "./readable.ts";
 import { sitePrefill, returnFromPicker, startEdit } from "./vault-edit.ts";
 import { orgDraft, loadReport } from "./vault-tools.ts";
 
@@ -258,6 +257,9 @@ export function tile(name: string, type: number, uris: string[] = [], brand = ""
   else void loadFavicon(src).then(show);
   return el;
 }
+
+/** A character's class in a shown secret: "d" digit, "s" symbol, "" letter or space. */
+export const charKind = (c: string): "d" | "s" | "" => (/\d/.test(c) ? "d" : /[^\p{L}\s]/u.test(c) ? "s" : "");
 
 /**
  * A secret drawn for reading (popup.css .pw): digits in the blue ink, symbols in the red, letters as they are. With
