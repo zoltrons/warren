@@ -10,6 +10,11 @@ All notable changes to Warren. Versions match the `v*` release tags.
   history never reach the popup (no reveal, copy or editing), an edit keeps them, and the save bar never offers to
   change them. Autofill still works, as in the official clients.
 
+### Added
+
+- Warren can run in private (incognito) windows: turn on "Allow in Incognito" on the extension's details page.
+  Private windows use the same vault and the same lock as the normal ones; it stays off until you allow it.
+
 ## 0.0.22 — 2026-11-21
 
 ### Security

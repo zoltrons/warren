@@ -43,5 +43,5 @@
       "description": "__MSG_cmdLock__"
     }
   },
-  "incognito": "not_allowed"
+  "incognito": "spanning"
 }
