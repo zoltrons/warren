@@ -494,15 +494,13 @@ async function ensurePush(): Promise<void> {
     // Server, account and token read under one owner (auth checks it): the same email on two servers is two owners.
     const { token } = await auth(epoch);
     // An update for an account that is gone (a login or logout since) changes nothing.
-    startPush(
-      server.url,
-      owner,
-      token,
-      (u) => {
+    startPush(server.url, owner, token, {
+      onUpdate: (u) => {
         if (epoch === ownerEpoch()) void onPush(u).catch((e: unknown) => console.error(e));
       },
-      () => epoch === ownerEpoch() && queueSync(),
-    );
+      onOpen: () => epoch === ownerEpoch() && queueSync(),
+      onDrop: () => epoch === ownerEpoch() && void ensurePush(),
+    });
   } catch {
     /* offline or the session ended: PUSH_ALARM tries again */
   }

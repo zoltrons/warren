@@ -23,6 +23,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Live updates resume within a minute after the computer wakes from sleep or changes networks: a connection that
+  went silent is noticed (its pings stop coming back) and replaced, and a dropped one reconnects at once instead of
+  at the next minute's check.
 - A large vault or attachment on a slow connection no longer fails to sync or download after 30 seconds (or 2
   minutes): a request now gives up only once the server has sent nothing for 30 seconds. A connection lost halfway
   through an answer is reported as a network problem instead of an unknown error.

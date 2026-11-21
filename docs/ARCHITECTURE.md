@@ -139,7 +139,9 @@ value; without it a vault over 10 MB could not be stored and would not load), `s
 `src/background/push.ts` keeps a WebSocket to Vaultwarden's `/notifications/hub` (SignalR, MessagePack;
 decoder in `src/transport/hub.ts`) while an account is logged in, locked or not. The access token goes in the
 query (browsers cannot set WebSocket headers). A SignalR ping every 20 s, echoed by the server, counts as
-service-worker activity, so the worker stays up; `PUSH_ALARM` (1 min) reconnects after a drop or a restart.
+service-worker activity, so the worker stays up. No echo for two pings (45 s) means a dead link (a half-open TCP
+connection after sleep or a network change stays "open" for minutes): the socket is dropped. A drop or a close
+reconnects at once (at most every 30 s); `PUSH_ALARM` (1 min) covers a failed attempt and a worker restart.
 Updates caused by our own device id are ignored. Vault, folder, send and settings updates run `sync(false)` once
 per burst, only while unlocked (the popup syncs on open anyway). Updates sent while the socket was down are lost,
 so every (re)connect queues the same `sync(false)` (a revision-date call when nothing changed), and `PUSH_ALARM`
