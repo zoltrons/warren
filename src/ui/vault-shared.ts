@@ -260,11 +260,17 @@ export function tile(name: string, type: number, uris: string[] = [], brand = ""
 }
 
 /**
- * A secret drawn for reading (popup.css .pw): digits in the accent, symbols in the secondary text color, letters as
- * they are. With `cells` every character is its own span (.c), for the generator's decode and live length.
+ * A secret drawn for reading (popup.css .pw): digits in the blue ink, symbols in the red, letters as they are. With
+ * `cells` every character is its own span (.c, its position in data-i) inside groups of four (.grp), for the
+ * generator's decode, live length and hover; the groups add no space, they only show under the pointer.
  */
 export function colorize(value: string, cells = false): (Node | string)[] {
-  return [...value].map((c) => (cells ? h("span", { class: `c ${charKind(c)}` }, c) : charKind(c) ? h("span", { class: charKind(c) }, c) : c));
+  const chars = [...value];
+  if (!cells) return chars.map((c) => (charKind(c) ? h("span", { class: charKind(c) }, c) : c));
+  const cell = (c: string, i: number) => h("span", { class: `c ${charKind(c)}`, "data-i": String(i + 1) }, c);
+  const groups: Node[] = [];
+  for (let i = 0; i < chars.length; i += 4) groups.push(h("span", { class: "grp" }, ...chars.slice(i, i + 4).map((c, j) => cell(c, i + j))));
+  return groups;
 }
 
 export let toastId = 0;

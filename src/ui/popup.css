@@ -1092,7 +1092,19 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .generated-value:active output { transform: scale(0.985); }
 /* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
 .generated output.plain { font-size: var(--fs-heading); font-weight: 500; letter-spacing: 0; word-break: normal; }
-.generated output .c { display: inline-block; }
+.generated output .c { position: relative; display: inline-block; }
+/* Under the pointer the value shows its structure, and only then: the group of four it is in sits on a soft capsule
+   (a shadow spread, so nothing moves) and the character names its place above it, for typing it in elsewhere. */
+.generated output .grp { display: inline-block; white-space: nowrap; border-radius: 6px; transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.generated-value:hover output .grp:hover { background-color: var(--tint-strong); box-shadow: 0 0 0 3px var(--tint-strong); }
+.generated-value:hover output .c:hover::after {
+  content: attr(data-i); position: absolute; bottom: calc(100% + 6px); left: 50%; translate: -50% 0;
+  min-width: 18px; padding: 2px 6px; border-radius: 6px;
+  background: var(--inverse); color: var(--on-inverse);
+  font: 500 11px/14px var(--font); letter-spacing: 0; text-align: center; font-variant-numeric: tabular-nums;
+  pointer-events: none; z-index: 1; animation: badge 120ms var(--ease);
+}
+@keyframes badge { from { opacity: 0; translate: -50% 3px; } }
 /* A new character drops into place as the decode before it stops (generator.ts decode). */
 .generated output .c.landed { animation: land 180ms var(--ease); }
 @keyframes land { from { transform: translateY(-0.25em); opacity: 0.4; } }

@@ -30,7 +30,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - The generator's value sits on one line, as large as fits, and is itself the copy button (a click, or Enter and
   Space); one quiet line under it gives the strength, the length and the digits and symbols, and says "Copied" in
   place. Dragging the length makes the value grow or shrink from its end as you go, and a new value settles in left
-  to right (not with animations turned off). Regenerate is a small button beside the value.
+  to right (not with animations turned off). Regenerate is a small button beside the value. With the pointer on the
+  value, the group of four under it is lit and the character shows its position, for typing it in elsewhere.
 - In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
 - In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items.
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own
