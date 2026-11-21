@@ -419,11 +419,12 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     });
     void regenerate(ctx);
   };
-  const toggle = (k: string, label: string) =>
+  // `sub` names what the option does in the characters themselves, set in the secret face so they look as they would.
+  const toggle = (k: string, label: string, sub?: string) =>
     h(
       "label",
       { class: "row" },
-      h("div", { class: "body" }, h("span", { class: "title" }, label)),
+      h("div", { class: "body" }, h("span", { class: "title" }, label), sub ? h("span", { class: "sub mono" }, sub) : null),
       switchOf(h("input", { type: "checkbox", checked: g[k] === true, onchange: (e: Event) => set(k, (e.target as HTMLInputElement).checked) })),
     );
   const slider = (k: string, label: string, min: number, max: number) => {
@@ -526,7 +527,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       { class: "group" },
       slider("length", t("length"), 5, 128),
       h("div", { class: "row" }, h("div", { class: "body" }, h("span", { class: "title" }, t("include"))), h("div", { class: "chips", role: "group", "aria-label": t("include") }, ...SETS.map(setChip))),
-      toggle("avoidAmbiguous", t("avoidAmbiguous")),
+      toggle("avoidAmbiguous", t("avoidAmbiguous"), "l I O 0 1"), // what core-wasm generator.rs *_AMBIGUOUS leave out
       h(
         "details",
         { class: "row-details", open: gst.minimumsOpen, ontoggle: (e: Event) => (gst.minimumsOpen = (e.target as HTMLDetailsElement).open) },
