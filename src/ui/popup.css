@@ -668,8 +668,20 @@ a.row { text-decoration: none; color: var(--text); }
    a digit is colored and heavier, a symbol sits on a keycap tint; long values read in groups of four. */
 .pw .d { color: var(--digit); font-weight: 600; }
 .pw .s { color: var(--attention); background: var(--attention-weak); border-radius: 3px; box-shadow: 0 0 0 1px var(--attention-weak); }
-.pw .grp { white-space: nowrap; }
-.pw .grp + .grp { margin-left: 0.5ch; }
+/* Groups of four told apart by a band behind every other one: a gap there would read as a space in the password. */
+.pw .grp { white-space: nowrap; padding-block: 1px; border-radius: 4px; }
+.pw .grp:nth-child(even) { background: var(--tint-strong); }
+/* The generator's value, character by character: the hovered one lifts and names its position. */
+.generated .pw .c { position: relative; display: inline-block; border-radius: 3px; transition: background-color var(--fast) var(--ease); }
+.generated .pw .c:hover { background-color: var(--pressed); }
+.generated .pw .c:hover::after {
+  content: attr(data-i); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  padding: 1px 5px; border-radius: 4px; background: var(--inverse); color: var(--on-inverse);
+  font: 500 10px/14px var(--font); letter-spacing: 0; pointer-events: none; z-index: 1;
+}
+/* A decoded character lands: dropping in from above as the scramble before it stops (generator.ts decode). */
+.generated .pw .c.landed { animation: land 220ms var(--ease); }
+@keyframes land { from { transform: translateY(-0.35em); opacity: 0.35; } }
 .countdown {
   min-width: 34px; height: 24px; padding: 0 8px; border-radius: var(--r-full);
   display: grid; place-items: center;

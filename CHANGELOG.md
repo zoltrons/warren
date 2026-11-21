@@ -20,9 +20,11 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
 - A shown password is easier to read: digits are colored and bold, symbols sit on a violet tint (two cues, not color
-  alone), and a long unbroken password or PIN reads in groups of four (copying still gives it whole). The generator
-  says what the value is made of (characters, uppercase, lowercase, digits, symbols) in the same colors, and its
-  suggestions are colored like the value.
+  alone), and a long unbroken password or PIN reads in groups of four, marked by a band behind every other group
+  rather than a gap that would look like a space. The generator says what the value is made of (characters,
+  uppercase, lowercase, digits, symbols) in the same colors, colors its suggestions like the value, names a
+  character's position when the pointer is on it, and decodes a new value into place, character by character (not
+  with animations turned off).
 - In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
 - In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items.
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own

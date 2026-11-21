@@ -257,8 +257,10 @@ export function tile(name: string, type: number, uris: string[] = [], brand = ""
 }
 
 /** A secret drawn for reading (popup.css .pw): digits and symbols marked and, with `chunk`, in groups (groupsOf). */
-export function colorize(value: string, chunk = false): (Node | string)[] {
-  const one = (c: string) => (charKind(c) ? h("span", { class: charKind(c) }, c) : c);
+/** With `cells` every character is its own span (.c, its position in data-i), for the generator's hover and decode. */
+export function colorize(value: string, chunk = false, cells = false): (Node | string)[] {
+  let at = 0;
+  const one = (c: string) => (++at, cells ? h("span", { class: `c ${charKind(c)}`, "data-i": String(at) }, c) : charKind(c) ? h("span", { class: charKind(c) }, c) : c);
   const groups = chunk ? groupsOf(value) : [value];
   return groups.length > 1 ? groups.map((g) => h("span", { class: "grp" }, ...[...g].map(one))) : [...value].map(one);
 }

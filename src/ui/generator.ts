@@ -10,7 +10,7 @@ import {
   missingAliasFields,
 } from "../shared/alias.ts";
 import type { HistoryEntry } from "../shared/messages.ts";
-import { type Child, h, plural, send, t, when, withChevron, switchOf } from "./dom.ts";
+import { type Child, h, motionOff, plural, send, t, when, withChevron, switchOf } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
 import { startEdit, strengthBar } from "./vault-edit.ts";
@@ -305,6 +305,47 @@ function historyScreen(ctx: Ctx, list: HistoryEntry[]): HTMLElement {
   );
 }
 
+/**
+ * The value last decoded on screen and when it started: a re-render mid-way (the suggestions arriving) carries the
+ * decode on in the new element, and one after it (a copy, a toggle) shows the value settled.
+ */
+let decoded = "";
+let decodedAt = 0;
+const POOLS = { d: "0123456789", s: "!@#$%^&*?+=~", "": "abcdefghijkmnopqrstuvwxyz" } as const;
+
+/**
+ * A new value decodes into place: each character runs through look-alikes of its own kind (digit, symbol, letter of
+ * its case), then lands, left to right. Decoration only: the value itself is in gst.generated from the start.
+ */
+function decode(out: HTMLElement, value: string) {
+  if (value !== decoded) ((decoded = value), (decodedAt = performance.now()));
+  const cells = [...out.querySelectorAll<HTMLElement>(".c")];
+  const start = decodedAt;
+  if (motionOff() || performance.now() - start >= 180 + cells.length * 24) return;
+  const finals = cells.map((c) => c.textContent ?? "");
+  let last = 0;
+  const tick = (now: number) => {
+    if (!out.isConnected) return;
+    const shuffle = now - last >= 45; // a few changes a second reads as decoding; every frame is flicker
+    if (shuffle) last = now;
+    let busy = false;
+    cells.forEach((c, i) => {
+      const f = finals[i]!;
+      if (now - start >= 180 + i * 24) {
+        if (c.textContent !== f) ((c.textContent = f), c.classList.add("landed"));
+        return;
+      }
+      busy = true;
+      if (!shuffle) return;
+      const pool = POOLS[charKind(f)];
+      const r = pool[Math.floor(Math.random() * pool.length)]!;
+      c.textContent = f !== f.toLowerCase() ? r.toUpperCase() : r;
+    });
+    if (busy) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 /** What the value is made of, in the colors it is drawn in: a legend and a count to check a site's rules against. */
 function composition(value: string): HTMLElement {
   const chars = [...value];
@@ -334,6 +375,20 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     void copy(ctx, gst.generated);
     if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
   };
+  const output = h(
+    "output",
+    {
+      class: `${g.type === "identity" ? "plain" : "mono pw"}${gst.generated ? " copyable" : ""}`,
+      "aria-live": "off",
+      "aria-label": t("generatedValue"),
+      // Not on a character-by-character value: the tooltip would sit on top of the hovered character's position.
+      title: gst.generated && !chunked ? t("copyField", t("generatedValue")) : undefined,
+      // A click on the value copies it, as on an item's fields; a selection made in it is left alone.
+      onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
+    },
+    ...(gst.generated ? colorize(gst.generated, chunked, chunked) : ["…"]),
+  );
+  if (chunked && gst.generated) decode(output, gst.generated);
   const set = (k: string, v: unknown) => {
     g[k] = v;
     if (k === "length") g.minNumber = g.minSpecial = scaledMin(Number(v));
@@ -633,18 +688,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       h(
         "div",
         { class: "generated-row" },
-        h(
-          "output",
-          {
-            class: `${g.type === "identity" ? "plain" : "mono pw"}${gst.generated ? " copyable" : ""}`,
-            "aria-live": "off",
-            "aria-label": t("generatedValue"),
-            title: gst.generated ? t("copyField", t("generatedValue")) : undefined,
-            // A click on the value copies it, as on an item's fields; a selection made in it is left alone.
-            onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
-          },
-          ...(gst.generated ? colorize(gst.generated, chunked) : ["…"]),
-        ),
+        output,
         h(
           "div",
           { class: "trailing" },
