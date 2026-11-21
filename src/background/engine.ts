@@ -26,15 +26,21 @@ export async function analyzeFocus(details: CollectedPageDetails): Promise<{ kin
   await engine();
   const result = JSON.parse(analyze_page(JSON.stringify(details))) as { fields: AnalyzedField[] };
   const field = result.fields.find((f) => f.fieldId === active.fieldId);
-  return { kind: field?.menu, signup: !!field?.signup, autofillType: field?.designation.autofillType, password: passwordConstraints(details, active.formId) };
+  return { kind: field?.menu, signup: !!field?.signup, autofillType: field?.designation.autofillType, password: passwordConstraints(details, result.fields, active.formId) };
 }
 
-/** What the password fields of the focused field's form accept: what "Use a strong password" generates for. */
-function passwordConstraints(details: CollectedPageDetails, formId: number | undefined): PasswordConstraints | undefined {
+/**
+ * What the new-password fields of the focused field's form accept: what "Use a strong password" generates for. Only
+ * those fields: a PIN or a one-digit code box drawn as a password field would otherwise cap the length.
+ */
+function passwordConstraints(details: CollectedPageDetails, analyzed: AnalyzedField[], formId: number | undefined): PasswordConstraints | undefined {
+  const isNew = new Set(analyzed.filter((f) => f.designation.autofillType === "NewPassword").map((f) => f.fieldId));
   const fields = details.fields.filter((f) => f.type === "password" && f.formId === formId && !f.isHidden);
-  const rules = fields.find((f) => f.passwordRules?.trim())?.passwordRules;
-  const minLength = Math.max(0, ...fields.map((f) => f.minLength ?? 0)) || undefined;
-  const maxLength = Math.min(Infinity, ...fields.map((f) => f.maxLength ?? Infinity));
+  const sized = fields.filter((f) => isNew.has(f.fieldId));
+  // A field carrying passwordrules is a new password by definition, whatever the classifier made of it.
+  const rules = [...sized, ...fields].find((f) => f.passwordRules?.trim())?.passwordRules;
+  const minLength = Math.max(0, ...sized.map((f) => f.minLength ?? 0)) || undefined;
+  const maxLength = Math.min(Infinity, ...sized.map((f) => f.maxLength ?? Infinity));
   if (!rules && !minLength && maxLength === Infinity) return undefined;
   return { ...(rules ? { rules } : {}), ...(minLength ? { minLength } : {}), ...(maxLength < Infinity ? { maxLength } : {}) };
 }

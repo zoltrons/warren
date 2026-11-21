@@ -151,7 +151,9 @@ async function generateFor(ctx: InlineContext, options: GeneratorPrefs["options"
   const plain = async () => coreCall<string>({ op: "generate", options: await withWordlist(options.type === "passphrase" ? options : { ...options, type: "password" }) });
   const ruled = ctx.password && ruleOptions(ctx.password, Number(options.length) || 14);
   if (!ruled) return plain();
-  return coreCall<string>({ op: "generate", options: { ...options, ...ruled, type: "password" } }).catch(plain);
+  // One of each class at least: the user's own minimums (scaled up with a long length) could outgrow the site's maxlength.
+  const mins = { minLowercase: 1, minUppercase: 1, minNumber: 1, minSpecial: 1 };
+  return coreCall<string>({ op: "generate", options: { ...options, ...mins, ...ruled, type: "password" } }).catch(plain);
 }
 
 /** A new alias is offered on a registration form's fields, once a service is set up. */

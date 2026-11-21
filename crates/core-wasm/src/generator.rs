@@ -79,7 +79,11 @@ fn custom_sets(list: &[Value], avoid: bool) -> Result<Vec<(bool, Vec<char>, u32)
             let unambiguous: Vec<char> = set
                 .iter()
                 .copied()
-                .filter(|c| !"lIO01".contains(*c))
+                .filter(|c| {
+                    ![LOWER_AMBIGUOUS, UPPER_AMBIGUOUS, NUMBER_AMBIGUOUS]
+                        .iter()
+                        .any(|a| a.contains(*c))
+                })
                 .collect();
             if avoid && !unambiguous.is_empty() {
                 set = unambiguous;

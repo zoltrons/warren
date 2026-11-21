@@ -78,8 +78,8 @@ export function ruleOptions(c: PasswordConstraints, length: number): RuleOptions
     else if (name === "maxlength") max = Math.min(max, count(value) ?? Infinity);
     else if (name === "max-consecutive") maxConsecutive = count(value) || undefined;
   }
-  // A required line per set (shortcut: at most 16, the generator's cap; real rules have two to four).
-  const sets = [...required.slice(0, 16).map((chars) => ({ chars, min: 1 })), ...(allowed ? [{ chars: allowed, min: 0 }] : [])].slice(0, 16);
+  // A set per required line, then the allowed ones (shortcut: at most 16, the generator's cap; real rules have two to four).
+  const sets = [...required.map((chars) => ({ chars, min: 1 })), ...(allowed ? [{ chars: allowed, min: 0 }] : [])].slice(0, 16);
   if (!sets.length && !maxConsecutive && min === 0 && max === Infinity) return undefined;
   const len = Math.max(1, Math.min(Math.max(length, min), max, 128));
   return { length: len, ...(sets.length ? { sets } : {}), ...(maxConsecutive ? { maxConsecutive } : {}) };
