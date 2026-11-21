@@ -53,6 +53,17 @@ export type Request =
   | { type: "loginRequests" }
   /** `fingerprint`: the phrase the user compared; approval is refused for a key that does not give it. */
   | { type: "answerLoginRequest"; id: string; approve: boolean; fingerprint: string }
+  /** Emergency access: this account's trusted contacts and the accounts that trust it. */
+  | { type: "emergencyList" }
+  | { type: "emergencyInvite"; email: string; kind: 0 | 1; waitDays: number }
+  | { type: "emergencyAction"; id: string; action: "reinvite" | "initiate" | "approve" | "reject" | "delete" }
+  /** Grantor: the phrase the grantee's key gives; `emergencyConfirm` wraps the user key only for a key that gives it. */
+  | { type: "emergencyFingerprint"; id: string }
+  | { type: "emergencyConfirm"; id: string; fingerprint: string }
+  /** Grantee: the grantor's items (summaries), then one item in full. */
+  | { type: "emergencyView"; id: string }
+  | { type: "emergencyItem"; id: string; itemId: string }
+  | { type: "emergencyTakeover"; id: string; password: string }
   | { type: "unlock"; password: string }
   | { type: "unlockPin"; pin: string }
   /** Opens the vault with the PRF output of the biometric passkey (see src/ui/biometric.ts). */
@@ -196,6 +207,14 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   deviceLoginCheck: obj({ type: literal("deviceLoginCheck") }),
   loginRequests: obj({ type: literal("loginRequests") }),
   answerLoginRequest: obj({ type: literal("answerLoginRequest"), id: secret, approve: bool, fingerprint: capped(256) }),
+  emergencyList: obj({ type: literal("emergencyList") }),
+  emergencyInvite: obj({ type: literal("emergencyInvite"), email: capped(320), kind: literal(0, 1), waitDays: u32 }),
+  emergencyAction: obj({ type: literal("emergencyAction"), id: secret, action: literal("reinvite", "initiate", "approve", "reject", "delete") }),
+  emergencyFingerprint: obj({ type: literal("emergencyFingerprint"), id: secret }),
+  emergencyConfirm: obj({ type: literal("emergencyConfirm"), id: secret, fingerprint: capped(256) }),
+  emergencyView: obj({ type: literal("emergencyView"), id: secret }),
+  emergencyItem: obj({ type: literal("emergencyItem"), id: secret, itemId: secret }),
+  emergencyTakeover: obj({ type: literal("emergencyTakeover"), id: secret, password: capped(1024) }),
   unlock: obj({ type: literal("unlock"), password: str }),
   unlockPin: obj({ type: literal("unlockPin"), pin: str }),
   unlockBiometric: obj({ type: literal("unlockBiometric"), prf: str }),
@@ -590,6 +609,9 @@ export type CoreRequest =
   | { op: "authRequestUnlock"; key: string; encryptedPrivateKey?: string }
   | { op: "authRequestApprove"; publicKey: string }
   | { op: "authRequestFingerprint"; email: string; publicKey: string }
+  | { op: "emergencyView"; grantId: string; keyEncrypted: string; ciphers: unknown[] }
+  | { op: "emergencyItem"; grantId: string; id: string }
+  | { op: "emergencyTakeover"; keyEncrypted: string; password: string; email: string; kdf: KdfParams }
   | { op: "lock" }
   /** Whether the decrypted vault is in memory (a fresh worker, or a sign-in, has none yet). */
   | { op: "vaultLoaded" }
@@ -696,6 +718,9 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   authRequestUnlock: obj({ op: literal("authRequestUnlock"), key: str, encryptedPrivateKey: opt(str) }),
   authRequestApprove: obj({ op: literal("authRequestApprove"), publicKey: str }),
   authRequestFingerprint: obj({ op: literal("authRequestFingerprint"), email: str, publicKey: str }),
+  emergencyView: obj({ op: literal("emergencyView"), grantId: str, keyEncrypted: str, ciphers: arr(unknownValue) }),
+  emergencyItem: obj({ op: literal("emergencyItem"), grantId: str, id: str }),
+  emergencyTakeover: obj({ op: literal("emergencyTakeover"), keyEncrypted: str, password: str, email: str, kdf: kdfParams }),
   lock: obj({ op: literal("lock") }),
   vaultLoaded: obj({ op: literal("vaultLoaded") }),
   loadVault: obj({

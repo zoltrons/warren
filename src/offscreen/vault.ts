@@ -200,6 +200,22 @@ export const getCipher = (id: string): Json => withoutHiddenPasswords(withoutPas
 
 export const cipherSummary = (id: string): VaultItem => summary(get(id));
 
+/** Emergency access: the one grantor vault being viewed. Only here, never stored; the worker dies with the lock. */
+let emergency: { grantId: string; items: Map<string, Json> } | undefined;
+
+export function emergencyView(grantId: string, keyEncrypted: string, encCiphers: unknown[]): VaultItem[] {
+  const r = JSON.parse(core.emergencyView(keyEncrypted, JSON.stringify(encCiphers))) as { ciphers: Json[] };
+  const items = new Map(r.ciphers.filter((c) => !ci(c, "deletedDate")).map((c) => [s(ci(c, "id")), c]));
+  emergency = { grantId, items };
+  return [...items.values()].map((c) => ({ ...summary(c), readOnly: true })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function emergencyItem(grantId: string, id: string): Json {
+  const c = emergency?.grantId === grantId ? emergency.items.get(id) : undefined;
+  if (!c) throw new Error("Open the vault again");
+  return withoutPasskeyKeys(c);
+}
+
 /**
  * Encrypts an edited/new personal Login or Note. Mirrors the official clients: a changed password is
  * pushed to passwordHistory (max 5), and edits carry lastKnownRevisionDate so the server refuses

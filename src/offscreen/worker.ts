@@ -56,6 +56,14 @@ function run(req: CoreRequest): unknown {
       return core.authRequestApprove(req.publicKey);
     case "authRequestFingerprint":
       return core.authRequestFingerprint(req.email, req.publicKey);
+    case "emergencyView":
+      return vault.emergencyView(req.grantId, req.keyEncrypted, req.ciphers);
+    case "emergencyItem":
+      return vault.emergencyItem(req.grantId, req.id);
+    case "emergencyTakeover": {
+      const { type, iterations, memory, parallelism } = req.kdf;
+      return JSON.parse(core.emergencyTakeover(req.keyEncrypted, req.password, req.email, type, iterations, memory, parallelism)) as unknown;
+    }
     case "lock":
       core.lock();
       authHashes.clear();

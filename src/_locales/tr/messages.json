@@ -2651,5 +2651,132 @@
   },
   "uiLocale": {
     "message": "tr"
+  },
+  "errMasterPasswordTooShort": {
+    "message": "Yeni ana parola için en az 12 karakter kullan"
+  },
+  "emergencyAccess": {
+    "message": "Acil durum erişimi"
+  },
+  "emergencyAccessSub": {
+    "message": "Bekleme süresinden sonra kasanı görebilen ya da devralabilen güvenilir kişiler"
+  },
+  "emergencyAccessHint": {
+    "message": "Güvenilir bir kişi kasana erişim isteyebilir. İsteği bekleme süresi içinde reddetmezsen erişimi alır. Sunucunun acil durum erişimine izin vermesi gerekir."
+  },
+  "emTrusted": {
+    "message": "Güvenilir kişilerin"
+  },
+  "emGranted": {
+    "message": "Sana güvenen hesaplar"
+  },
+  "emGrantedNone": {
+    "message": "Kimse seni acil durum kişisi olarak eklemedi."
+  },
+  "emAdd": {
+    "message": "Acil durum kişisi ekle"
+  },
+  "emInvite": {
+    "message": "Davet et"
+  },
+  "emAccess": {
+    "message": "Erişim"
+  },
+  "emWait": {
+    "message": "Bekleme süresi"
+  },
+  "emKindView": {
+    "message": "Görüntüleme"
+  },
+  "emKindTakeover": {
+    "message": "Devralma"
+  },
+  "emKindViewHint": {
+    "message": "Bekleme süresinden sonra öğelerini okuyabilir."
+  },
+  "emKindTakeoverHint": {
+    "message": "Bekleme süresinden sonra hesabına yeni bir ana parola belirleyebilir ve böylece kasanın sahibi olur."
+  },
+  "emStatus0": {
+    "message": "Davet edildi"
+  },
+  "emStatus1": {
+    "message": "Kabul etti, onayın gerekiyor"
+  },
+  "emStatus2": {
+    "message": "Onaylandı"
+  },
+  "emStatus3": {
+    "message": "Erişim istendi"
+  },
+  "emStatus4": {
+    "message": "Erişim verildi"
+  },
+  "emReinvite": {
+    "message": "Yeniden davet et"
+  },
+  "emConfirm": {
+    "message": "Onayla"
+  },
+  "emApprove": {
+    "message": "Onayla"
+  },
+  "emReject": {
+    "message": "Reddet"
+  },
+  "emRequest": {
+    "message": "Erişim iste"
+  },
+  "emView": {
+    "message": "Kasayı görüntüle"
+  },
+  "emTakeover": {
+    "message": "Devral"
+  },
+  "emWaitsUntil": {
+    "message": "erişim: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emConfirmHint": {
+    "message": "$P1$ kişisini yalnızca kendi uygulaması parmak izi ifadesi olarak aynı ifadeyi gösteriyorsa onayla:",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emVaultOf": {
+    "message": "$P1$ kasası",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emViewHint": {
+    "message": "Salt okunur. Buradaki hiçbir şey bu cihazda saklanmaz."
+  },
+  "emTakeoverHint": {
+    "message": "$P1$ için yeni bir ana parola seç. Eskisi artık çalışmaz; PIN, biyometrik kilit açma ve oturum açık cihazları sona erer.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emNewPassword": {
+    "message": "Yeni ana parola"
+  },
+  "emTakeoverDone": {
+    "message": "Tamam. Yeni ana parolayla $P1$ olarak giriş yap.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   }
 }

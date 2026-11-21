@@ -245,6 +245,53 @@ pub fn auth_request_approve(public_key_b64: &str) -> Result<String> {
     })
 }
 
+/// Emergency access: the grantor's user key, which the grantor's client wrapped for this account's public key.
+fn grantor_key(key_encrypted: &str) -> Result<SymmetricCryptoKey> {
+    with_session(|s| {
+        let private = s
+            .private
+            .as_ref()
+            .ok_or("this account has no private key")?;
+        #[allow(deprecated)]
+        // emergency access, like org keys, is unsigned RSA-OAEP (type 4) on Vaultwarden
+        UnsignedSharedKey::from_str(key_encrypted)
+            .map_err(err)?
+            .decapsulate_key_unsigned(private)
+            .map_err(err)
+    })
+}
+
+/// Emergency access, view: the grantor's ciphers decrypted with their user key, which never joins this session.
+/// Output as `decrypt_cipher_list`.
+pub fn emergency_view(key_encrypted: &str, ciphers_json: &str) -> Result<String> {
+    let user = grantor_key(key_encrypted)?;
+    let ciphers: Vec<Value> = serde_json::from_str(ciphers_json).map_err(err)?;
+    let grantor = Session {
+        user,
+        private: None,
+        orgs: HashMap::new(),
+        security_version: 1,
+    };
+    Ok(crate::cipher::decrypt_list(&grantor, ciphers).to_string())
+}
+
+/// Emergency access, takeover: the grantor's user key under a master key made from the new `password`, the grantor's
+/// `email` and the KDF the server reports. `{"masterPasswordHash", "key"}` for POST /emergency-access/{id}/password.
+pub fn emergency_takeover(
+    key_encrypted: &str,
+    password: &str,
+    email: &str,
+    kdf: &Kdf,
+) -> Result<String> {
+    let user = grantor_key(key_encrypted)?;
+    let mk = MasterKey::derive(password, email, kdf).map_err(err)?;
+    let key = mk.encrypt_user_key(&user).map_err(err)?.to_string();
+    let hash = mk
+        .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
+        .to_string();
+    Ok(serde_json::json!({ "masterPasswordHash": hash, "key": key }).to_string())
+}
+
 /// A V2 account's state as Warren keeps it: the token's `AccountKeys`, wrapped and signed (store.ts).
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -645,6 +692,57 @@ mod tests {
         auth_request_create("a@example.test").unwrap();
         lock();
         assert!(auth_request_unlock(&wrapped, None).is_err());
+    }
+
+    #[test]
+    fn emergency_access_roundtrip() {
+        // The grantor wraps their user key for the grantee's public key (the confirm step), and has an item.
+        let grantee_private = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let public_key =
+            STANDARD.encode(grantee_private.to_public_key().to_der().unwrap().as_ref());
+        let grantor = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        open_session(grantor.clone(), None).unwrap();
+        let wrapped = auth_request_approve(&public_key).unwrap();
+        let item =
+            encrypt_cipher(r#"{"type":2,"name":"Will","secureNote":{"type":0}}"#, false).unwrap();
+        lock();
+        // The grantee reads it with their own private key; their session keeps its own user key.
+        let own = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let own_b64 = own.to_base64();
+        SESSION.with_borrow_mut(|s| {
+            *s = Some(Session {
+                user: own,
+                private: Some(grantee_private),
+                orgs: HashMap::new(),
+                security_version: 1,
+            })
+        });
+        let view: Value =
+            serde_json::from_str(&emergency_view(&wrapped, &format!("[{item}]")).unwrap()).unwrap();
+        assert_eq!(view["ciphers"][0]["name"], "Will");
+        assert_eq!(with_session(|s| Ok(s.user.to_base64())).unwrap(), own_b64);
+        // Takeover: the grantor's key under the new master password, and the hash the server checks for it.
+        let kdf = kdf_from_params(0, 600_000, 0, 0).unwrap();
+        let out: Value = serde_json::from_str(
+            &emergency_takeover(&wrapped, "new-pw", "grantor@example.test", &kdf).unwrap(),
+        )
+        .unwrap();
+        let mk = MasterKey::derive("new-pw", "grantor@example.test", &kdf).unwrap();
+        let key = EncString::from_str(out["key"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            mk.decrypt_user_key(key).unwrap().to_base64(),
+            grantor.to_base64()
+        );
+        assert_eq!(
+            out["masterPasswordHash"],
+            mk.derive_master_key_hash(b"new-pw", HashPurpose::ServerAuthorization)
+                .to_string()
+        );
+        lock();
+        assert!(
+            emergency_view(&wrapped, "[]").is_err(),
+            "a locked worker opens nothing"
+        );
     }
 
     // Needs the `register` feature for `UserKey::make_key_pair`; CI builds the e2e harness with it.

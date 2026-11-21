@@ -12,6 +12,7 @@ import { navMotion } from "./motion.ts";
 import { loadCommonWords } from "../shared/strength.ts";
 import { vaultScreen } from "./vault.ts";
 import { row, settingsTab } from "./settings.ts";
+import { closeEmergency, emergencyOpen, emergencyScreen } from "./emergency.ts";
 import { uriMatchLabel } from "./vault-edit.ts";
 import { type Ctx, refreshPageMatches, reloadList, resetVault, setIconBase, toastEl, vaultRouteKey } from "./vault-shared.ts";
 
@@ -68,6 +69,7 @@ function setState(next: State, asked = { locks: sessionNow(), unlocks }): void {
     draft.password = draft.pin = draft.filePassword = "";
     ui.reveal = ui.exporting = false;
     ui.importing = undefined;
+    closeEmergency(); // a grantor's items and a typed takeover password belong to the session that ended
   }
   else if (state && state.phase !== "unlocked" && open) unlocks++;
   state = next;
@@ -640,7 +642,7 @@ function unlockedView(s: State): DocumentFragment {
   const frag = document.createDocumentFragment();
   frag.append(
     ...[
-      ui.tab === "settings" ? settingsTab(s) : ui.tab === "generator" ? generatorScreen(vaultCtx) : ui.tab === "send" ? sendScreen(vaultCtx) : vaultScreen(vaultCtx),
+      ui.tab === "settings" ? (emergencyOpen() ? emergencyScreen(vaultCtx) : settingsTab(s)) : ui.tab === "generator" ? generatorScreen(vaultCtx) : ui.tab === "send" ? sendScreen(vaultCtx) : vaultScreen(vaultCtx),
       detail
         ? null
         : h(

@@ -34,6 +34,7 @@ import {
   UserError,
 } from "./account.ts";
 import { msg } from "./errors.ts";
+import { emergencyAction, emergencyConfirm, emergencyFingerprint, emergencyInvite, emergencyItem, emergencyList, emergencyTakeover, emergencyView } from "./emergency.ts";
 import { HUB, type HubUpdate } from "../transport/hub.ts";
 import { PUSH_ALARM, pushUp, startPush, stopPush } from "./push.ts";
 import { REPROMPT_MESSAGE, repromptGranted, repromptPending } from "./reprompt.ts";
@@ -268,6 +269,24 @@ async function handle(req: Request): Promise<unknown> {
       await requireUnlocked();
       await answerLoginRequest(req.id, req.approve, req.fingerprint);
       return loginRequests().finally(clearLoginNote);
+    case "emergencyList":
+    case "emergencyInvite":
+    case "emergencyAction":
+    case "emergencyFingerprint":
+    case "emergencyConfirm":
+    case "emergencyView":
+    case "emergencyItem":
+    case "emergencyTakeover":
+      await requireUnlocked();
+      await touchAutoLock();
+      if (req.type === "emergencyList") return emergencyList();
+      if (req.type === "emergencyInvite") return emergencyInvite(req.email, req.kind, req.waitDays).then(() => null);
+      if (req.type === "emergencyAction") return emergencyAction(req.id, req.action).then(() => null);
+      if (req.type === "emergencyFingerprint") return emergencyFingerprint(req.id);
+      if (req.type === "emergencyConfirm") return emergencyConfirm(req.id, req.fingerprint).then(() => null);
+      if (req.type === "emergencyView") return emergencyView(req.id);
+      if (req.type === "emergencyItem") return emergencyItem(req.id, req.itemId);
+      return emergencyTakeover(req.id, req.password).then(() => null);
     case "unlock":
       await unlock(req.password);
       break;

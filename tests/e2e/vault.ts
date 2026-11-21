@@ -785,6 +785,87 @@ await step("hide passwords: a member fills but never sees or changes a hidden pa
   await back();
 });
 
+await step("emergency access: as grantor, a contact is invited, confirmed by phrase, approved, and reads the vault", async () => {
+  const grantee = await register("grantee", [1, 3, 64, 4]);
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: /^Emergency access/ }).click();
+  await page.getByRole("button", { name: "Add an emergency contact" }).click();
+  await page.getByLabel("Email", { exact: true }).fill(grantee.email);
+  await page.getByLabel("Waiting time").selectOption({ label: "1 day" });
+  await page.getByRole("button", { name: "Invite" }).click();
+  // Without mail the server accepts for an existing account at once.
+  await page.getByText("Accepted, needs your confirmation").waitFor();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  const me = await apiSession(vaultUser);
+  const trusted = ((await call(BASE, "GET", "/api/emergency-access/trusted", { token: me.token })) as { data: { granteeId: string }[] }).data[0]!;
+  const { publicKey } = (await call(BASE, "GET", `/api/users/${trusted.granteeId}/public-key`, { token: me.token })) as { publicKey: string };
+  me.done();
+  const gs = await apiSession(grantee);
+  const grant = ((await call(BASE, "GET", "/api/emergency-access/granted", { token: gs.token })) as { data: { id: string }[] }).data[0]!;
+  await page.locator("output.phrase").filter({ hasText: wasm.authRequestFingerprint(trusted.granteeId, publicKey) }).waitFor();
+  await page.getByRole("button", { name: "Confirm" }).last().click();
+  await page.getByText("Confirmed", { exact: false }).first().waitFor();
+  await call(BASE, "POST", `/api/emergency-access/${grant.id}/initiate`, { token: gs.token });
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: /^Emergency access/ }).click();
+  await page.getByText("Access requested").waitFor();
+  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByText("Access granted").waitFor();
+  // The grantee opens the vault with the key Warren wrapped for it.
+  const v = (await call(BASE, "POST", `/api/emergency-access/${grant.id}/view`, { token: gs.token })) as { keyEncrypted: string; ciphers: unknown[] };
+  const names = (JSON.parse(wasm.emergencyView(v.keyEncrypted, JSON.stringify(v.ciphers))).ciphers as { name: string }[]).map((c) => c.name);
+  gs.done();
+  assert.ok(names.includes("Keep login"), `the grantee cannot read the vault: ${names.join(", ")}`);
+  await page.getByRole("button", { name: "Back" }).click();
+});
+
+await step("emergency access: as grantee, Warren views a grantor's vault and takes another account over", async () => {
+  // Two grantors: one trusts Warren's account to view, one to take over; each confirms with its key wrapped for it.
+  const grantFrom = async (label: string, type: 0 | 1, item: string) => {
+    const g = await register(label, [1, 3, 64, 4]);
+    const s = await apiSession(g);
+    await s.create({ type: 2, name: item, notes: `${label} notes`, secureNote: { type: 0 } });
+    await call(BASE, "POST", "/api/emergency-access/invite", { token: s.token, json: { email: vaultUser.email, type, waitTimeDays: 1 } });
+    const e = ((await call(BASE, "GET", "/api/emergency-access/trusted", { token: s.token })) as { data: { id: string; granteeId: string }[] }).data[0]!;
+    const { publicKey } = (await call(BASE, "GET", `/api/users/${e.granteeId}/public-key`, { token: s.token })) as { publicKey: string };
+    await call(BASE, "POST", `/api/emergency-access/${e.id}/confirm`, { token: s.token, json: { key: wasm.authRequestApprove(publicKey) } });
+    s.done();
+    return { g, id: e.id };
+  };
+  const viewer = await grantFrom("grantor-view", 0, "Will and testament");
+  const owner = await grantFrom("grantor-take", 1, "Takeover note");
+  await page.getByRole("button", { name: /^Emergency access/ }).click();
+  const requests = page.getByRole("button", { name: "Request access" });
+  await requests.first().click();
+  await poll("the first request", async () => (await requests.count()) === 1);
+  await requests.first().click();
+  await poll("the second request", async () => (await requests.count()) === 0);
+  for (const x of [viewer, owner]) {
+    const s = await apiSession(x.g);
+    await call(BASE, "POST", `/api/emergency-access/${x.id}/approve`, { token: s.token });
+    s.done();
+  }
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: /^Emergency access/ }).click();
+  await page.getByRole("button", { name: "View vault" }).click();
+  await page.getByRole("button", { name: /Will and testament/ }).click();
+  await page.getByText("grantor-view notes").waitFor();
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Take over" }).click();
+  await page.getByLabel("New master password").fill("a brand new master password");
+  await page.getByRole("button", { name: "Take over" }).click();
+  await page.getByText("Log in as").waitFor();
+  // The grantor's account now opens with the new password, and its item with it.
+  const moved = { ...owner.g, password: "a brand new master password" };
+  const s = await apiSession(moved);
+  assert.ok((await s.ciphers()).some((c) => c.name === "Takeover note"), "the new master password does not open the vault");
+  s.done();
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Vault", exact: true }).click();
+});
+
 await step("generator: password and passphrase", async () => {
   await page.getByRole("button", { name: "Generator" }).click();
   const out = page.getByRole("status", { name: "Generated value" }).or(page.locator("output"));

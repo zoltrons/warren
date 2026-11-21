@@ -169,6 +169,14 @@ freed rather than zeroed in place.
     WebCrypto), single use, dropped by the lock and when the request is cancelled or expires (`cancelTwoFactor`).
     Hub messages are capped at 64 KiB.
 
+8d. **Emergency access follows the same rules.** Confirming a trusted contact sends the user key wrapped for their
+    public key, so it needs the unlocked vault and a click on a screen that shows their fingerprint phrase (their user
+    id over the key); the key is fetched from the server for that grant and must give the phrase shown
+    (`emergencyConfirm`, `src/background/emergency.ts`). As grantee, a grantor's vault is decrypted in the crypto
+    worker with their key wrapped for this account, kept only for that view and dropped by the lock; their key never
+    joins this account's session (`emergency_view`, `crates/core-wasm/src/api.rs`). A takeover derives the new master
+    key with the KDF the server reports, which must pass the same floor as a login (invariant 7a).
+
 9. **Origin keys are best effort, never fatal.** One undecryptable organization key must not make the
    personal vault unreadable (`crates/core-wasm/src/api.rs` `set_org_keys`, plus the `try/catch` in
    `loadVault`); affected items surface as undecryptable instead.

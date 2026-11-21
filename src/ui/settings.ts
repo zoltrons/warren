@@ -6,6 +6,7 @@ import { applyTheme, type Child, h, inPanel, leave, plural, rowOf, savedTheme, s
 import { icon } from "./icons.ts";
 import { onePuxToExport } from "../shared/import-1password.ts";
 import { keepassXmlToExport } from "../shared/import-keepass.ts";
+import { openEmergency } from "./emergency.ts";
 import { uriMatchLabel } from "./vault-edit.ts";
 import { clearOpened, hasOpened, iconButton, recentShown, resetVault, setRecentShown } from "./vault-shared.ts";
 import { act, armedLogout, busyBar, disableBiometric, draft, errorBox, host, inTab, render, setupBiometric, stateRequest, ui, windowId } from "./popup.ts";
@@ -239,6 +240,7 @@ export function settingsTab(s: State): HTMLElement {
       "div",
       { class: "group" },
       row(t("lockNow"), undefined, icon("lock"), { class: "row action-row", type: "button", onclick: () => void act({ type: "lock" }) }, "button"),
+      row(t("emergencyAccess"), t("emergencyAccessSub"), icon("chevron"), { type: "button", onclick: () => openEmergency({ rerender: render }) }, "button"),
       row(t("autoLock"), undefined, withChevron(select)),
       row(
         t("timeoutAction"),

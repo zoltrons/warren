@@ -149,6 +149,27 @@ pub fn auth_request_approve(public_key: &str) -> Result<String, JsError> {
     api::auth_request_approve(public_key).map_err(js)
 }
 
+/// Emergency access: the grantor's ciphers, decrypted with their key wrapped for us. Output as `decryptCipherList`.
+#[wasm_bindgen(js_name = emergencyView)]
+pub fn emergency_view(key_encrypted: &str, ciphers_json: &str) -> Result<String, JsError> {
+    api::emergency_view(key_encrypted, ciphers_json).map_err(js)
+}
+
+/// Emergency access takeover: `{"masterPasswordHash", "key"}` for the grantor's new master password.
+#[wasm_bindgen(js_name = emergencyTakeover)]
+pub fn emergency_takeover(
+    key_encrypted: &str,
+    password: &str,
+    email: &str,
+    kdf_type: u8,
+    iterations: u32,
+    memory: u32,
+    parallelism: u32,
+) -> Result<String, JsError> {
+    let kdf = api::kdf_from_params(kdf_type, iterations, memory, parallelism).map_err(js)?;
+    api::emergency_takeover(key_encrypted, password, email, &kdf).map_err(js)
+}
+
 #[wasm_bindgen(js_name = authRequestFingerprint)]
 pub fn auth_request_fingerprint(email: &str, public_key: &str) -> Result<String, JsError> {
     api::auth_request_fingerprint(email, public_key).map_err(js)

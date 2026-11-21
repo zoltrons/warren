@@ -2652,5 +2652,132 @@
   "uiLocale": {
     "message": "en",
     "description": "BCP 47 tag of this messages file: dates and plurals follow it."
+  },
+  "errMasterPasswordTooShort": {
+    "message": "Use at least 12 characters for the new master password"
+  },
+  "emergencyAccess": {
+    "message": "Emergency access"
+  },
+  "emergencyAccessSub": {
+    "message": "Trusted contacts who can view or take over your vault after a waiting time"
+  },
+  "emergencyAccessHint": {
+    "message": "A trusted contact can ask for access to your vault. If you do not reject the request within the waiting time, they get it. Your server must allow emergency access."
+  },
+  "emTrusted": {
+    "message": "Your trusted contacts"
+  },
+  "emGranted": {
+    "message": "Accounts that trust you"
+  },
+  "emGrantedNone": {
+    "message": "No one has named you as their emergency contact."
+  },
+  "emAdd": {
+    "message": "Add an emergency contact"
+  },
+  "emInvite": {
+    "message": "Invite"
+  },
+  "emAccess": {
+    "message": "Access"
+  },
+  "emWait": {
+    "message": "Waiting time"
+  },
+  "emKindView": {
+    "message": "View"
+  },
+  "emKindTakeover": {
+    "message": "Takeover"
+  },
+  "emKindViewHint": {
+    "message": "They can read your items after the waiting time."
+  },
+  "emKindTakeoverHint": {
+    "message": "They can set a new master password for your account after the waiting time, and with it own the vault."
+  },
+  "emStatus0": {
+    "message": "Invited"
+  },
+  "emStatus1": {
+    "message": "Accepted, needs your confirmation"
+  },
+  "emStatus2": {
+    "message": "Confirmed"
+  },
+  "emStatus3": {
+    "message": "Access requested"
+  },
+  "emStatus4": {
+    "message": "Access granted"
+  },
+  "emReinvite": {
+    "message": "Invite again"
+  },
+  "emConfirm": {
+    "message": "Confirm"
+  },
+  "emApprove": {
+    "message": "Approve"
+  },
+  "emReject": {
+    "message": "Reject"
+  },
+  "emRequest": {
+    "message": "Request access"
+  },
+  "emView": {
+    "message": "View vault"
+  },
+  "emTakeover": {
+    "message": "Take over"
+  },
+  "emWaitsUntil": {
+    "message": "access on $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emConfirmHint": {
+    "message": "Confirm $P1$ only if their app shows this same phrase as its fingerprint phrase:",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emVaultOf": {
+    "message": "Vault of $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emViewHint": {
+    "message": "Read only. Nothing here is stored on this device."
+  },
+  "emTakeoverHint": {
+    "message": "Choose a new master password for $P1$. Their old one stops working, and their PIN, biometric unlock and logged-in devices end.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "emNewPassword": {
+    "message": "New master password"
+  },
+  "emTakeoverDone": {
+    "message": "Done. Log in as $P1$ with the new master password.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   }
 }
