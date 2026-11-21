@@ -71,6 +71,7 @@ const PAIRS = [
   ...["text", "muted", "link", "digit", "success", "warning", "critical", "attention"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
   ["on-primary", "primary", "text"],
   ["text", "selected", "text"], ["text", "pressed", "text"], ["link", "primary-weak", "text"], ["on-primary-weak", "primary-weak", "text"], ["critical", "critical-weak", "text"],
+  ["attention", "attention-weak", "text"], // a symbol in a shown password (.pw .s)
   ...["primary", "favorite"].flatMap((fg) => ["bg", "surface"].map((bg) => [fg, bg, "ui"])),
   ...["bg", "surface", "surface-sunken"].map((bg) => ["faint", bg, "ui"]),
   // Switches: the off track against its card, and the knob against both tracks (WCAG 1.4.11).

@@ -278,6 +278,86 @@
       }
     }
   },
+  "charCount": {
+    "message": "$P1$ characters",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "charCount_one": {
+    "message": "$P1$ character",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "upperCount": {
+    "message": "$P1$ uppercase",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "upperCount_one": {
+    "message": "$P1$ uppercase",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lowerCount": {
+    "message": "$P1$ lowercase",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lowerCount_one": {
+    "message": "$P1$ lowercase",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "digitCount": {
+    "message": "$P1$ digits",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "digitCount_one": {
+    "message": "$P1$ digit",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "symbolCount": {
+    "message": "$P1$ symbols",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "symbolCount_one": {
+    "message": "$P1$ symbol",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "nextCode": {
     "message": "Next"
   },

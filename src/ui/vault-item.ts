@@ -11,6 +11,7 @@ import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { pwnedCount } from "./pwned.ts";
 import { qrSvg } from "./qr.ts";
+import { charKind } from "./readable.ts";
 import { type Json, type Ctx, st, timers, TOTP_SOON, REPROMPT_CHECK_MS, stopRepromptWatch, str, obj, webUrl, tile, toast, copy, iconButton, copyButton, errorBox, topBar, spacer, sectionTitle, progress, type MenuItem, menu, copyOnClick, actOnClick, refreshPageMatches, open, colorize, section } from "./vault-shared.ts";
 import { TYPE_LABEL, fill } from "./vault-list.ts";
 import { startEdit, uriMatchLabel } from "./vault-edit.ts";
@@ -182,9 +183,9 @@ export function fieldRow(
   opts: { secret?: boolean; mono?: boolean; extra?: Child; copyValue?: string; menu?: MenuItem[]; display?: string } = {},
 ): HTMLElement {
   const shown = !opts.secret || st.reveal.has(key);
-  const valueEl = h("span", { class: `value${opts.mono ? " mono" : ""}` });
+  const valueEl = h("span", { class: `value${opts.mono ? " mono" : ""}${opts.mono && opts.secret ? " pw" : ""}` });
   if (shown) {
-    if (opts.mono && opts.secret) valueEl.append(...colorize(opts.display ?? value));
+    if (opts.mono && opts.secret) valueEl.append(...colorize(opts.display ?? value, true));
     else valueEl.textContent = opts.display ?? value;
   } else {
     valueEl.textContent = "•".repeat(Math.min(Math.max(value.length, 8), 16));
@@ -248,7 +249,7 @@ export function largeTypeView(ctx: Ctx): HTMLElement {
     h(
       "div",
       { class: "large mono", role: "img", "aria-label": text },
-      ...[...text].map((c, i) => h("span", { class: `ch${/\d/.test(c) ? " d" : /[^\p{L}\s]/u.test(c) ? " s" : ""}` }, c === " " ? "␣" : c, h("small", {}, String(i + 1)))),
+      ...[...text].map((c, i) => h("span", { class: `ch ${charKind(c)}` }, c === " " ? "␣" : c, h("small", {}, String(i + 1)))),
     ),
   );
 }

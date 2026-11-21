@@ -664,8 +664,12 @@ a.row { text-decoration: none; color: var(--text); }
 .row-input:focus { outline: 0; box-shadow: 0 0 0 2px var(--focus-ring); }
 .row .value.mono { font-size: var(--fs-body-sm); }
 /* The signature: digits in the link color, symbols amber. Used on secrets and nowhere else. */
-.row .value .d, .generated .d { color: var(--digit); }
-.row .value .s, .generated .s { color: var(--warning); }
+/* A shown secret (colorize): digits and symbols told apart by two cues each, not hue alone (color blindness):
+   a digit is colored and heavier, a symbol sits on a keycap tint; long values read in groups of four. */
+.pw .d { color: var(--digit); font-weight: 600; }
+.pw .s { color: var(--attention); background: var(--attention-weak); border-radius: 3px; box-shadow: 0 0 0 1px var(--attention-weak); }
+.pw .grp { white-space: nowrap; }
+.pw .grp + .grp { margin-left: 0.5ch; }
 .countdown {
   min-width: 34px; height: 24px; padding: 0 8px; border-radius: var(--r-full);
   display: grid; place-items: center;
@@ -1046,6 +1050,13 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .generated .trailing { display: flex; }
 .generated-foot { display: flex; align-items: center; gap: 8px; }
 .generated-foot:empty { display: none; }
+/* The value's make-up, each part in the color it is drawn in: a legend for the colors and a count for a site's rules. */
+.composition { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; font-size: var(--fs-caption); line-height: 16px; color: var(--muted); }
+.composition span { display: inline-flex; align-items: center; gap: 5px; }
+.composition .total { color: var(--text); font-weight: 500; }
+.composition span:not(.total)::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.composition span.d::before { background: var(--digit); }
+.composition span.s::before { background: var(--attention); }
 .generated-foot .meter { flex: 1; }
 .value-badge {
   min-width: 20px; text-align: end;
@@ -1239,7 +1250,7 @@ html[data-compact="on"]:not(.frame) .page { gap: 8px; }
 .large { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 12px 4px; }
 .large .ch { display: flex; flex-direction: column; align-items: center; min-width: 22px; font-size: var(--fs-display); font-weight: 500; line-height: 1.15; }
 .large .ch.d { color: var(--digit); }
-.large .ch.s { color: var(--warning); }
+.large .ch.s { color: var(--attention); }
 .large .ch small { font-size: var(--fs-caption); font-weight: 400; color: var(--muted); font-family: inherit; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .chip.small { padding: 0 10px; font-size: var(--fs-small); min-height: 32px; }

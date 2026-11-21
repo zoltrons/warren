@@ -6,6 +6,7 @@ import type { BreachResults, PageMatches, Response as Reply, SecurityReport, Set
 import { type Child, h, send, t } from "./dom.ts";
 import { type GeneratorPick, resetGenerator } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
+import { charKind, groupsOf } from "./readable.ts";
 import { sitePrefill, returnFromPicker, startEdit } from "./vault-edit.ts";
 import { orgDraft, loadReport } from "./vault-tools.ts";
 
@@ -255,9 +256,11 @@ export function tile(name: string, type: number, uris: string[] = [], brand = ""
   return el;
 }
 
-/** Password digits and symbols get their own colors, like the rest of the app. */
-export function colorize(value: string): (Node | string)[] {
-  return [...value].map((c) => (/\d/.test(c) ? h("span", { class: "d" }, c) : /[^\p{L}\s]/u.test(c) ? h("span", { class: "s" }, c) : c));
+/** A secret drawn for reading (popup.css .pw): digits and symbols marked and, with `chunk`, in groups (groupsOf). */
+export function colorize(value: string, chunk = false): (Node | string)[] {
+  const one = (c: string) => (charKind(c) ? h("span", { class: charKind(c) }, c) : c);
+  const groups = chunk ? groupsOf(value) : [value];
+  return groups.length > 1 ? groups.map((g) => h("span", { class: "grp" }, ...[...g].map(one))) : [...value].map(one);
 }
 
 export let toastId = 0;
