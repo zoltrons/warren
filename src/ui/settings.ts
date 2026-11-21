@@ -10,7 +10,9 @@ import { act, armedLogout, busyBar, disableBiometric, draft, errorBox, host, inT
 
 let pinLock = true; // PIN setup: ask for the master password after a browser restart
 
-export function row(title: string, sub?: string, trailing?: Child, extra: Record<string, unknown> = {}, tag: "div" | "button" = "div") {
+export function row(title: string, sub?: string, trailing?: Child, extra: Record<string, unknown> = {}, tag: "div" | "button" | "label" = "div") {
+  // A row with a switch is its label: a click anywhere on it flips the switch, as in the generator.
+  if (tag === "div" && trailing instanceof HTMLElement && trailing.classList.contains("switch")) tag = "label";
   return h(tag, { class: "row", ...extra }, h("div", { class: "body" }, h("span", { class: "title" }, title), sub ? h("span", { class: "sub wrap" }, sub) : null), trailing);
 }
 

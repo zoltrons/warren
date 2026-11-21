@@ -19,6 +19,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
+- In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
 - In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items.
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own
   dropdown; a second ArrowDown moves into it.
