@@ -297,7 +297,16 @@ export function totpRow(ctx: Ctx, id: string, secret: string, name: string): HTM
       copyOnClick(ctx, "totp", () => st.totp?.code ?? code, t("oneTimeCode")),
       h("span", { class: "label" }, t("oneTimeCode")),
       h("span", { class: "value mono totp", "data-totp": "1" }, pretty(code)),
-      next ? h("span", { class: "totp-next" }, t("nextCode"), " ", h("span", { class: "mono" }, pretty(next))) : null,
+      // The pill copies the next code: a click on it would otherwise copy the current one (the row's own click).
+      next
+        ? h(
+            "button",
+            { type: "button", class: "totp-next", title: t("copyNextCode"), "aria-label": `${t("copyNextCode")}: ${next}`, onclick: () => void copy(ctx, next) },
+            t("nextCode"),
+            " ",
+            h("span", { class: "mono" }, pretty(next)),
+          )
+        : null,
     ),
     h(
       "span",

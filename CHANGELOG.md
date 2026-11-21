@@ -16,6 +16,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Changed
 
+- In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own
   dropdown; a second ArrowDown moves into it.
 - The inline menu steps aside once you type in its field, so it no longer covers the rest of the form, and comes back

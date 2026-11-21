@@ -932,9 +932,11 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
   display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
   margin-top: 4px; padding: 2px 8px; border-radius: 999px;
   background: var(--surface-sunken); color: var(--muted);
-  font-size: var(--fs-caption); line-height: 16px;
+  font-size: var(--fs-caption); line-height: 16px; border: 0; font-family: inherit; cursor: pointer;
   transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
 }
+.totp-next:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
+.totp-next:active { background-image: linear-gradient(var(--tint-strong), var(--tint-strong)); }
 .totp-next .mono { font-size: var(--fs-small); letter-spacing: 0.06em; color: var(--text); }
 .totp-row.soon .totp-next { background: var(--primary-weak); color: var(--on-primary-weak); }
 .totp-row.soon .totp-next .mono { color: var(--on-primary-weak); font-weight: 500; }
