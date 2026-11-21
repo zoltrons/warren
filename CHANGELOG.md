@@ -10,6 +10,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Added
 
+- On a login focused in the list, `Ctrl+C` (`⌘C`) copies its password, `Ctrl+Shift+C` the username and `Ctrl+Alt+C`
+  the code, without opening it.
 - "Use a strong password" in the inline menu follows the site's rules: the password field's `passwordrules`
   (required and allowed characters, maximum run of the same character, length) and its minlength/maxlength, so the
   password it fills is one the site accepts and is not cut short by the field.
@@ -31,8 +33,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
 - A wider, brighter palette: six inks (red, green, blue, violet, cyan, yellow) halfway between Dracula's and
-  Catppuccin's, each tuned to stay readable on every surface. Status colors,
-  monogram tiles and passwords now draw from it instead of saturated one-off hues.
+  Catppuccin's, each tuned to stay readable on every surface. Status colors, monogram tiles and passwords now draw
+  from it instead of saturated one-off hues.
 - A shown password is easier to read: digits are blue and symbols red, so look-alikes such as O/0, l/1 and S/$ part
   by hue as well as shape. The generator's line under the value names its digits and symbols in the same colors.
 - The generator's value sits on one line, as large as fits, and is itself the copy button (a click, or Enter and
@@ -50,6 +52,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- The keyboard now reaches an item's fields: Tab stops on each one and Enter or Space copies it, as a click does.
+  The fields were meant to be focusable but never were.
 - Live updates resume within a minute after the computer wakes from sleep or changes networks: a connection that
   went silent is noticed (its pings stop coming back) and replaced, and a dropped one reconnects at once instead of
   at the next minute's check.
