@@ -137,11 +137,6 @@ export function strengthMeter(input: HTMLInputElement | HTMLTextAreaElement, val
   return h("div", { class: "meter-wrap" }, bar, text);
 }
 
-/** The generator's strength bar, drawn once for the current value. */
-export function strengthBar(value: string): HTMLElement {
-  return h("div", { class: "meter", "data-level": String(strength(value).level), "aria-hidden": "true" }, h("i"));
-}
-
 /** Labels for Bitwarden's UriMatchStrategy, as the clients name them. */
 export function uriMatchLabel(match: number): string {
   const key =

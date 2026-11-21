@@ -13,7 +13,7 @@ import type { HistoryEntry } from "../shared/messages.ts";
 import { type Child, h, motionOff, plural, send, t, when, withChevron, switchOf } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-gen.ts";
-import { startEdit, strengthBar } from "./vault-edit.ts";
+import { startEdit } from "./vault-edit.ts";
 import { actionRow, strength } from "./vault-item.ts";
 import { charKind } from "./readable.ts";
 import { colorize, copy, copyButton, copyOnClick, type Ctx, iconButton, sectionTitle, st, topBar } from "./vault-shared.ts";
@@ -321,7 +321,9 @@ function decode(out: HTMLElement, value: string) {
   if (value !== decoded) ((decoded = value), (decodedAt = performance.now()));
   const cells = [...out.querySelectorAll<HTMLElement>(".c")];
   const start = decodedAt;
-  if (motionOff() || performance.now() - start >= 180 + cells.length * 24) return;
+  // Lands left to right within about half a second, whatever the length.
+  const step = Math.min(16, 320 / Math.max(cells.length, 1));
+  if (motionOff() || performance.now() - start >= 120 + cells.length * step) return;
   const finals = cells.map((c) => c.textContent ?? "");
   let last = 0;
   const tick = (now: number) => {
@@ -331,7 +333,7 @@ function decode(out: HTMLElement, value: string) {
     let busy = false;
     cells.forEach((c, i) => {
       const f = finals[i]!;
-      if (now - start >= 180 + i * 24) {
+      if (now - start >= 120 + i * step) {
         if (c.textContent !== f) ((c.textContent = f), c.classList.add("landed"));
         return;
       }
@@ -346,22 +348,41 @@ function decode(out: HTMLElement, value: string) {
   requestAnimationFrame(tick);
 }
 
-/** What the value is made of, in the colors it is drawn in: a legend and a count to check a site's rules against. */
-function composition(value: string): HTMLElement {
+/** The value's one quiet line after its strength: how long, how many digits and symbols, for a site's rules. */
+function metaText(value: string): string {
   const chars = [...value];
   const digits = chars.filter((c) => charKind(c) === "d").length;
   const symbols = chars.filter((c) => charKind(c) === "s").length;
-  const upper = chars.filter((c) => c !== c.toLowerCase()).length;
-  const part = (cls: string, text: string) => h("span", { class: cls }, text);
-  return h(
-    "p",
-    { class: "composition" },
-    part("total", plural("charCount", chars.length)),
-    upper ? part("u", plural("upperCount", upper)) : null,
-    chars.length - digits - symbols - upper ? part("l", plural("lowerCount", chars.length - digits - symbols - upper)) : null,
-    digits ? part("d", plural("digitCount", digits)) : null,
-    symbols ? part("s", plural("symbolCount", symbols)) : null,
-  );
+  return [
+    plural("charCount", chars.length),
+    digits ? plural("digitCount", digits) : "",
+    symbols ? plural("symbolCount", symbols) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+let rolling: ReturnType<typeof setInterval> | undefined;
+const anyGlyph = () => POOLS[""][Math.floor(Math.random() * POOLS[""].length)]!;
+
+/**
+ * While the length is dragged the value follows the thumb: it loses characters from its end or gains places that
+ * roll, faint, until the release brings the real value (set → regenerate → decode). Nothing here is the secret.
+ */
+function previewLength(out: HTMLElement, n: number) {
+  const cells = out.querySelectorAll(".c");
+  for (let i = cells.length - 1; i >= n; i--) cells[i]!.remove();
+  for (let i = cells.length; i < n; i++) out.append(h("span", { class: "c rolling" }, motionOff() ? "·" : anyGlyph()));
+  out.style.setProperty("--len", String(n));
+  // The line under it counts along; the release re-renders it whole (strength, digits, symbols).
+  const meta = out.closest(".generated")?.querySelector(".generated-meta > span:last-child");
+  if (meta) meta.textContent = plural("charCount", n);
+  if (rolling || motionOff()) return;
+  rolling = setInterval(() => {
+    const places = document.querySelectorAll<HTMLElement>(".generated .c.rolling");
+    if (!places.length) return void (clearInterval(rolling), (rolling = undefined));
+    for (const c of places) c.textContent = anyGlyph();
+  }, 70);
 }
 
 export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
@@ -369,8 +390,9 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   if (gst.prefs === undefined && !gst.error) void loadPrefs(ctx);
   if (gst.prefs === "loaded" && gst.gen.type !== "alias" && !gst.generated && !gst.error) void regenerate(ctx);
   const g = gst.gen;
-  // Random strings read in groups of four; a passphrase or a username keeps its own shape.
+  // A random string is drawn character by character (decode, live length); a passphrase or a name as text.
   const chunked = g.type === "password" || g.type === "pin";
+  const copied = st.copied === "generated";
   const copyGenerated = () => {
     void copy(ctx, gst.generated, "generated");
     if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
@@ -378,7 +400,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   const output = h(
     "output",
     { class: g.type === "identity" ? "plain" : "mono pw", "aria-live": "off" },
-    ...(gst.generated ? colorize(gst.generated, chunked, chunked) : ["…"]),
+    ...(gst.generated ? colorize(gst.generated, chunked) : ["…"]),
   );
   // Its length sizes the type (popup.css .generated output): as large as fits on one line, down to a floor.
   if (chunked) output.style.setProperty("--len", String([...gst.generated].length));
@@ -426,6 +448,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       const v = Number(input.value);
       badge.value = String(v);
       paint(v);
+      if (k === "length" && chunked && gst.generated) previewLength(output, v);
     });
     input.addEventListener("change", () => set(k, Number(input.value)));
     return h("div", { class: "row slider-row" }, h("div", { class: "body" }, h("span", { class: "title" }, label)), input, stepper(k, label, min, max, badge));
@@ -679,32 +702,40 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     g.type === "alias" && !gst.generated ? null : h(
       "div",
       { class: "generated" },
-      // The value is the copy button: large, centred, the whole area a target, with what a click does said under it.
       h(
         "div",
-        {
-          id: "generated-value", // kept focused across the re-render a copy makes (popup.ts swap)
-          class: "generated-value",
-          role: "button",
-          tabindex: gst.generated ? "0" : "-1",
-          "aria-disabled": String(!gst.generated),
-          onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
-          onkeydown: (e: KeyboardEvent) => {
-            if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ") || !gst.generated) return;
-            e.preventDefault();
-            copyGenerated();
+        { class: "generated-line" },
+        // The value is the copy button (a click, or Enter and Space); the line under it says when it is copied.
+        h(
+          "div",
+          {
+            id: "generated-value", // kept focused across the re-render a copy makes (popup.ts swap)
+            class: "generated-value",
+            role: "button",
+            tabindex: gst.generated ? "0" : "-1",
+            "aria-disabled": String(!gst.generated),
+            title: gst.generated ? t("copyField", t("generatedValue")) : undefined,
+            onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
+            onkeydown: (e: KeyboardEvent) => {
+              if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ") || !gst.generated) return;
+              e.preventDefault();
+              copyGenerated();
+            },
           },
-        },
-        output,
-        gst.generated
-          ? h("span", { class: `copy-hint${st.copied === "generated" ? " done" : ""}` }, icon(st.copied === "generated" ? "check" : "copy"), t(st.copied === "generated" ? "copiedOnly" : "clickToCopy"))
-          : null,
+          output,
+        ),
+        iconButton("refresh", t("regenerate"), () => void (g.type === "alias" ? generateAliasNow(ctx) : regenerate(ctx)), { class: "icon-btn sm" }),
       ),
-      iconButton("refresh", t("regenerate"), () => void (g.type === "alias" ? generateAliasNow(ctx) : regenerate(ctx)), { class: "icon-btn sm regen" }),
-      g.type === "identity"
-        ? null
-        : h("div", { class: "generated-foot" }, gst.generated && g.type !== "alias" ? strengthBar(gst.generated) : null, gst.generated && g.type !== "alias" ? h("span", { class: "meter-label" }, strength(gst.generated).label) : null),
-      chunked && gst.generated ? composition(gst.generated) : null,
+      gst.generated
+        ? h(
+            "div",
+            { class: `generated-meta${copied ? " done" : ""}`, "aria-live": "polite" },
+            copied ? icon("check") : null,
+            copied || g.type === "alias" || g.type === "identity"
+              ? h("span", {}, t(copied ? "copiedOnly" : "clickToCopy"))
+              : h("span", {}, h("span", { class: "strength", "data-level": String(strength(gst.generated).level) }, strength(gst.generated).label), ` · ${metaText(gst.generated)}`),
+          )
+        : null,
     ),
     options,
     g.type === "alias" && !gst.generated
@@ -717,7 +748,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
           "div",
           {},
           sectionTitle(t("suggestions")),
-          h("div", { class: "group", role: "list" }, ...gst.suggestions.map((v, i) => h("div", { class: "row", role: "listitem" }, h("div", copyOnClick(ctx, `sug.${i}`, () => v, t("generatedValue")), h("span", { class: "title mono break pw" }, ...colorize(v, chunked))), copyButton(ctx, `sug.${i}`, v, t("copyField", t("generatedValue")))))),
+          h("div", { class: "group", role: "list" }, ...gst.suggestions.map((v, i) => h("div", { class: "row", role: "listitem" }, h("div", copyOnClick(ctx, `sug.${i}`, () => v, t("generatedValue")), h("span", { class: "title mono break pw" }, ...colorize(v))), copyButton(ctx, `sug.${i}`, v, t("copyField", t("generatedValue")))))),
         )
       : null,
     pick && gst.generated

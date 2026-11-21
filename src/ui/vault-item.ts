@@ -185,7 +185,7 @@ export function fieldRow(
   const shown = !opts.secret || st.reveal.has(key);
   const valueEl = h("span", { class: `value${opts.mono ? " mono" : ""}${opts.mono && opts.secret ? " pw" : ""}` });
   if (shown) {
-    if (opts.mono && opts.secret) valueEl.append(...colorize(opts.display ?? value, true));
+    if (opts.mono && opts.secret) valueEl.append(...colorize(opts.display ?? value));
     else valueEl.textContent = opts.display ?? value;
   } else {
     valueEl.textContent = "•".repeat(Math.min(Math.max(value.length, 8), 16));

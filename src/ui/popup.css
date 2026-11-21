@@ -664,32 +664,10 @@ a.row { text-decoration: none; color: var(--text); }
 .row-input:focus { outline: 0; box-shadow: 0 0 0 2px var(--focus-ring); }
 .row .value.mono { font-size: var(--fs-body-sm); }
 /* The signature: digits in the link color, symbols amber. Used on secrets and nowhere else. */
-/* A shown secret (colorize): digits and symbols told apart by two cues each, not hue alone (color blindness):
-   a digit is colored and heavier, a symbol sits on a keycap (its own fixed-height box with a hairline edge, so every
-   one is the same size whatever the glyph). Long values read in groups of four, each underlined by its own segment:
-   a mark under the text, where a gap or a band between characters would read as a space or crowd the keycaps. */
-.pw .d { color: var(--digit); font-weight: 600; }
-/* text-box trims the keycap to the glyph's cap height and baseline, so equal padding centres it both ways. */
-.pw .s {
-  display: inline-block; text-box: trim-both cap alphabetic; padding: 0.22em 0.12em; border-radius: 0.25em;
-  color: var(--attention); background: var(--attention-weak);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--attention) 24%, transparent);
-}
-.pw .grp {
-  display: inline-block; white-space: nowrap; padding-bottom: 4px; /* a box of its own: no row's overflow clips the mark */
-  background: linear-gradient(color-mix(in srgb, currentColor 26%, transparent) 0 0) bottom center / calc(100% - 0.5ch) 1.5px no-repeat;
-}
-/* The generator's value, character by character: the hovered one lifts and names its position. */
-.generated .pw .c { position: relative; display: inline-block; line-height: 1.3em; border-radius: 0.25em; transition: background-color var(--fast) var(--ease); }
-.generated .pw .c:hover { background-color: var(--pressed); }
-.generated .pw .c:hover::after {
-  content: attr(data-i); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
-  padding: 1px 5px; border-radius: 4px; background: var(--inverse); color: var(--on-inverse);
-  font: 500 10px/14px var(--font); letter-spacing: 0; pointer-events: none; z-index: 1;
-}
-/* A decoded character lands: dropping in from above as the scramble before it stops (generator.ts decode). */
-.generated .pw .c.landed { animation: land 220ms var(--ease); }
-@keyframes land { from { transform: translateY(-0.35em); opacity: 0.35; } }
+/* A shown secret (colorize): two inks only. Digits take the accent and symbols the secondary text color, so
+   O/0, l/1 and S/$ part by tone as well as shape; letters stay plain. */
+.pw .d { color: var(--digit); }
+.pw .s { color: var(--muted); }
 .countdown {
   min-width: 34px; height: 24px; padding: 0 8px; border-radius: var(--r-full);
   display: grid; place-items: center;
@@ -1052,55 +1030,51 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 
 /* ---------- generator ---------- */
 
+/* The generated value: one quiet card, the value as large as fits one line, regenerate beside it, one line under it. */
 .generated {
-  position: relative; display: flex; flex-direction: column; gap: 10px;
-  padding: 8px 12px 12px;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 12px; /* the rows' inset below, so the value starts on their labels' line */
   background: var(--surface);
   border-radius: var(--r-lg);
 }
-/* The value, centred and large, is itself the copy target; regenerate is a small corner button over it. */
+.generated-line { display: flex; align-items: center; gap: 8px; }
+.generated-line .icon-btn { margin-right: -8px; color: var(--muted); }
 .generated-value {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 20px 36px 12px; margin-inline: -4px; border-radius: var(--r-md);
-  text-align: center; cursor: pointer; outline: 0; container-type: inline-size;
-  transition: background-color var(--fast) var(--ease);
+  flex: 1; min-width: 0; container-type: inline-size;
+  cursor: pointer; outline: 0; border-radius: var(--r-xs);
 }
-.generated-value:hover { background-color: var(--tint); }
-.generated-value:active { background-color: var(--tint-strong); }
-.generated-value:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring); }
-.generated-value[aria-disabled="true"] { cursor: default; background: none; }
-/* A random value takes the largest size at which its --len characters fit one line (about 0.7em each with spacing
-   and keycaps), between 15 and 22 px; longer ones wrap into balanced lines, never one group left alone. */
+.generated-value[aria-disabled="true"] { cursor: default; }
+.generated-value:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring); }
+/* A random value takes the largest size at which its --len characters fit one line, between 15 and 20 px. */
 .generated output {
-  max-width: 100%; font-size: clamp(0.9375rem, calc(100cqi / (var(--len, 16) * 0.7)), 1.375rem);
-  line-height: 1.6; word-break: break-all; text-wrap: balance; letter-spacing: 0.05em;
+  display: block; font-size: clamp(0.9375rem, calc(100cqi / (var(--len, 16) * 0.62)), 1.25rem);
+  line-height: 1.4; letter-spacing: 0.02em; word-break: break-all; text-wrap: balance;
+  transform-origin: left center; transition: transform 160ms var(--ease);
 }
+/* Pressed, the value gives a little, as a key does; it comes back when let go. */
+.generated-value:active output { transform: scale(0.985); }
 /* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
 .generated output.plain { font-size: var(--fs-heading); font-weight: 500; letter-spacing: 0; word-break: normal; }
-.copy-hint {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: var(--fs-caption); line-height: 16px; color: var(--muted);
+.generated output .c { display: inline-block; }
+/* A new character drops into place as the decode before it stops (generator.ts decode). */
+.generated output .c.landed { animation: land 180ms var(--ease); }
+@keyframes land { from { transform: translateY(-0.25em); opacity: 0.4; } }
+/* A place the length slider is adding: faint and rolling until the release brings the real character. */
+.generated output .c.rolling { color: var(--faint); }
+.generated-meta {
+  display: flex; align-items: center; gap: 8px; min-height: 16px;
+  font-size: var(--fs-caption); line-height: 16px; color: var(--muted); font-variant-numeric: tabular-nums;
   transition: color var(--fast) var(--ease);
 }
-.copy-hint svg.i { width: 14px; height: 14px; }
-.copy-hint.done { color: var(--success); }
-.generated .regen { position: absolute; top: 6px; right: 6px; color: var(--muted); }
-.generated .regen svg { transition: transform 250ms var(--ease); }
-.generated .regen:active svg { transform: rotate(180deg); }
+/* Strength takes a color only as a warning; strong reads in the line's own ink, not as a third hue on the card. */
+.generated-meta .strength[data-level="0"] { color: var(--critical); }
+.generated-meta .strength[data-level="1"] { color: var(--warning); }
+.generated-meta svg.i { width: 14px; height: 14px; }
+.generated-meta.done { color: var(--success); }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .row.stack { align-items: stretch; gap: 8px; }
 .row.stack > input:is([type], :not([type])) { flex: none; height: 36px; padding: 0 12px; border-radius: var(--r-sm); background: transparent; border-color: var(--outline); }
 .row.stack > input:is([type], :not([type])):focus { outline: 0; border-color: var(--focus-ring); box-shadow: inset 0 0 0 1px var(--focus-ring); }
-.generated-foot { display: flex; align-items: center; gap: 8px; }
-.generated-foot:empty { display: none; }
-/* The value's make-up, each part in the color it is drawn in: a legend for the colors and a count for a site's rules. */
-.composition { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; margin: 0; font-size: var(--fs-caption); line-height: 16px; color: var(--muted); }
-.composition span { display: inline-flex; align-items: center; gap: 5px; }
-.composition .total { color: var(--text); font-weight: 500; }
-.composition span:not(.total)::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
-.composition span.d::before { background: var(--digit); }
-.composition span.s::before { background: var(--attention); }
-.generated-foot .meter { flex: 1; }
 .value-badge {
   min-width: 20px; text-align: end;
   font-size: var(--fs-body-sm); font-variant-numeric: tabular-nums; color: var(--muted);
@@ -1293,7 +1267,7 @@ html[data-compact="on"]:not(.frame) .page { gap: 8px; }
 .large { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 12px 4px; }
 .large .ch { display: flex; flex-direction: column; align-items: center; min-width: 22px; font-size: var(--fs-display); font-weight: 500; line-height: 1.15; }
 .large .ch.d { color: var(--digit); }
-.large .ch.s { color: var(--attention); }
+.large .ch.s { color: var(--muted); }
 .large .ch small { font-size: var(--fs-caption); font-weight: 400; color: var(--muted); font-family: inherit; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .chip.small { padding: 0 10px; font-size: var(--fs-small); min-height: 32px; }

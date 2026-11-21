@@ -19,14 +19,12 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
-- A shown password is easier to read: digits are colored and bold, symbols sit on a violet keycap (two cues, not color
-  alone), and a long unbroken password or PIN reads in groups of four, each underlined by its own short segment
-  rather than split by a gap that would look like a space. The generator says what the value is made of (characters,
-  uppercase, lowercase, digits, symbols) in the same colors, colors its suggestions like the value, names a
-  character's position when the pointer is on it, and decodes a new value into place, character by character (not
-  with animations turned off).
-- The generator shows its value large and centred, sized to fit on one line, and the value itself is the copy
-  button ("Click to copy", then "Copied"; Enter or Space from the keyboard); regenerate is a small corner button.
+- A shown password is easier to read: digits take the accent color and symbols the secondary text color, so look-alikes
+  such as O/0, l/1 and S/$ part by tone as well as shape. The generator's suggestions are drawn the same way.
+- The generator's value sits on one line, as large as fits, and is itself the copy button (a click, or Enter and
+  Space); one quiet line under it gives the strength, the length and the digits and symbols, and says "Copied" in
+  place. Dragging the length makes the value grow or shrink from its end as you go, and a new value settles in left
+  to right (not with animations turned off). Regenerate is a small button beside the value.
 - In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
 - In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items.
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own

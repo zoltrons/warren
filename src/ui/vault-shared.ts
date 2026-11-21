@@ -6,7 +6,7 @@ import type { BreachResults, PageMatches, Response as Reply, SecurityReport, Set
 import { type Child, h, send, t } from "./dom.ts";
 import { type GeneratorPick, resetGenerator } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
-import { charKind, groupsOf } from "./readable.ts";
+import { charKind } from "./readable.ts";
 import { sitePrefill, returnFromPicker, startEdit } from "./vault-edit.ts";
 import { orgDraft, loadReport } from "./vault-tools.ts";
 
@@ -256,13 +256,12 @@ export function tile(name: string, type: number, uris: string[] = [], brand = ""
   return el;
 }
 
-/** A secret drawn for reading (popup.css .pw): digits and symbols marked and, with `chunk`, in groups (groupsOf). */
-/** With `cells` every character is its own span (.c, its position in data-i), for the generator's hover and decode. */
-export function colorize(value: string, chunk = false, cells = false): (Node | string)[] {
-  let at = 0;
-  const one = (c: string) => (++at, cells ? h("span", { class: `c ${charKind(c)}`, "data-i": String(at) }, c) : charKind(c) ? h("span", { class: charKind(c) }, c) : c);
-  const groups = chunk ? groupsOf(value) : [value];
-  return groups.length > 1 ? groups.map((g) => h("span", { class: "grp" }, ...[...g].map(one))) : [...value].map(one);
+/**
+ * A secret drawn for reading (popup.css .pw): digits in the accent, symbols in the secondary text color, letters as
+ * they are. With `cells` every character is its own span (.c), for the generator's decode and live length.
+ */
+export function colorize(value: string, cells = false): (Node | string)[] {
+  return [...value].map((c) => (cells ? h("span", { class: `c ${charKind(c)}` }, c) : charKind(c) ? h("span", { class: charKind(c) }, c) : c));
 }
 
 export let toastId = 0;
