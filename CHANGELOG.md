@@ -2,76 +2,76 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.22 — 2026-11-21
 
 ### Security
 
-- Requests to the server and to alias services send no Referer, like the favicon and breach lookups already did.
+- Requests to the server and to alias services send no Referer, like the favicon and breach lookups already did. ([9eb243f](https://github.com/zoltrons/warren/commit/9eb243ff400a688ac5bb432c1d320b8de1198bd0))
 
 ### Added
 
 - On a login focused in the list, `Ctrl+C` (`⌘C`) copies its password, `Ctrl+Shift+C` the username and `Ctrl+Alt+C`
-  the code, without opening it.
+  the code, without opening it. ([dd2ca09](https://github.com/zoltrons/warren/commit/dd2ca09a568e7704df41a4118ab0d0d2cccc1d23))
 - "Use a strong password" in the inline menu follows the site's rules: the password field's `passwordrules`
   (required and allowed characters, maximum run of the same character, length) and its minlength/maxlength, so the
-  password it fills is one the site accepts and is not cut short by the field.
+  password it fills is one the site accepts and is not cut short by the field. ([810d0c4](https://github.com/zoltrons/warren/commit/810d0c4588b09e4f5a35252260574bfdc82caf5a))
 
 ### Changed
 
 - Passwords, codes and card numbers are set in Atkinson Hyperlegible Mono, a face drawn so l, 1 and I or O and 0 can't be
   mistaken. It ships inside the extension (18 KB, never downloaded), so it looks the same on every system; before, the
-  browser picked Menlo, Consolas or DejaVu depending on the OS.
+  browser picked Menlo, Consolas or DejaVu depending on the OS. ([69022dc](https://github.com/zoltrons/warren/commit/69022dc011b8d0e7619711f4e73788cd7db3a346))
 - A shown password in an item is set larger and a little open (it was smaller than the username), its strength sits
   in a small tinted capsule, and under the pointer it lights its group of four and shows each character's position,
-  as the generator does.
+  as the generator does. ([37c0e3e](https://github.com/zoltrons/warren/commit/37c0e3e209577b3050ca88a66ac71edfb8fe36a6))
 - A one-time code reads in halves split by a faint dot (123 · 456) instead of a gap that looked like a space; the dot
-  is not part of the code, so a selection copies the digits only.
+  is not part of the code, so a selection copies the digits only. ([c763dde](https://github.com/zoltrons/warren/commit/c763ddeb7a6208f34ada2f353ee1caa636d22485))
 - An item's websites lead with the host (github.com) and keep the scheme and path quiet, so which site it is reads at a
-  glance.
-- The generator's "Avoid ambiguous characters" shows the characters it leaves out (l I O 0 1).
-- In an item, a click on the "Next" code copies the next code; it used to copy the current one.
+  glance. ([a886660](https://github.com/zoltrons/warren/commit/a8866604352cd4a6fad930de8607f8ba1f80ced8))
+- The generator's "Avoid ambiguous characters" shows the characters it leaves out (l I O 0 1). ([8787510](https://github.com/zoltrons/warren/commit/8787510ba668dcb4bed32b4425668e4f364447e2))
+- In an item, a click on the "Next" code copies the next code; it used to copy the current one. ([78d8873](https://github.com/zoltrons/warren/commit/78d8873e8fd75e2e2594648a8af634718362d91b))
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
-  as a click on an item's field does; only the copy icon did before.
+  as a click on an item's field does; only the copy icon did before. ([f34ecf3](https://github.com/zoltrons/warren/commit/f34ecf3e356294ace17061dc341c210d057967eb))
 - A wider, brighter palette: six inks (red, green, blue, violet, cyan, yellow) halfway between Dracula's and
   Catppuccin's, each tuned to stay readable on every surface. Status colors, monogram tiles and passwords now draw
-  from it instead of saturated one-off hues.
+  from it instead of saturated one-off hues. ([dad0e19](https://github.com/zoltrons/warren/commit/dad0e198f0ec0055d9c0ae5546378090fede8c1d))
 - A shown password is easier to read: digits are blue and symbols red, so look-alikes such as O/0, l/1 and S/$ part
-  by hue as well as shape. The generator's line under the value names its digits and symbols in the same colors.
+  by hue as well as shape. The generator's line under the value names its digits and symbols in the same colors. ([7c83ceb](https://github.com/zoltrons/warren/commit/7c83ceb69367a731785b9074c323696426892c88))
 - The generator's value sits on one line, as large as fits, and is itself the copy button (a click, or Enter and
   Space); one quiet line under it gives the strength, the length and the digits and symbols, and says "Copied" in
   place. Dragging the length makes the value grow or shrink from its end as you go, and a new value settles in left
   to right (not with animations turned off). Regenerate is a small button beside the value. With the pointer on the
-  value, the group of four under it is lit and the character shows its position, for typing it in elsewhere.
-- In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
+  value, the group of four under it is lit and the character shows its position, for typing it in elsewhere. ([8ece044](https://github.com/zoltrons/warren/commit/8ece044095374d1105ebf5045471477803e8ef93))
+- In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself. ([a86371a](https://github.com/zoltrons/warren/commit/a86371af71d3d46bfdaf3d3780119405d1a61811))
 - In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items (the folder
-  row carries a › to say it leads somewhere).
+  row carries a › to say it leads somewhere). ([f098799](https://github.com/zoltrons/warren/commit/f098799252a94b2db2fb8db760367a6a449e6164))
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own
-  dropdown; a second ArrowDown moves into it.
+  dropdown; a second ArrowDown moves into it. ([1578547](https://github.com/zoltrons/warren/commit/15785471b3511ea60c287cc4c1c1a8260b55083d))
 - The inline menu steps aside once you type in its field, so it no longer covers the rest of the form, and comes back
-  when the field is emptied.
+  when the field is emptied. ([735334b](https://github.com/zoltrons/warren/commit/735334ba3bbeacc5dbc0eb804fa848a570c6e5d9))
 
 ### Fixed
 
 - The keyboard now reaches an item's fields: Tab stops on each one and Enter or Space copies it, as a click does.
-  The fields were meant to be focusable but never were.
+  The fields were meant to be focusable but never were. ([c9763ad](https://github.com/zoltrons/warren/commit/c9763adf26d3d8dd16bb9a64ebf732900962f435))
 - Live updates resume within a minute after the computer wakes from sleep or changes networks: a connection that
   went silent is noticed (its pings stop coming back) and replaced, and a dropped one reconnects at once instead of
-  at the next minute's check.
+  at the next minute's check. ([dc7c73d](https://github.com/zoltrons/warren/commit/dc7c73dbf961af9e593d1aa0ff588c55741ee4dc))
 - A large vault or attachment on a slow connection no longer fails to sync or download after 30 seconds (or 2
   minutes): a request now gives up only once the server has sent nothing for 30 seconds. A connection lost halfway
-  through an answer is reported as a network problem instead of an unknown error.
+  through an answer is reported as a network problem instead of an unknown error. ([9eb243f](https://github.com/zoltrons/warren/commit/9eb243ff400a688ac5bb432c1d320b8de1198bd0))
 - "Pick from page" no longer names a custom field after an id the site makes up on every load (React's newer ids,
-  Angular Material and Headless UI counters), which would not fill next time; it uses the field's name or label.
-- Moving to the next field with Tab opens its inline menu; the field left behind used to cancel it on the way.
+  Angular Material and Headless UI counters), which would not fill next time; it uses the field's name or label. ([984c59c](https://github.com/zoltrons/warren/commit/984c59cda7423aec4202de3ce00fcef90ce193b1))
+- Moving to the next field with Tab opens its inline menu; the field left behind used to cancel it on the way. ([4dc5070](https://github.com/zoltrons/warren/commit/4dc50704b7c9faa79c5f8682c646b852e17c4e95))
 - An inline menu closed with Escape opens again when you come back to its field with Tab; it used to stay closed
-  there until the field was clicked.
+  there until the field was clicked. ([e482a0b](https://github.com/zoltrons/warren/commit/e482a0b91a2f0368ebf56d37d239bdf94ceff1ed))
 - The inline menu opens on sign-in forms whose floating label takes the click and focuses the field itself, as many
-  Material-style forms do; it used to stay closed there.
+  Material-style forms do; it used to stay closed there. ([9e06750](https://github.com/zoltrons/warren/commit/9e06750ef6e6cff14b734fc5d4e4bbe883c3e875))
 - "Pick from page" picks the field under a floating label, an icon or any box a site draws over it, where it used to
   ignore the click, and so does the context menu's "Copy custom field name". A field inside a frame (a payment
-  form's) is lit like any other instead of sitting under the dark layer, and the picker also darkens and outlines fields inside a modal dialog instead of hiding under it.
+  form's) is lit like any other instead of sitting under the dark layer, and the picker also darkens and outlines fields inside a modal dialog instead of hiding under it. ([3be68bb](https://github.com/zoltrons/warren/commit/3be68bbc7be06b63932a5cf41c99071f4f69ed64))
 - While "Pick from page" runs, the page no longer reacts to the pointer: hovering opens no menu over the fields and a
-  middle click, right click or tap does nothing on the page.
+  middle click, right click or tap does nothing on the page. ([3a78cdb](https://github.com/zoltrons/warren/commit/3a78cdb89d7bcbba4d87b31bd9fb31377def1a60))
 
 ## 0.0.21 — 2026-11-20
 
