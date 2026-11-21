@@ -43,6 +43,7 @@ function copyStatic() {
   cpSync(join(root, "src/shared/totp-sites.json"), join(out, "totp-sites.json"));
   cpSync(join(root, "src/_locales"), join(out, "_locales"), { recursive: true });
   cpSync(join(root, "src/icons"), join(out, "icons"), { recursive: true });
+  cpSync(join(root, "src/ui/fonts"), join(out, "fonts"), { recursive: true });
   // GPL-3.0 and the Apache-2.0 / MPL-2.0 notices travel with every build.
   for (const f of ["LICENSE", "NOTICE"]) cpSync(join(root, f), join(out, f));
 }

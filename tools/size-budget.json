@@ -17,5 +17,6 @@
   "dist/ext/identity-data.json": 98304,
   "dist/ext/_locales/en/messages.json": 98304,
   "dist/ext/common-words.json": 163840,
-  "dist/ext/totp-sites.json": 65536
+  "dist/ext/totp-sites.json": 65536,
+  "dist/ext/fonts/atkinson-hyperlegible-mono.woff2": 24576
 }

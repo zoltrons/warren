@@ -32,6 +32,7 @@ await esbuild.build({
 copyFileSync(join(root, "src/ui/popup.css"), join(out, "popup.css"));
 copyFileSync(join(root, "src/ui/identity-data.json"), join(out, "identity-data.json"));
 cpSync(join(root, "src/icons"), join(out, "icons"), { recursive: true });
+cpSync(join(root, "src/ui/fonts"), join(out, "fonts"), { recursive: true });
 
 copyFileSync(join(here, "inline.html"), join(out, "inline.html"));
 

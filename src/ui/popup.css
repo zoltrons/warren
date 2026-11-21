@@ -6,11 +6,23 @@
    tints for state layers (brand/README.md). Shapes and motion follow Chrome Refresh / Material 3, so the popup,
    side panel, inline menu and save bar behave like part of the browser: pill buttons, round icon buttons, 8 px
    fields and menus, 12 px cards and dialogs, 13 px system type with 500 for titles, state layers instead of a
-   scale dip, Material timing (100/200 ms). The richest thing on a screen is the secret itself: mono, digits in the
-   link color, symbols amber. Contrast: tools/check-contrast.mjs.
+   scale dip, Material timing (100/200 ms). The richest thing on a screen is the secret itself: set in the bundled
+   Atkinson Hyperlegible Mono, digits in the blue ink, symbols in the red. Contrast: tools/check-contrast.mjs.
 
    The screen layout and flows are this app's own.
    ========================================================================== */
+
+/* Secrets, codes and numbers: a face drawn so l/1/I and O/0 can't be mistaken, shipped in the extension (never fetched)
+   so it is the same on every system; Chrome's own monospace is Menlo, Consolas or DejaVu depending on the OS.
+   Latin subset, variable weight (docs/LICENSING.md); a character outside it falls back to the next face. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  src: url("fonts/atkinson-hyperlegible-mono.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 :root {
   --icon-stroke: 1.75px;
@@ -88,7 +100,7 @@
 
   /* type: the platform's own face (no webfont: size budget), Chrome's 13 px body on a 20 px line */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, Menlo, Consolas, monospace;
   --line: 1.45;
   /* type scale: caption 12, small 12, body-sm 12, body 13, title-sm 15, title 16, heading 18, display 30 */
   /* In rem, so the browser's font size setting applies. */
@@ -359,7 +371,7 @@ svg.i.solid { fill: currentColor; }
 /* .field input is width: 100%, which let a hidden picker push the whole page sideways. */
 .field input.sr-only { width: 1px; padding: 0; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mono { font-family: var(--mono); font-feature-settings: "ss01", "ss02"; letter-spacing: 0.02em; }
+.mono { font-family: var(--mono); letter-spacing: 0.02em; }
 
 #app { display: flex; flex-direction: column; min-height: 600px; }
 #app.has-nav .page { padding-bottom: 68px; }
