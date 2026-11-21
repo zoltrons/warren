@@ -541,8 +541,30 @@ await step("custom fields: Pick from page adds the clicked field to the unsaved 
   assert.equal(await page.getByLabel("Field on the page").inputValue(), "code");
 
   // A field in another origin's frame: that frame takes the pick.
-  await start("Frame item", "/tiny-frame");
+  // A srcdoc frame runs no picker: it stays under the top page's dark layer.
+  await start("Frame item", "/tiny-frame", () =>
+    loginPage.evaluate(() => document.body.insertAdjacentHTML("beforeend", `<iframe id="sd" srcdoc="<p>ad</p>" style="width:300px;height:44px;border:0"></iframe>`)),
+  );
   await loginPage.frameLocator("#f").locator("warren-picker").waitFor({ state: "attached" });
+  await loginPage.mouse.move(2, 2);
+  await loginPage.waitForTimeout(100);
+  // Brightness of a white spot under the picker: one dark layer halves it, two would quarter it, none leaves it white.
+  const light = async (sel: string) => {
+    const b = (await loginPage.locator(sel).boundingBox())!;
+    const png = (await loginPage.screenshot({ clip: { x: b.x + b.width - 6, y: b.y + 4, width: 1, height: 1 } })).toString("base64");
+    return loginPage.evaluate(async (src) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${src}`;
+      await img.decode();
+      const c = new OffscreenCanvas(1, 1).getContext("2d")!;
+      c.drawImage(img, 0, 0);
+      return c.getImageData(0, 0, 1, 1).data[0]!;
+    }, png);
+  };
+  for (const sel of ["p", "#f", "#sd"]) {
+    const v = await light(sel);
+    assert.ok(v > 100 && v < 160, `${sel} is not under exactly one dark layer: ${v}`);
+  }
   await loginPage.frameLocator("#f").locator("#cc").click();
   await loginPage.locator("warren-picker").waitFor({ state: "detached" });
   await reopenPopup();

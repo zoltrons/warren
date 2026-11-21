@@ -107,14 +107,20 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
     // The page took the attribute off: z-index it is.
   }
 
-  const frames = deepAll(document, "iframe, frame");
+  // Only frames the content script runs in darken themselves; about:blank, srcdoc, data: and the like stay under ours.
+  const frames = deepAll(document, "iframe, frame").filter((f) => /^https?:/.test((f as HTMLIFrameElement).src));
   let shown: Pickable | undefined;
   const show = (el: Pickable | undefined) => {
     shown = el;
     const r = el?.getBoundingClientRect();
     const box = (b: DOMRect) => `M${b.left} ${b.top}h${b.width}v${b.height}h${-b.width}z`;
     const hole = r ? box(r) : "";
-    ocean.setAttribute("d", `M0 0h${innerWidth}v${innerHeight}h${-innerWidth}z${hole}${frames.map((f) => box(f.getBoundingClientRect())).join("")}`);
+    // A frame's hole is its inner box: its border stays dark, the frame darkens the rest.
+    const inner = (f: Element) => {
+      const b = f.getBoundingClientRect();
+      return box(new DOMRect(b.left + f.clientLeft, b.top + f.clientTop, f.clientWidth, f.clientHeight));
+    };
+    ocean.setAttribute("d", `M0 0h${innerWidth}v${innerHeight}h${-innerWidth}z${hole}${frames.map(inner).join("")}`);
     island.setAttribute("d", hole);
   };
   const redraw = () => show(shown);
