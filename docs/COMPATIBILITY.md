@@ -258,7 +258,7 @@ the e2e `vectors` group (registration, login, list, edit) on every server that c
 
 ## Not yet verified
 
-* Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner only; members with limited permissions and creating org items (`/api/ciphers/create` + `collectionIds`) are untested/unsupported.
+* Organization items: edit/trash/restore follow the server's per-item `edit` flag (`PUT /api/ciphers/<id>`), covered by e2e for an org owner, and for a member of a "Hide passwords" collection (invited and confirmed through the API: the password, hidden fields and history stay in the worker and survive an edit); creating org items (`/api/ciphers/create` + `collectionIds`) by e2e "organizations"; other limited permissions (read-only collections, custom roles) are untested.
 * Round-trip with the official `bw` CLI (contract test b): not done.
 
 ## Chromium 156 (verified in Playwright Chromium 156.0.8078.4)

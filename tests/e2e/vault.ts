@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { answerAuthRequest, authRequestStatus, createAuthRequest, passwordToken, pendingAuthRequests } from "../../src/transport/auth.ts";
 import { call } from "../../src/transport/http.ts";
 import { emailBreaches } from "../../src/transport/vault.ts";
-import { BASE, TOTP_KEY, wasm, step, authHash, register, poll, totpNow, apiSession, createOrgNote, ctx, sw, readClipboard, page, open, fill, click, loginAs, expectUnlocked, unlockIfLocked, logout, rows, back, ensureSignedIn } from "./harness.ts";
+import { BASE, TOTP_KEY, wasm, step, authHash, register, poll, totpNow, apiSession, createOrgNote, createOrg, addOrgMember, ctx, sw, readClipboard, page, open, fill, click, loginAs, expectUnlocked, unlockIfLocked, logout, rows, back, ensureSignedIn } from "./harness.ts";
 
 await ensureSignedIn();
 export const vaultUser = await register("vault", [1, 3, 64, 4]);
@@ -639,6 +639,24 @@ await step("import: Bitwarden JSON creates items and folders on the server", asy
   await rows().filter({ hasText: "Imported login" }).waitFor();
 });
 
+await step("import: a KeePass XML export, converted in the popup", async () => {
+  await page.getByRole("button", { name: "Settings" }).click();
+  const xml = `<?xml version="1.0" encoding="utf-8"?><KeePassFile><Root><Group><Name>DB</Name><Group><Name>Keep group</Name><Entry>
+    <String><Key>Title</Key><Value>Keep login</Value></String><String><Key>UserName</Key><Value>kp</Value></String>
+    <String><Key>Password</Key><Value ProtectInMemory="True">kp-pw</Value></String><String><Key>URL</Key><Value>https://kp.example</Value></String>
+    <String><Key>Secret answer</Key><Value ProtectInMemory="True">blue</Value></String></Entry></Group></Group></Root></KeePassFile>`;
+  await page.getByLabel("Import items").setInputFiles({ name: "db.xml", mimeType: "text/xml", buffer: Buffer.from(xml) });
+  await page.getByRole("status").filter({ hasText: "Imported 1 item(s)." }).waitFor();
+  const s = await apiSession(vaultUser);
+  const c = (await s.ciphers()).find((x) => x.name === "Keep login");
+  const folders = await s.folders();
+  s.done();
+  assert.deepEqual([c?.login.username, c?.login.password, c?.login.uris?.[0]?.uri], ["kp", "kp-pw", "https://kp.example"]);
+  assert.deepEqual(c?.fields?.map((f: { name: string; type: number }) => [f.name, f.type]), [["Secret answer", 1]]);
+  assert.ok(folders.includes("Keep group"));
+  await page.getByRole("button", { name: "Vault", exact: true }).click();
+});
+
 await step("export and import: CSV, and JSON protected by a file password", async () => {
   await page.getByRole("button", { name: "Settings" }).click();
   const exportAs = async (format: string, filePassword?: string) => {
@@ -731,6 +749,39 @@ await step("attachments: deleted after a second tap", async () => {
   const c = (await s.orgCiphers()).find((x) => x.name === "Team wiki v2");
   s.done();
   assert.equal(c?.attachments?.length ?? 0, 0);
+  await back();
+});
+
+await step("hide passwords: a member fills but never sees or changes a hidden password", async () => {
+  const owner = await register("orgowner", [1, 3, 64, 4]);
+  const o = await createOrg(owner, "Team Beta", "Ops");
+  await addOrgMember(o, vaultUser, { readOnly: false, hidePasswords: true });
+  const { id } = (await call(BASE, "POST", "/api/ciphers/create", {
+    token: o.token,
+    json: {
+      cipher: { type: 1, name: o.enc("Ops router"), notes: null, login: { username: o.enc("ops"), password: o.enc("HIDDEN-pw-1"), uris: null, totp: null }, fields: [{ type: 1, name: o.enc("pin"), value: o.enc("HIDDEN-pin"), linkedId: null }], organizationId: o.orgId, encryptedFor: o.userId },
+      collectionIds: [o.collId],
+    },
+  })) as { id: string };
+  await page.getByRole("button", { name: "Sync now" }).click();
+  await rows().filter({ hasText: "Ops router" }).click();
+  await page.getByText("Your organization hides this item's password").waitFor();
+  assert.equal(await page.getByRole("button", { name: "Show password" }).count(), 0, "a hidden password can be revealed");
+  // Not on screen, and not in what the worker hands the popup.
+  assert.ok(!(await page.content()).includes("HIDDEN"), "a hidden value is in the page");
+  const got = await page.evaluate((id) => chrome.runtime.sendMessage({ type: "getItem", id }), id);
+  assert.ok(got.ok && !JSON.stringify(got.data).includes("HIDDEN"), "the worker handed out a hidden value");
+  await page.getByRole("button", { name: "Edit" }).click();
+  assert.equal(await page.getByLabel("Password", { exact: true }).count(), 0, "the editor offers the hidden password");
+  await fill("Name", "Ops router 2");
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("heading", { name: "Ops router 2" }).waitFor();
+  const s = await apiSession(owner);
+  const c = (await s.orgCiphers()).find((x) => x.id === id);
+  s.done();
+  assert.equal(c?.name, "Ops router 2");
+  assert.equal(c?.login?.password, "HIDDEN-pw-1", "the edit lost the hidden password");
+  assert.deepEqual(c?.fields?.map((f: { value: string }) => f.value), ["HIDDEN-pin"], "the edit lost the hidden field");
   await back();
 });
 

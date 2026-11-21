@@ -61,7 +61,7 @@ page.js/content.js --CollectedPageDetails--> background/engine.ts --> crates/aut
   branch) → `send()` from `ui/*`.
 - **Crypto/vault op:** `CoreRequest` + `coreValidators` → `case` in `offscreen/worker.ts` → fn in `api.rs` + `lib.rs`.
 - **Returns item secrets:** must pass `repromptPending` (reprompt.ts).
-- **String:** `src/_locales/en/messages.json`, `t("key")`. **Color:** a token in `popup.css` (both dark blocks),
+- **String:** `src/_locales/{en,tr}/messages.json` (same key in both), `t("key")` in the UI, `msg("key")` in the worker. **Color:** a token in `popup.css` (both dark blocks),
   then `npm run check`.
 - **Permission:** `src/manifest.json` + a written reason in SECURITY.md.
 

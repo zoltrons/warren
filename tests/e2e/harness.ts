@@ -168,6 +168,15 @@ export async function apiSession(u: TestUser) {
  * of core-wasm.
  */
 export async function createOrgNote(u: TestUser, orgName: string, collectionName: string, noteName: string): Promise<void> {
+  const o = await createOrg(u, orgName, collectionName);
+  await call(BASE, "POST", "/api/ciphers/create", {
+    token: o.token,
+    json: { cipher: { type: 2, name: o.enc(noteName), notes: null, secureNote: { type: 0 }, organizationId: o.orgId, encryptedFor: o.userId }, collectionIds: [o.collId] },
+  });
+}
+
+/** An organization of `u` with one collection; `enc` encrypts with its key (node:crypto only). */
+export async function createOrg(u: TestUser, orgName: string, collectionName: string) {
   const tok = await passwordToken(BASE, { email: u.email, authHash: authHash(u), deviceId: crypto.randomUUID() });
   const token = tok.access_token;
   const userId = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()).sub as string;
@@ -191,10 +200,24 @@ export async function createOrgNote(u: TestUser, orgName: string, collectionName
   })) as { id: string };
   const sync = (await call(BASE, "GET", "/api/sync?excludeDomains=true", { token })) as { collections: { id: string; organizationId: string }[] };
   const coll = sync.collections.find((c) => c.organizationId === org.id)!;
-  await call(BASE, "POST", "/api/ciphers/create", {
-    token,
-    json: { cipher: { type: 2, name: enc(noteName), notes: null, secureNote: { type: 0 }, organizationId: org.id, encryptedFor: userId }, collectionIds: [coll.id] },
+  return { token, userId, orgId: org.id, collId: coll.id, orgKey, enc };
+}
+
+/**
+ * `member` joins the organization as a plain user with access to its collection only, as the server's flow has it
+ * without mail: invited (accepted at once when the account exists), then confirmed with the org key wrapped for them.
+ */
+export async function addOrgMember(o: Awaited<ReturnType<typeof createOrg>>, member: TestUser, access: { readOnly: boolean; hidePasswords: boolean }): Promise<void> {
+  await call(BASE, "POST", `/api/organizations/${o.orgId}/users/invite`, {
+    token: o.token,
+    json: { emails: [member.email], type: 2, accessAll: false, permissions: {}, groups: [], collections: [{ id: o.collId, readOnly: access.readOnly, hidePasswords: access.hidePasswords, manage: false }] },
   });
+  const users = (await call(BASE, "GET", `/api/organizations/${o.orgId}/users`, { token: o.token })) as { data: { id: string; userId: string; email: string; status: number }[] };
+  const ou = users.data.find((x) => x.email === member.email)!;
+  assert.equal(ou.status, 1, "the invitation was not accepted at once (mail enabled on the test server?)");
+  const { publicKey } = (await call(BASE, "GET", `/api/users/${ou.userId}/public-key`, { token: o.token })) as { publicKey: string };
+  const wrapped = publicEncrypt({ key: Buffer.from(publicKey, "base64"), format: "der", type: "spki", padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha1" }, o.orgKey);
+  await call(BASE, "POST", `/api/organizations/${o.orgId}/users/${ou.id}/confirm`, { token: o.token, json: { key: `4.${wrapped.toString("base64")}` } });
 }
 
 // A plain login page for autofill tests, reachable as localhost:8099 (matches) and 127.0.0.1:8099 (does not).
