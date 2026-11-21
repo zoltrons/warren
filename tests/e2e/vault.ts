@@ -136,6 +136,36 @@ await step("item view: reveal password, TOTP matches, hidden field, copy schedul
   await back();
 });
 
+await step("keyboard copy: Enter on an item field, Ctrl/Cmd+C on a login row, Enter on the generated value", async () => {
+  // An item's field body is a tab stop (h() sets tabindex as an attribute) and Enter copies it.
+  await rows().filter({ hasText: "GitHub" }).click();
+  await page.getByRole("heading", { name: "GitHub" }).waitFor();
+  await page.locator(".body.copyable", { hasText: "Username" }).focus();
+  await page.keyboard.press("Enter");
+  await poll("username copied by Enter", async () => (await readClipboard()) === "octo");
+  await back();
+  // On a focused login row: Ctrl/Cmd+C the password (through the worker's re-prompt check), +Shift the username.
+  const github = rows().filter({ hasText: "GitHub" }).first();
+  await github.focus();
+  await page.keyboard.press("ControlOrMeta+c");
+  await poll("password copied from the row", async () => (await readClipboard()) === "gh-secret-1");
+  await github.focus();
+  await page.keyboard.press("ControlOrMeta+Shift+c");
+  await poll("username copied from the row", async () => (await readClipboard()) === "octo");
+  // The generated value is its own copy button: Enter copies what is shown, not the decode's passing characters.
+  await page.getByRole("button", { name: "Generator" }).click();
+  const value = page.locator("#generated-value");
+  await value.waitFor();
+  await page.waitForTimeout(800); // past the decode
+  const shown = (await value.locator("output").textContent()) ?? "";
+  assert.ok(shown.length >= 5 && shown !== "…", `generated ${shown}`);
+  await value.focus();
+  await page.keyboard.press("Enter");
+  await poll("generated value copied by Enter", async () => (await readClipboard()) === shown);
+  await page.getByRole("button", { name: "Vault", exact: true }).click();
+  await rows().filter({ hasText: "GitHub" }).waitFor();
+});
+
 await step("menus: anchored and flipped to fit, arrow keys; notes grow; switches are switches", async () => {
   await rows().filter({ hasText: "GitHub" }).click();
   await page.getByRole("heading", { name: "GitHub" }).waitFor();
