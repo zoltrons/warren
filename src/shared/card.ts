@@ -23,10 +23,10 @@ export function cardBrand(n: string): string | undefined {
   if (/^3[47]/.test(d)) return "Amex";
   if (/^(5018|5020|5038|5893|6304|6759|676[1-3])/.test(d)) return "Maestro";
   if (/^(60(?!11)|652[12]|8[12]|508)/.test(d)) return "RuPay";
-  // Troy: 9792 is its own range; the rest are single Troy BINs inside 65 (Discover's) and 900, from
+  // Troy: 979200-979289 is its own range; the rest are single Troy BINs inside 65 (Discover's) and 900, from
   // github.com/berkaybucan/turkey-bin-list (2026-01) plus 650173 (İş Bankası, Turkish BIN lists).
   // shortcut: no official Troy BIN list exists publicly; add BINs as they are confirmed.
-  if (/^(9792|650052|650173|654997|657366|657998|900002|900017|900020|900029|900210)/.test(d)) return "Troy";
+  if (/^(9792[0-8]|650052|650173|654997|657366|657998|900002|900017|900020|900029|900210)/.test(d)) return "Troy";
   if (/^(6011|65|64[4-9])/.test(d)) return "Discover";
   if (/^3(0[0-5]|[68])/.test(d)) return "Diners Club";
   if (/^35(2[89]|[3-8])/.test(d)) return "JCB";
@@ -34,9 +34,12 @@ export function cardBrand(n: string): string | undefined {
   return undefined;
 }
 
-/** The brand a card is shown with: the stored one, else (unset or "Other") the one its number implies. */
+/** The brand a card is shown with: the stored one, else (unset or "Other") the one its number implies. A Troy
+ *  number wins over a stored "Discover": Troy's 65 BINs are co-badged, and other clients save them as Discover. */
 export function shownBrand(stored: string, number: string): string {
-  return (stored && stored !== "Other" ? stored : cardBrand(number)) ?? stored;
+  const fromNumber = cardBrand(number);
+  if (fromNumber === "Troy" && (!stored || stored === "Other" || stored === "Discover")) return fromNumber;
+  return (stored && stored !== "Other" ? stored : fromNumber) ?? stored;
 }
 
 /** Troy is not in Bitwarden's brand list: it is shown from the number and never written to the item. */

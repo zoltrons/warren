@@ -15,6 +15,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Turkish: the whole interface, error messages included, follows the browser's language, and dates follow it too.
 - Warren can run in private (incognito) windows: turn on "Allow in Incognito" on the extension's details page.
   Private windows use the same vault and the same lock as the normal ones; it stays off until you allow it.
+- Troy cards show the Troy mark, worked out from the card number (979200-979289 and known Troy BINs in the 65 and
+  900 ranges), also when the card is saved as Discover or Other. Nothing new is written to the vault: Troy is not
+  in the Bitwarden clients' brand list.
 
 ## 0.0.22 — 2026-11-21
 
