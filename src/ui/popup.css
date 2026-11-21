@@ -699,7 +699,8 @@ a.row { text-decoration: none; color: var(--text); }
 .row-input::placeholder, .row input::placeholder { color: var(--muted); }
 .row-input:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .row-input:focus { outline: 0; box-shadow: 0 0 0 2px var(--focus-ring); }
-.row .value.mono { font-size: var(--fs-body-sm); }
+/* A secret reads at least as large as the text around it, a little open, so each character stands apart. */
+.row .value.mono { font-size: 0.875rem; letter-spacing: 0.04em; line-height: 1.5; }
 /* The signature: digits in the link color, symbols amber. Used on secrets and nowhere else. */
 /* A shown secret (colorize): digits and symbols in their own inks (--digit blue, --symbol red), so O/0, l/1 and
    S/$ part by hue as well as shape; letters stay plain. */
@@ -951,13 +952,14 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .quick .btn.tonal { border-color: transparent; background: var(--primary-weak); color: var(--on-primary-weak); }
 .quick .btn:hover { background-image: linear-gradient(var(--tint), var(--tint)); }
 .caption { margin: -4px 0 0; font-size: var(--fs-small); color: var(--muted); }
+/* A status said in a small tonal capsule under its value (strength, expiry): its ink on that ink's weak tint. */
 .badge {
-  align-self: flex-start; margin-top: 3px;
+  align-self: flex-start; margin-top: 6px; padding: 2px 8px; border-radius: 6px;
   font-size: var(--fs-small); font-weight: 500; line-height: 16px;
 }
-.badge.s0 { color: var(--critical); }
-.badge.s1 { color: var(--warning); }
-.badge.s2, .badge.s3 { color: var(--success); }
+.badge.s0 { color: var(--critical); background: var(--critical-weak); }
+.badge.s1 { color: var(--warning); background: var(--warning-weak); }
+.badge.s2, .badge.s3 { color: var(--success); background: var(--success-weak); }
 .notes {
   background: var(--surface); border-radius: var(--r-lg);
   padding: 8px 12px; font-size: var(--fs-body);
@@ -1092,12 +1094,13 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .generated-value:active output { transform: scale(0.985); }
 /* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
 .generated output.plain { font-size: var(--fs-heading); font-weight: 500; letter-spacing: 0; word-break: normal; }
-.generated output .c { position: relative; display: inline-block; }
-/* Under the pointer the value shows its structure, and only then: the group of four it is in sits on a soft capsule
-   (a shadow spread, so nothing moves) and the character names its place above it, for typing it in elsewhere. */
-.generated output .grp { display: inline-block; white-space: nowrap; border-radius: 6px; transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
-.generated-value:hover output .grp:hover { background-color: var(--tint-strong); box-shadow: 0 0 0 3px var(--tint-strong); }
-.generated-value:hover output .c:hover::after {
+/* A secret drawn character by character (colorize with cells: the generator's value, a shown password): under the
+   pointer it shows its structure, and only then. The group of four it is in sits on a soft capsule (a shadow
+   spread, so nothing moves) and the character names its place above it, for typing it in elsewhere. */
+.pw .c { position: relative; display: inline-block; }
+.pw .grp { display: inline-block; white-space: nowrap; border-radius: 6px; transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.pw .grp:hover { background-color: var(--tint-strong); box-shadow: 0 0 0 3px var(--tint-strong); }
+.pw .c:hover::after {
   content: attr(data-i); position: absolute; bottom: calc(100% + 6px); left: 50%; translate: -50% 0;
   min-width: 18px; padding: 2px 6px; border-radius: 6px;
   background: var(--inverse); color: var(--on-inverse);

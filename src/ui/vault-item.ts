@@ -185,7 +185,9 @@ export function fieldRow(
   const shown = !opts.secret || st.reveal.has(key);
   const valueEl = h("span", { class: `value${opts.mono ? " mono" : ""}${opts.mono && opts.secret ? " pw" : ""}` });
   if (shown) {
-    if (opts.mono && opts.secret) valueEl.append(...colorize(opts.display ?? value));
+    // A secret as it is (a password) gets cells: its groups and positions under the pointer; a formatted one (a card
+    // number in fours) keeps its own spacing.
+    if (opts.mono && opts.secret) valueEl.append(...colorize(opts.display ?? value, opts.display === undefined));
     else valueEl.textContent = opts.display ?? value;
   } else {
     valueEl.textContent = "•".repeat(Math.min(Math.max(value.length, 8), 16));

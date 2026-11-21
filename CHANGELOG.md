@@ -19,6 +19,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Passwords, codes and card numbers are set in Atkinson Hyperlegible Mono, a face drawn so l, 1 and I or O and 0 can't be
   mistaken. It ships inside the extension (18 KB, never downloaded), so it looks the same on every system; before, the
   browser picked Menlo, Consolas or DejaVu depending on the OS.
+- A shown password in an item is set larger and a little open (it was smaller than the username), its strength sits
+  in a small tinted capsule, and under the pointer it lights its group of four and shows each character's position,
+  as the generator does.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
