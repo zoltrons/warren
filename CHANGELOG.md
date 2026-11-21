@@ -25,6 +25,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   uppercase, lowercase, digits, symbols) in the same colors, colors its suggestions like the value, names a
   character's position when the pointer is on it, and decodes a new value into place, character by character (not
   with animations turned off).
+- The generator shows its value large and centred, sized to fit on one line, and the value itself is the copy
+  button ("Click to copy", then "Copied"; Enter or Space from the keyboard); regenerate is a small corner button.
 - In Settings, a click anywhere on a row with a switch flips it, not only a click on the switch itself.
 - In an item, a click on an attachment downloads it, and a click on its folder lists that folder's items.
 - ArrowDown in a field opens its inline menu when it is closed (after Escape or typing), as it does Chrome's own

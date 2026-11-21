@@ -669,8 +669,9 @@ a.row { text-decoration: none; color: var(--text); }
    one is the same size whatever the glyph). Long values read in groups of four, each underlined by its own segment:
    a mark under the text, where a gap or a band between characters would read as a space or crowd the keycaps. */
 .pw .d { color: var(--digit); font-weight: 600; }
+/* text-box trims the keycap to the glyph's cap height and baseline, so equal padding centres it both ways. */
 .pw .s {
-  display: inline-block; line-height: 1.3em; padding-inline: 0.06em; border-radius: 0.25em;
+  display: inline-block; text-box: trim-both cap alphabetic; padding: 0.22em 0.12em; border-radius: 0.25em;
   color: var(--attention); background: var(--attention-weak);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--attention) 24%, transparent);
 }
@@ -1052,25 +1053,48 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 /* ---------- generator ---------- */
 
 .generated {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 12px;
+  position: relative; display: flex; flex-direction: column; gap: 10px;
+  padding: 8px 12px 12px;
   background: var(--surface);
   border-radius: var(--r-lg);
 }
-.generated-row { display: flex; align-items: center; gap: 8px; }
-.generated output { flex: 1; min-width: 0; font-size: var(--fs-title-sm); word-break: break-all; letter-spacing: 0.04em; }
+/* The value, centred and large, is itself the copy target; regenerate is a small corner button over it. */
+.generated-value {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 20px 36px 12px; margin-inline: -4px; border-radius: var(--r-md);
+  text-align: center; cursor: pointer; outline: 0; container-type: inline-size;
+  transition: background-color var(--fast) var(--ease);
+}
+.generated-value:hover { background-color: var(--tint); }
+.generated-value:active { background-color: var(--tint-strong); }
+.generated-value:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring); }
+.generated-value[aria-disabled="true"] { cursor: default; background: none; }
+/* A random value takes the largest size at which its --len characters fit one line (about 0.7em each with spacing
+   and keycaps), between 15 and 22 px; longer ones wrap into balanced lines, never one group left alone. */
+.generated output {
+  max-width: 100%; font-size: clamp(0.9375rem, calc(100cqi / (var(--len, 16) * 0.7)), 1.375rem);
+  line-height: 1.6; word-break: break-all; text-wrap: balance; letter-spacing: 0.05em;
+}
 /* A generated name reads as a name: the UI font, no character spacing, no breaks inside a word. */
-.generated output.copyable { cursor: pointer; }
-.generated output.plain { font-size: var(--fs-title); font-weight: 500; letter-spacing: 0; word-break: normal; }
+.generated output.plain { font-size: var(--fs-heading); font-weight: 500; letter-spacing: 0; word-break: normal; }
+.copy-hint {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-caption); line-height: 16px; color: var(--muted);
+  transition: color var(--fast) var(--ease);
+}
+.copy-hint svg.i { width: 14px; height: 14px; }
+.copy-hint.done { color: var(--success); }
+.generated .regen { position: absolute; top: 6px; right: 6px; color: var(--muted); }
+.generated .regen svg { transition: transform 250ms var(--ease); }
+.generated .regen:active svg { transform: rotate(180deg); }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .row.stack { align-items: stretch; gap: 8px; }
 .row.stack > input:is([type], :not([type])) { flex: none; height: 36px; padding: 0 12px; border-radius: var(--r-sm); background: transparent; border-color: var(--outline); }
 .row.stack > input:is([type], :not([type])):focus { outline: 0; border-color: var(--focus-ring); box-shadow: inset 0 0 0 1px var(--focus-ring); }
-.generated .trailing { display: flex; }
 .generated-foot { display: flex; align-items: center; gap: 8px; }
 .generated-foot:empty { display: none; }
 /* The value's make-up, each part in the color it is drawn in: a legend for the colors and a count for a site's rules. */
-.composition { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; font-size: var(--fs-caption); line-height: 16px; color: var(--muted); }
+.composition { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; margin: 0; font-size: var(--fs-caption); line-height: 16px; color: var(--muted); }
 .composition span { display: inline-flex; align-items: center; gap: 5px; }
 .composition .total { color: var(--text); font-weight: 500; }
 .composition span:not(.total)::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }

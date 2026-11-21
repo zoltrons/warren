@@ -16,7 +16,7 @@ import { type FakeIdentity, fakeIdentity, type IdentityData } from "./identity-g
 import { startEdit, strengthBar } from "./vault-edit.ts";
 import { actionRow, strength } from "./vault-item.ts";
 import { charKind } from "./readable.ts";
-import { colorize, copy, copyButton, copyOnClick, type Ctx, iconButton, sectionTitle, topBar } from "./vault-shared.ts";
+import { colorize, copy, copyButton, copyOnClick, type Ctx, iconButton, sectionTitle, st, topBar } from "./vault-shared.ts";
 
 type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -372,22 +372,16 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   // Random strings read in groups of four; a passphrase or a username keeps its own shape.
   const chunked = g.type === "password" || g.type === "pin";
   const copyGenerated = () => {
-    void copy(ctx, gst.generated);
+    void copy(ctx, gst.generated, "generated");
     if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
   };
   const output = h(
     "output",
-    {
-      class: `${g.type === "identity" ? "plain" : "mono pw"}${gst.generated ? " copyable" : ""}`,
-      "aria-live": "off",
-      "aria-label": t("generatedValue"),
-      // Not on a character-by-character value: the tooltip would sit on top of the hovered character's position.
-      title: gst.generated && !chunked ? t("copyField", t("generatedValue")) : undefined,
-      // A click on the value copies it, as on an item's fields; a selection made in it is left alone.
-      onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
-    },
+    { class: g.type === "identity" ? "plain" : "mono pw", "aria-live": "off" },
     ...(gst.generated ? colorize(gst.generated, chunked, chunked) : ["…"]),
   );
+  // Its length sizes the type (popup.css .generated output): as large as fits on one line, down to a floor.
+  if (chunked) output.style.setProperty("--len", String([...gst.generated].length));
   if (chunked && gst.generated) decode(output, gst.generated);
   const set = (k: string, v: unknown) => {
     g[k] = v;
@@ -685,22 +679,28 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
     g.type === "alias" && !gst.generated ? null : h(
       "div",
       { class: "generated" },
+      // The value is the copy button: large, centred, the whole area a target, with what a click does said under it.
       h(
         "div",
-        { class: "generated-row" },
+        {
+          id: "generated-value", // kept focused across the re-render a copy makes (popup.ts swap)
+          class: "generated-value",
+          role: "button",
+          tabindex: gst.generated ? "0" : "-1",
+          "aria-disabled": String(!gst.generated),
+          onclick: () => gst.generated && !getSelection()?.toString() && copyGenerated(),
+          onkeydown: (e: KeyboardEvent) => {
+            if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ") || !gst.generated) return;
+            e.preventDefault();
+            copyGenerated();
+          },
+        },
         output,
-        h(
-          "div",
-          { class: "trailing" },
-          iconButton("refresh", t("regenerate"), () => void (g.type === "alias" ? generateAliasNow(ctx) : regenerate(ctx))),
-          iconButton(
-            "copy",
-            t("copyField", t("generatedValue")),
-            copyGenerated,
-            { disabled: !gst.generated },
-          ),
-        ),
+        gst.generated
+          ? h("span", { class: `copy-hint${st.copied === "generated" ? " done" : ""}` }, icon(st.copied === "generated" ? "check" : "copy"), t(st.copied === "generated" ? "copiedOnly" : "clickToCopy"))
+          : null,
       ),
+      iconButton("refresh", t("regenerate"), () => void (g.type === "alias" ? generateAliasNow(ctx) : regenerate(ctx)), { class: "icon-btn sm regen" }),
       g.type === "identity"
         ? null
         : h("div", { class: "generated-foot" }, gst.generated && g.type !== "alias" ? strengthBar(gst.generated) : null, gst.generated && g.type !== "alias" ? h("span", { class: "meter-label" }, strength(gst.generated).label) : null),

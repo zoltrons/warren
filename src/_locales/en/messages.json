@@ -358,6 +358,9 @@
       }
     }
   },
+  "clickToCopy": {
+    "message": "Click to copy"
+  },
   "nextCode": {
     "message": "Next"
   },
