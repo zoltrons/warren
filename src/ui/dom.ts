@@ -133,7 +133,8 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   for (const [k, v] of Object.entries(props)) {
     if (v === undefined || v === false) continue;
     if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v as EventListener);
-    else if (k === "class" || k === "style" || k.startsWith("aria-") || k.startsWith("data-") || k === "for" || k === "role")
+    // Attributes, not properties: `el.tabindex` (the property is tabIndex) would silently set nothing.
+    else if (k === "class" || k === "style" || k.startsWith("aria-") || k.startsWith("data-") || k === "for" || k === "role" || k === "tabindex")
       el.setAttribute(k, String(v));
     else (el as unknown as Record<string, unknown>)[k] = v;
   }
