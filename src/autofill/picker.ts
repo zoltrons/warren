@@ -165,11 +165,15 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
   // middle click. (uBlock covers the page with a layer that takes the pointer; one over a cross-site frame keeps
   // Chrome from sending that frame the click, and a frame picks its own fields.)
   const blocked = ["mousedown", "mouseup", "pointerdown", "pointerup", "pointermove", "auxclick", "dblclick", "contextmenu", "submit"];
+  // A touch screen's tap is kept from the page, not cancelled: cancelling it would also cancel the click that picks.
+  const touches = ["touchstart", "touchmove", "touchend"];
+  const hush = (e: Event) => e.isTrusted && e.stopImmediatePropagation();
   for (const edge of ["over", "out", "enter", "leave"]) blocked.push(`mouse${edge}`, `pointer${edge}`);
   const stop = () => {
     stopCurrent = undefined;
     host.remove();
     for (const type of blocked) removeEventListener(type, swallow, true);
+    for (const type of touches) removeEventListener(type, hush, true);
     removeEventListener("click", onClick, true);
     removeEventListener("mousemove", onHover, true);
     removeEventListener("focusin", onMove, true);
@@ -184,6 +188,7 @@ export function startPicker(pw: PageApi, done: (field: PickedField | undefined) 
     done(undefined);
   }, 120_000);
   for (const type of blocked) addEventListener(type, swallow, true);
+  for (const type of touches) addEventListener(type, hush, true);
   addEventListener("click", onClick, true);
   addEventListener("mousemove", onHover, true);
   addEventListener("focusin", onMove, true); // Tab and Enter pick too

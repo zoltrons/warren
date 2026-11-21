@@ -502,6 +502,7 @@ await step("custom fields: Pick from page adds the clicked field to the unsaved 
   });
   await loginPage.hover("#terms");
   await loginPage.click("#terms", { button: "middle" });
+  await loginPage.click("#terms", { button: "right" });
   assert.equal(await loginPage.locator("warren-picker").count(), 1, "a middle click picked");
   await loginPage.click("#terms");
   await loginPage.locator("warren-picker").waitFor({ state: "detached" });
