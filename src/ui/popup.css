@@ -43,23 +43,32 @@
   --primary-weak: rgba(194 17 63 / 0.08);
   --on-primary-weak: #c2113f;
   --link: #c2113f;
-  /* Digits in passwords: told apart from the letters by hue, in every theme. */
-  --digit: #c2113f;
   --focus-ring: #c2113f;
   /* inverse surface: toasts (Chrome's snackbar) */
   --inverse: #2a0a1a;
   --on-inverse: #fff7f8;
   --inverse-primary: #ffd3dc;
 
-  /* status */
-  --success: hsl(120 90% 24%);
-  --success-weak: hsla(110 100% 40% / 0.1);
-  --warning: hsl(46 100% 26%);
-  --warning-weak: hsla(46 100% 50% / 0.12);
-  --critical: hsl(2 80% 42%);
-  --critical-weak: hsla(2 100% 50% / 0.08);
-  --attention: hsl(250 62% 58%);
-  --attention-weak: hsla(250 100% 60% / 0.08);
+  /* inks: six muted hues for content (a password's digits and symbols, status, monogram tiles), each at
+     4.5:1 on every surface of the theme. The chrome keeps the one accent (primary); no orange (brand/README). */
+  --ink-red: #b23a48;
+  --ink-green: #4a7337;
+  --ink-blue: #3b6591;
+  --ink-violet: #6b4f94;
+  --ink-aqua: #2f7470;
+  --ink-yellow: #80650e;
+  /* Passwords: digits in blue and symbols in red, the convention people read from other managers. */
+  --digit: var(--ink-blue);
+  --symbol: var(--ink-red);
+  /* status: the inks, so a notice sits in the same family as the content */
+  --success: var(--ink-green);
+  --success-weak: rgba(74 115 55 / 0.1);
+  --warning: var(--ink-yellow);
+  --warning-weak: rgba(128 101 14 / 0.1);
+  --critical: var(--ink-red);
+  --critical-weak: rgba(178 58 72 / 0.1);
+  --attention: var(--ink-violet);
+  --attention-weak: rgba(107 79 148 / 0.1);
 
   /* elevation (Material levels 1-3): card / menu / dialog */
   --shadow-low: 0 1px 2px rgba(0 0 0 / 0.3), 0 1px 3px 1px rgba(0 0 0 / 0.15);
@@ -93,7 +102,7 @@
   /* monogram tiles: the name's hue mixed into the surface, so every tile shares the page's warmth;
      the letter is the hue mixed into the text color */
   --tile-mix: 16%;
-  --tile-ink-mix: 55%;
+  --tile-ink-mix: 85%;
   --switch-off: rgba(42 10 26 / 0.6);
   --switch-on: var(--primary);
   --switch-thumb: hsl(0 0% 100%);
@@ -136,27 +145,34 @@
   --primary-weak: rgba(255 79 123 / 0.2);
   --on-primary-weak: #ffd3dc;
   --link: #ffd3dc;
-  --digit: #ff4f7b;
   --focus-ring: #ff4f7b;
   --inverse: #fff7f8;
   --on-inverse: #170a11;
   --inverse-primary: #c2113f;
-  --success: hsl(120 50% 64%);
-  --success-weak: hsla(110 100% 40% / 0.16);
-  --warning: hsl(48 100% 70%);
-  --warning-weak: hsla(48 100% 50% / 0.16);
-  --critical: hsl(2 100% 76%);
-  --critical-weak: hsla(2 100% 50% / 0.18);
-  --attention: hsl(250 100% 84%);
-  --attention-weak: hsla(250 100% 60% / 0.18);
+  --ink-red: #e0908a;
+  --ink-green: #98bb8c;
+  --ink-blue: #93b4cc;
+  --ink-violet: #b4a6d6;
+  --ink-aqua: #8fbdb6;
+  --ink-yellow: #d9c48f;
+  --digit: var(--ink-blue);
+  --symbol: var(--ink-red);
+  --success: var(--ink-green);
+  --success-weak: rgba(152 187 140 / 0.16);
+  --warning: var(--ink-yellow);
+  --warning-weak: rgba(217 196 143 / 0.16);
+  --critical: var(--ink-red);
+  --critical-weak: rgba(224 144 138 / 0.16);
+  --attention: var(--ink-violet);
+  --attention-weak: rgba(180 166 214 / 0.16);
   --shadow-low: 0 1px 2px rgba(0 0 0 / 0.5), 0 1px 3px 1px rgba(0 0 0 / 0.3);
   --shadow-med: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 2px rgba(0 0 0 / 0.5), 0 2px 6px 2px rgba(0 0 0 / 0.3);
   --shadow-high: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 3px rgba(0 0 0 / 0.5), 0 4px 8px 3px rgba(0 0 0 / 0.3);
   --switch-off: rgba(255 247 248 / 0.5);
   --switch-on: #ffd3dc;
   --switch-thumb: #170a11;
-  --tile-mix: 24%;
-  --tile-ink-mix: 35%;
+  --tile-mix: 22%;
+  --tile-ink-mix: 90%;
   --plate-dark-icon: #f3e9ec;
   --plate-light-icon: var(--surface-sunken);
   --favorite: #ffc83d;
@@ -183,27 +199,34 @@
     --primary-weak: rgba(255 79 123 / 0.2);
   --on-primary-weak: #ffd3dc;
     --link: #ffd3dc;
-    --digit: #ff4f7b;
     --focus-ring: #ff4f7b;
     --inverse: #fff7f8;
     --on-inverse: #170a11;
     --inverse-primary: #c2113f;
-    --success: hsl(120 50% 64%);
-    --success-weak: hsla(110 100% 40% / 0.16);
-    --warning: hsl(48 100% 70%);
-    --warning-weak: hsla(48 100% 50% / 0.16);
-    --critical: hsl(2 100% 76%);
-    --critical-weak: hsla(2 100% 50% / 0.18);
-    --attention: hsl(250 100% 84%);
-    --attention-weak: hsla(250 100% 60% / 0.18);
+    --ink-red: #e0908a;
+    --ink-green: #98bb8c;
+    --ink-blue: #93b4cc;
+    --ink-violet: #b4a6d6;
+    --ink-aqua: #8fbdb6;
+    --ink-yellow: #d9c48f;
+    --digit: var(--ink-blue);
+    --symbol: var(--ink-red);
+    --success: var(--ink-green);
+    --success-weak: rgba(152 187 140 / 0.16);
+    --warning: var(--ink-yellow);
+    --warning-weak: rgba(217 196 143 / 0.16);
+    --critical: var(--ink-red);
+    --critical-weak: rgba(224 144 138 / 0.16);
+    --attention: var(--ink-violet);
+    --attention-weak: rgba(180 166 214 / 0.16);
     --shadow-low: 0 1px 2px rgba(0 0 0 / 0.5), 0 1px 3px 1px rgba(0 0 0 / 0.3);
     --shadow-med: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 2px rgba(0 0 0 / 0.5), 0 2px 6px 2px rgba(0 0 0 / 0.3);
     --shadow-high: 0 0 0 1px rgba(227 227 227 / 0.08), 0 1px 3px rgba(0 0 0 / 0.5), 0 4px 8px 3px rgba(0 0 0 / 0.3);
     --switch-off: rgba(255 247 248 / 0.5);
     --switch-on: #ffd3dc;
     --switch-thumb: #170a11;
-    --tile-mix: 24%;
-    --tile-ink-mix: 35%;
+    --tile-mix: 22%;
+    --tile-ink-mix: 90%;
     --plate-dark-icon: #f3e9ec;
     --plate-light-icon: var(--surface-sunken);
     --favorite: #ffc83d;
@@ -216,7 +239,7 @@
   --surface: #000000;
   --surface-raised: #1a1a1a;
   --surface-sunken: #000000;
-  --tile-mix: 44%;
+  --tile-mix: 26%;
   --outline-weak: rgba(255 211 220 / 0.14);
   --on-primary: #000000;
   --switch-thumb: #000000;
@@ -664,10 +687,10 @@ a.row { text-decoration: none; color: var(--text); }
 .row-input:focus { outline: 0; box-shadow: 0 0 0 2px var(--focus-ring); }
 .row .value.mono { font-size: var(--fs-body-sm); }
 /* The signature: digits in the link color, symbols amber. Used on secrets and nowhere else. */
-/* A shown secret (colorize): two inks only. Digits take the accent and symbols the secondary text color, so
-   O/0, l/1 and S/$ part by tone as well as shape; letters stay plain. */
+/* A shown secret (colorize): digits and symbols in their own inks (--digit blue, --symbol red), so O/0, l/1 and
+   S/$ part by hue as well as shape; letters stay plain. */
 .pw .d { color: var(--digit); }
-.pw .s { color: var(--muted); }
+.pw .s { color: var(--symbol); }
 .countdown {
   min-width: 34px; height: 24px; padding: 0 8px; border-radius: var(--r-full);
   display: grid; place-items: center;
@@ -692,8 +715,8 @@ a.row { text-decoration: none; color: var(--text); }
   border-radius: var(--r-sm);
   display: grid; place-items: center;
   font-weight: 500; font-size: var(--fs-body-sm);
-  background: color-mix(in oklab, hsl(var(--h) 55% 50%) var(--tile-mix), var(--surface));
-  color: color-mix(in oklab, hsl(var(--h) 55% 50%) var(--tile-ink-mix), var(--text));
+  background: color-mix(in oklab, var(--tile, var(--muted)) var(--tile-mix), var(--surface));
+  color: color-mix(in oklab, var(--tile, var(--muted)) var(--tile-ink-mix), var(--text));
 }
 .tile:has(img) { background: var(--surface-sunken); }
 .tile.tone-dark { background: var(--plate-dark-icon); }
@@ -1066,9 +1089,12 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
   font-size: var(--fs-caption); line-height: 16px; color: var(--muted); font-variant-numeric: tabular-nums;
   transition: color var(--fast) var(--ease);
 }
-/* Strength takes a color only as a warning; strong reads in the line's own ink, not as a third hue on the card. */
+/* Each part in its own ink: the strength by level, the digit and symbol counts as the key to the value's colors. */
 .generated-meta .strength[data-level="0"] { color: var(--critical); }
 .generated-meta .strength[data-level="1"] { color: var(--warning); }
+.generated-meta .strength[data-level="2"], .generated-meta .strength[data-level="3"] { color: var(--success); }
+.generated-meta .d { color: var(--digit); }
+.generated-meta .s { color: var(--symbol); }
 .generated-meta svg.i { width: 14px; height: 14px; }
 .generated-meta.done { color: var(--success); }
 .stack { display: flex; flex-direction: column; gap: 12px; }
@@ -1267,7 +1293,7 @@ html[data-compact="on"]:not(.frame) .page { gap: 8px; }
 .large { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 12px 4px; }
 .large .ch { display: flex; flex-direction: column; align-items: center; min-width: 22px; font-size: var(--fs-display); font-weight: 500; line-height: 1.15; }
 .large .ch.d { color: var(--digit); }
-.large .ch.s { color: var(--muted); }
+.large .ch.s { color: var(--symbol); }
 .large .ch small { font-size: var(--fs-caption); font-weight: 400; color: var(--muted); font-family: inherit; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .chip.small { padding: 0 10px; font-size: var(--fs-small); min-height: 32px; }

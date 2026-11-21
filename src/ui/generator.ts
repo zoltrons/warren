@@ -348,18 +348,22 @@ function decode(out: HTMLElement, value: string) {
   requestAnimationFrame(tick);
 }
 
-/** The value's one quiet line after its strength: how long, how many digits and symbols, for a site's rules. */
-function metaText(value: string): string {
+/**
+ * The value's one quiet line: its strength, how long it is, and its digits and symbols in the inks they are drawn
+ * in, so the line is also the key to the colors above it.
+ */
+function metaLine(value: string): Child[] {
   const chars = [...value];
   const digits = chars.filter((c) => charKind(c) === "d").length;
   const symbols = chars.filter((c) => charKind(c) === "s").length;
-  return [
+  const s = strength(value);
+  const parts: Child[] = [
+    h("span", { class: "strength", "data-level": String(s.level) }, s.label),
     plural("charCount", chars.length),
-    digits ? plural("digitCount", digits) : "",
-    symbols ? plural("symbolCount", symbols) : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    digits ? h("span", { class: "d" }, plural("digitCount", digits)) : null,
+    symbols ? h("span", { class: "s" }, plural("symbolCount", symbols)) : null,
+  ].filter(Boolean);
+  return parts.flatMap((p, i) => (i ? [" · ", p] : [p]));
 }
 
 let rolling: ReturnType<typeof setInterval> | undefined;
@@ -733,7 +737,7 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
             copied ? icon("check") : null,
             copied || g.type === "alias" || g.type === "identity"
               ? h("span", {}, t(copied ? "copiedOnly" : "clickToCopy"))
-              : h("span", {}, h("span", { class: "strength", "data-level": String(strength(gst.generated).level) }, strength(gst.generated).label), ` · ${metaText(gst.generated)}`),
+              : h("span", {}, ...metaLine(gst.generated)),
           )
         : null,
     ),

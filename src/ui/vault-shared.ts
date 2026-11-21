@@ -236,11 +236,14 @@ export function iconUrl(uris: string[]): string | undefined {
   return undefined;
 }
 
+/** The palette's inks (popup.css --ink-*): a monogram takes one by its name, so a list reads as one family. */
+const INKS = ["red", "green", "blue", "violet", "aqua", "yellow"] as const;
+
 /** A tinted letter tile; logins with a website get the server's favicon, cards their network's mark. */
 export function tile(name: string, type: number, uris: string[] = [], brand = ""): HTMLElement {
   const letter = name.trim().slice(0, 1).toUpperCase();
   const fallback: IconName = type === 2 ? "note" : type === 3 ? "card" : type === 4 ? "user" : type === 5 ? "key" : type === 6 ? "landmark" : type === 7 ? "card" : type === 8 ? "globe" : "key";
-  const el = h("span", { class: "tile", style: `--h:${hue(name)}`, "aria-hidden": "true" }, letter || icon(fallback));
+  const el = h("span", { class: "tile", style: `--tile:var(--ink-${INKS[hue(name) % INKS.length]})`, "aria-hidden": "true" }, letter || icon(fallback));
   const mark = type === 3 && brand ? cardMark(brand) : undefined;
   if (mark) return (el.classList.add("card-tile"), el.replaceChildren(mark), el);
   const src = type === 1 ? iconUrl(uris) : undefined;

@@ -19,8 +19,10 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - In an item, a click on the "Next" code copies the next code; it used to copy the current one.
 - In the generator, a click on the generated value, a suggestion, a history entry or an identity field copies it,
   as a click on an item's field does; only the copy icon did before.
-- A shown password is easier to read: digits take the accent color and symbols the secondary text color, so look-alikes
-  such as O/0, l/1 and S/$ part by tone as well as shape. The generator's suggestions are drawn the same way.
+- A wider, calmer palette: six muted inks (rose, sage, dusk, wisteria, tide, straw), tuned per theme. Status colors,
+  monogram tiles and passwords now draw from it instead of saturated one-off hues.
+- A shown password is easier to read: digits are blue and symbols rose, so look-alikes such as O/0, l/1 and S/$ part
+  by hue as well as shape. The generator's line under the value names its digits and symbols in the same colors.
 - The generator's value sits on one line, as large as fits, and is itself the copy button (a click, or Enter and
   Space); one quiet line under it gives the strength, the length and the digits and symbols, and says "Copied" in
   place. Dragging the length makes the value grow or shrink from its end as you go, and a new value settles in left

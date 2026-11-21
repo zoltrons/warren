@@ -29,6 +29,22 @@ Edit only the two masters (variants swap the icon's `<style>` palette), then run
 | Soft | Blush | `#FFD3DC` |
 | Sparkle (small badges only) | Gold | `#FFC83D` |
 
+### Inks
+
+Six muted hues for content, after the Kanagawa idea (one family of low-chroma inks over quiet ground): a password's
+digits and symbols, status (success, warning, critical, attention) and monogram tiles. The chrome keeps the one
+accent above. Each ink is tuned per theme to 4.5:1 on every surface (`tools/check-contrast.mjs`). Still no orange:
+straw takes its place.
+
+| Ink | Light | Dark | Used for |
+|---|---|---|---|
+| Rose | `#B23A48` | `#E0908A` | password symbols, critical |
+| Sage | `#4A7337` | `#98BB8C` | success, strong passwords |
+| Dusk | `#3B6591` | `#93B4CC` | password digits |
+| Wisteria | `#6B4F94` | `#B4A6D6` | attention |
+| Tide | `#2F7470` | `#8FBDB6` | tiles |
+| Straw | `#80650E` | `#D9C48F` | warning |
+
 Text on a pink fill is night cherry (5.8:1). White text only on raspberry (6.1:1). Snow on pink (3.0:1) is for
 large or decorative marks only; night cherry and raspberry are never paired. `tools/check-contrast.mjs` checks
 these and every theme token pair; it runs in `npm run check`.

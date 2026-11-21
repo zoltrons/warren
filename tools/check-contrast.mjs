@@ -68,7 +68,8 @@ for (const k of new Set([...Object.keys(darkVars), ...Object.keys(darkMedia)]))
 
 const BGS = ["bg", "surface", "surface-sunken", "surface-raised"];
 const PAIRS = [
-  ...["text", "muted", "link", "digit", "success", "warning", "critical", "attention"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
+  ...["text", "muted", "link", "digit", "symbol", "success", "warning", "critical", "attention", "ink-aqua"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
+  ["success", "success-weak", "text"], ["warning", "warning-weak", "text"], ["attention", "attention-weak", "text"],
   ["on-primary", "primary", "text"],
   ["text", "selected", "text"], ["text", "pressed", "text"], ["link", "primary-weak", "text"], ["on-primary-weak", "primary-weak", "text"], ["critical", "critical-weak", "text"],
   ...["primary", "favorite"].flatMap((fg) => ["bg", "surface"].map((bg) => [fg, bg, "ui"])),
