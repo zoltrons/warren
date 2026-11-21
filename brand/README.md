@@ -31,20 +31,19 @@ Edit only the two masters (variants swap the icon's `<style>` palette), then run
 
 ### Inks
 
-Six hues for content, Kanagawa's idea (one family of inks over quiet ground) blended half and half in OKLab with
-Catppuccin's pastels (Latte for light, Mocha for dark), then lightened or darkened only as far as contrast needs: a password's
-digits and symbols, status (success, warning, critical, attention) and monogram tiles. The chrome keeps the one
-accent above. Each ink is tuned per theme to 4.5:1 on every surface (`tools/check-contrast.mjs`). Still no orange:
-straw takes its place.
+Six vivid hues for content, after Dracula (its light variant Alucard for light themes; the blue from Tokyo Night, as
+Dracula has none): a password's digits and symbols, status (success, warning, critical, attention) and monogram
+tiles. The chrome keeps the one accent above. Each ink is tuned per theme to 4.5:1 on every surface
+(`tools/check-contrast.mjs`). Still no orange: yellow takes its place.
 
 | Ink | Light | Dark | Used for |
 |---|---|---|---|
-| Rose | `#C22C41` | `#E98E99` | password symbols, critical |
-| Sage | `#387A23` | `#9FCF96` | success, strong passwords |
-| Dusk | `#2D68C3` | `#8EB4E3` | password digits |
-| Wisteria | `#7949C1` | `#C0A6E6` | attention |
-| Tide | `#157778` | `#92CFC5` | tiles |
-| Straw | `#925F00` | `#E9D39F` | warning |
+| Red | `#CF2236` | `#FF5C6C` | password symbols, critical |
+| Green | `#14710A` | `#50FA7B` | success, strong passwords |
+| Blue | `#1F5FD6` | `#7AA2F7` | password digits |
+| Violet | `#644AC9` | `#BD93F9` | attention |
+| Cyan | `#036A96` | `#8BE9FD` | tiles |
+| Yellow | `#7A6510` | `#F1FA8C` | warning |
 
 Text on a pink fill is night cherry (5.8:1). White text only on raspberry (6.1:1). Snow on pink (3.0:1) is for
 large or decorative marks only; night cherry and raspberry are never paired. `tools/check-contrast.mjs` checks
