@@ -2143,6 +2143,14 @@
       }
     }
   },
+  "showFolderItems": {
+    "message": "Show the items in $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "downloadNamed": {
     "message": "Download $P1$",
     "placeholders": {

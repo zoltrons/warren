@@ -11,7 +11,7 @@ import { icon, type IconName } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { pwnedCount } from "./pwned.ts";
 import { qrSvg } from "./qr.ts";
-import { type Json, type Ctx, st, timers, TOTP_SOON, REPROMPT_CHECK_MS, stopRepromptWatch, str, obj, webUrl, tile, toast, copy, iconButton, copyButton, errorBox, topBar, spacer, sectionTitle, progress, type MenuItem, menu, copyOnClick, refreshPageMatches, open, colorize, section } from "./vault-shared.ts";
+import { type Json, type Ctx, st, timers, TOTP_SOON, REPROMPT_CHECK_MS, stopRepromptWatch, str, obj, webUrl, tile, toast, copy, iconButton, copyButton, errorBox, topBar, spacer, sectionTitle, progress, type MenuItem, menu, copyOnClick, actOnClick, refreshPageMatches, open, colorize, section } from "./vault-shared.ts";
 import { TYPE_LABEL, fill } from "./vault-list.ts";
 import { startEdit, uriMatchLabel } from "./vault-edit.ts";
 import { writableCollections, writableOrgs } from "./vault-tools.ts";
@@ -751,7 +751,7 @@ export function itemView(ctx: Ctx, id: string): HTMLElement {
           "div",
           { class: "row" },
           icon("attach"),
-          h("div", { class: "body" }, h("span", { class: "title ellipsis" }, str(a.fileName) || t("untitled")), h("span", { class: "sub" }, str(a.sizeName))),
+          h("div", actOnClick(t("downloadNamed", str(a.fileName)), () => void download(ctx, id, str(a.id))), h("span", { class: "title ellipsis" }, str(a.fileName) || t("untitled")), h("span", { class: "sub" }, str(a.sizeName))),
           iconButton("download", t("downloadNamed", str(a.fileName)), () => void download(ctx, id, str(a.id))),
           editable && !inTrash
             ? iconButton(
@@ -777,7 +777,15 @@ export function itemView(ctx: Ctx, id: string): HTMLElement {
       t("details"),
       org ? h("div", { class: "row" }, icon("shield"), h("div", { class: "body" }, h("span", { class: "label" }, t("organization")), h("span", { class: "value" }, org.name))) : null,
       collections.length ? h("div", { class: "row" }, icon("folder"), h("div", { class: "body" }, h("span", { class: "label" }, t("collections")), h("span", { class: "value" }, collections.join(", ")))) : null,
-      folder ? h("div", { class: "row" }, icon("folder"), h("div", { class: "body" }, h("span", { class: "label" }, t("folder")), h("span", { class: "value" }, folder.name))) : null,
+      // A click on the folder lists its items, as its chip in the list does.
+      folder
+        ? h(
+            "div",
+            { class: "row" },
+            icon("folder"),
+            h("div", actOnClick(t("showFolderItems", folder.name), () => ((st.folder = folder.id), (st.query = ""), open(ctx, { kind: "list" }))), h("span", { class: "label" }, t("folder")), h("span", { class: "value" }, folder.name)),
+          )
+        : null,
       item.revisionDate ? h("div", { class: "row" }, icon("edit"), h("div", { class: "body" }, h("span", { class: "label" }, t("lastEdited")), h("span", { class: "value" }, date(item.revisionDate)))) : null,
     ),
     h(

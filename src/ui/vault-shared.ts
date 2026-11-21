@@ -442,12 +442,16 @@ export function menu(anchor: HTMLElement, label: string, items: MenuItem[], radi
  * on a link or button inside it, or one that ends a text selection, does not.
  */
 export function copyOnClick(ctx: Ctx, key: string, value: () => string, title: string): Record<string, unknown> {
-  const run = () => void copy(ctx, value(), key);
+  return actOnClick(t("copyField", title), () => void copy(ctx, value(), key));
+}
+
+/** A row's body that does the row's main action on a click or Enter/Space, past its own buttons and a text selection. */
+export function actOnClick(title: string, run: () => void): Record<string, unknown> {
   return {
     class: "body copyable",
     role: "button",
     tabindex: "0",
-    title: t("copyField", title),
+    title,
     onclick: (e: MouseEvent) => {
       if ((e.target as Element).closest("a,button,input,textarea,select,details") || getSelection()?.toString()) return;
       run();
