@@ -4,6 +4,10 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ## Unreleased
 
+### Security
+
+- Requests to the server and to alias services send no Referer, like the favicon and breach lookups already did.
+
 ### Added
 
 - "Use a strong password" in the inline menu follows the site's rules: the password field's `passwordrules`
@@ -19,6 +23,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- A large vault or attachment on a slow connection no longer fails to sync or download after 30 seconds (or 2
+  minutes): a request now gives up only once the server has sent nothing for 30 seconds. A connection lost halfway
+  through an answer is reported as a network problem instead of an unknown error.
 - "Pick from page" no longer names a custom field after an id the site makes up on every load (React's newer ids,
   Angular Material and Headless UI counters), which would not fill next time; it uses the field's name or label.
 - Moving to the next field with Tab opens its inline menu; the field left behind used to cancel it on the way.

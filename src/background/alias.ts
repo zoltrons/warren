@@ -101,6 +101,7 @@ async function call(vendor: AliasVendor, request: ReturnType<typeof aliasCreateR
       credentials: "omit",
       cache: "no-store",
       redirect: "error",
+      referrerPolicy: "no-referrer",
       signal: AbortSignal.timeout(ALIAS_TIMEOUT_MS),
     });
   } catch {

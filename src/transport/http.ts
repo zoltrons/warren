@@ -33,10 +33,31 @@ interface CallOptions {
  */
 export const MAX_RESPONSE_BYTES = 48 * 1024 * 1024;
 
+/** How long a request may go without a byte arriving (headers or body) before it counts as lost. */
+export const STALL_MS = 30_000;
+
 const tooLarge = (what: string) => new ApiError(0, null, `The server's ${what} is too large`);
 
-/** Streams a body into memory, refusing anything over `max` bytes. */
-export async function readBytes(res: Response, max = MAX_RESPONSE_BYTES, what = "response"): Promise<Uint8Array> {
+const netError = (e: unknown) => new NetworkError(e instanceof Error ? e.message : String(e));
+
+/**
+ * Aborts once nothing has arrived for `ms`: a dead server or link is given up on as quickly as a fixed timeout would,
+ * but a large vault on a slow link is not cut off while its bytes still flow. `poke` marks progress.
+ */
+export function stallTimeout(ms: number): { signal: AbortSignal; poke: () => void; stop: () => void } {
+  const c = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => clearTimeout(timer);
+  const poke = () => {
+    stop();
+    timer = setTimeout(() => c.abort(new DOMException("The server stopped answering", "TimeoutError")), ms);
+  };
+  poke();
+  return { signal: c.signal, poke, stop };
+}
+
+/** Streams a body into memory, refusing anything over `max` bytes. A connection lost mid-body is a NetworkError. */
+export async function readBytes(res: Response, max = MAX_RESPONSE_BYTES, what = "response", onChunk?: () => void): Promise<Uint8Array> {
   const declared = Number(res.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > max) throw tooLarge(what);
   if (!res.body) return new Uint8Array();
@@ -44,8 +65,11 @@ export async function readBytes(res: Response, max = MAX_RESPONSE_BYTES, what = 
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
-    const { done, value } = await reader.read();
+    const { done, value } = await reader.read().catch((e: unknown) => {
+      throw netError(e);
+    });
     if (done) break;
+    onChunk?.();
     total += value.byteLength;
     if (total > max) {
       await reader.cancel().catch(() => undefined);
@@ -92,21 +116,30 @@ export async function call(base: string, method: string, path: string, opts: Cal
     headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8";
     body = new URLSearchParams(opts.form);
   } else if (opts.data) body = opts.data;
+  // Uploads bring their own (total) timeout: fetch reports no upload progress to measure a stall by.
+  const stall = opts.signal ? undefined : stallTimeout(STALL_MS);
   let res: Response;
+  let bytes: Uint8Array;
   try {
-    res = await fetch(base + path, {
-      method,
-      headers,
-      body,
-      credentials: "omit",
-      cache: "no-store",
-      redirect: "error",
-      signal: opts.signal ?? AbortSignal.timeout(30_000),
-    });
-  } catch (e) {
-    throw new NetworkError(e instanceof Error ? e.message : String(e));
+    try {
+      res = await fetch(base + path, {
+        method,
+        headers,
+        body,
+        credentials: "omit",
+        cache: "no-store",
+        redirect: "error",
+        referrerPolicy: "no-referrer",
+        signal: opts.signal ?? stall!.signal,
+      });
+    } catch (e) {
+      throw netError(e);
+    }
+    stall?.poke();
+    bytes = await readBytes(res, MAX_RESPONSE_BYTES, "response", stall?.poke);
+  } finally {
+    stall?.stop();
   }
-  const bytes = await readBytes(res);
   const text = bytes.byteLength ? new TextDecoder().decode(bytes) : "";
   let data: unknown = text;
   if (text) {

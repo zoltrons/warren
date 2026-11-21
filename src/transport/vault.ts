@@ -1,6 +1,6 @@
 // Vault endpoints (mirrors vaultwarden src/api/core/ciphers.rs, see upstream-map.yaml).
 import { arr, ci, obj, opt, parse, record, str, unknownValue } from "../shared/validate.ts";
-import { ApiError, call, NetworkError, readBytes } from "./http.ts";
+import { ApiError, call, NetworkError, readBytes, STALL_MS, stallTimeout } from "./http.ts";
 
 const syncResponse = obj({
   ciphers: arr(unknownValue),
@@ -97,14 +97,20 @@ export async function downloadAttachment(base: string, token: string, cipherId: 
     throw new ApiError(0, null, "The server returned an invalid attachment URL");
   }
   if (target.origin !== new URL(base).origin) throw new ApiError(0, null, "The server returned an attachment URL that is not on this server");
-  let res: Response;
+  const stall = stallTimeout(STALL_MS);
   try {
-    res = await fetch(target, { credentials: "omit", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(120_000) });
-  } catch (e) {
-    throw new NetworkError(e instanceof Error ? e.message : String(e));
+    let res: Response;
+    try {
+      res = await fetch(target, { credentials: "omit", redirect: "error", cache: "no-store", referrerPolicy: "no-referrer", signal: stall.signal });
+    } catch (e) {
+      throw new NetworkError(e instanceof Error ? e.message : String(e));
+    }
+    if (!res.ok) throw new ApiError(res.status, null, `Attachment download failed (${res.status})`);
+    stall.poke();
+    return await readBytes(res, MAX_ATTACHMENT_BYTES, "attachment", stall.poke);
+  } finally {
+    stall.stop();
   }
-  if (!res.ok) throw new ApiError(res.status, null, `Attachment download failed (${res.status})`);
-  return readBytes(res, MAX_ATTACHMENT_BYTES, "attachment");
 }
 
 export async function deleteAttachment(base: string, token: string, cipherId: string, attachmentId: string): Promise<void> {
