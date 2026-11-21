@@ -1,6 +1,6 @@
 // Item editor (Login, Secure note, Card, Identity, SSH key, bank account): fields, URIs, custom fields, save.
 import { URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
-import { cardBrand, luhnValid } from "../shared/card.ts";
+import { cardBrand, luhnValid, storedBrand } from "../shared/card.ts";
 import { LINKED, linkedIdFor, linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import type { VaultList } from "../shared/messages.ts";
@@ -283,7 +283,8 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     const shownWarn = cardNumber && cardWarn();
     const onchange = cardNumber
       ? () => {
-          const brand = d.data.brand ? undefined : cardBrand(get());
+          const found = d.data.brand ? undefined : cardBrand(get());
+          const brand = found && storedBrand(found);
           if (brand) d.data.brand = brand;
           if (brand || cardWarn() !== shownWarn) ctx.rerender();
         }
@@ -491,7 +492,8 @@ export function editView(ctx: Ctx, isNew: boolean): HTMLElement {
     errorBox(),
     isNew ? h("div", { class: "chips", role: "group", "aria-label": t("itemType") }, typeChip(1, "key"), typeChip(3, "card"), typeChip(4, "user"), typeChip(2, "note"), typeChip(5, "server"), typeChip(6, "landmark"), typeChip(7, "card"), typeChip(8, "globe")) : null,
     field("edit-name", t("name"), text(() => d.name, (v) => (d.name = v), { required: true, "data-autofocus": "1" })),
-    ...(SCHEMA[d.type]?.fields ?? []).map(specField),
+    // The worker keeps a hidden password and puts it back on save: there is nothing here to edit.
+    ...(SCHEMA[d.type]?.fields ?? []).filter((f) => !(d.base.viewPassword === false && f.key === "password")).map(specField),
     ...(d.type === 1 ? uriEditor(ctx) : []),
     d.type === 1 && settingsOf()?.autofillOnPageLoad
       ? field(

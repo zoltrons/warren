@@ -27,8 +27,17 @@ export function cardBrand(n: string): string | undefined {
   if (/^3(0[0-5]|[68])/.test(d)) return "Diners Club";
   if (/^35(2[89]|[3-8])/.test(d)) return "JCB";
   if (/^62/.test(d)) return "UnionPay";
+  if (/^9792/.test(d)) return "Troy";
   return undefined;
 }
+
+/** The brand a card is shown with: the stored one, else (unset or "Other") the one its number implies. */
+export function shownBrand(stored: string, number: string): string {
+  return (stored && stored !== "Other" ? stored : cardBrand(number)) ?? stored;
+}
+
+/** Troy is not in Bitwarden's brand list, so it is stored as "Other" and shown from the number. */
+export const storedBrand = (brand: string): string => (brand === "Troy" ? "Other" : brand);
 
 /** `4111 1111 1111 1111`; American Express reads 4-6-5. Non-numeric input is returned untouched. */
 export function groupCardNumber(n: string): string {

@@ -2,6 +2,14 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Security
+
+- An organization collection set to "Hide passwords" is honored: the item's password, hidden fields and password
+  history never reach the popup (no reveal, copy or editing), an edit keeps them, and the save bar never offers to
+  change them. Autofill still works, as in the official clients.
+
 ## 0.0.22 — 2026-11-21
 
 ### Security

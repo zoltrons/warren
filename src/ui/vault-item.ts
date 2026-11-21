@@ -1,5 +1,5 @@
 // Item view: the per-type field schema, reveal/copy, TOTP, attachments, reprompt, history.
-import { cardBrand, groupCardNumber } from "../shared/card.ts";
+import { groupCardNumber, shownBrand } from "../shared/card.ts";
 import { linkedKey } from "../shared/linked-fields.ts";
 import { hasMarkup } from "../shared/markdown.ts";
 import { MAX_QR_BYTES } from "../shared/qr.ts";
@@ -689,12 +689,13 @@ export function itemView(ctx: Ctx, id: string): HTMLElement {
     h(
       "div",
       { class: "hero" },
-      tile(str(item.name), type, uris, type === 3 ? str(data.brand) || cardBrand(str(data.number)) || "" : ""),
+      tile(str(item.name), type, uris, type === 3 ? shownBrand(str(data.brand), str(data.number)) : ""),
       h("div", { class: "body" }, h("h1", {}, str(item.name) || t("untitled")), h("span", { class: "sub" }, t(TYPE_LABEL[type] ?? "untitled"))),
     ),
     quickActions(ctx, id, uris, type === 1 && !inTrash),
     errorBox(),
     inTrash ? h("div", { class: "notice warn" }, icon("trash"), h("div", {}, t("inTrash"))) : inArchive ? h("div", { class: "notice" }, icon("archive"), h("div", {}, t("inArchive"))) : summary?.readOnly && !summary.failed ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("readOnlyItem"))) : null,
+    item.viewPassword === false ? h("div", { class: "notice" }, icon("lock"), h("div", {}, t("passwordHiddenByOrg"))) : null,
     rows.length ? h("div", { class: "group" }, ...rows) : null,
     type === 4 ? identityActions(data) : null,
     reused

@@ -366,6 +366,9 @@
   "readOnlyItem": {
     "message": "You only have view access to this item."
   },
+  "passwordHiddenByOrg": {
+    "message": "Your organization hides this item's password. Warren can still fill it in."
+  },
   "websites": {
     "message": "Websites"
   },

@@ -432,6 +432,8 @@ export interface VaultItem {
   reused?: number;
   /** Login only, in the main list only: the password scores "weak". */
   weak?: boolean;
+  /** In an organization collection that hides passwords: usable for autofill, its password is never shown (present only when true). */
+  hidesPassword?: boolean;
   /** Flagged for a master-password re-prompt (enforced in the service worker, see background/reprompt.ts). */
   reprompt?: boolean;
   /** Tri-state "Autofill on page load" of a login (absent: inherit the account default). */

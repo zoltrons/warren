@@ -233,7 +233,7 @@ Could be built:
 | Email-restricted sends | `hideEmail` is sent as false; no `emails` list |
 | Import formats | Only unencrypted Bitwarden JSON; no CSV, no other managers (upstream has 50+ and direct LastPass / 1Password import) |
 | Encrypted export | No password-protected or account-encrypted JSON, no CSV export |
-| Organization items | No creating an item in an org, no moving to an org ("share"), no collection changes, no org attachments, `viewPassword: false` not honoured |
+| Organization items | No creating an item in an org, no moving to an org ("share"), no collection changes, no org attachments |
 | Attachments | No delete |
 | Blocked / excluded domains | No editor for "blocked interaction" sites; never-save hosts can only be removed |
 | Inline menu | No SSH key entries (logins, cards and identities only) |

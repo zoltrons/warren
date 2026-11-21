@@ -120,7 +120,7 @@ export function rowActions(ctx: Ctx, i: VaultItem): Child[] {
     return [
       button("external", t("openWebsite"), () => void chrome.tabs.create({ url: url! }), !!url),
       button("user", t("copyField", label("username")), () => void copy(ctx, i.sub), !!i.sub),
-      button("key", t("copyField", label("password")), () => void copyOf(ctx, i.id, field("login", "password")), !i.noPassword),
+      button("key", t("copyField", label("password")), () => void copyOf(ctx, i.id, field("login", "password")), !i.noPassword && !i.hidesPassword),
       button("timer", t("copyField", t("oneTimeCode")), () => void copyTotp(ctx, i.id), i.hasTotp),
     ];
   }
@@ -128,7 +128,7 @@ export function rowActions(ctx: Ctx, i: VaultItem): Child[] {
     i.type === 1
       ? [
           ...(i.sub ? [{ label: t("copyField", label("username")), icon: "user" as const, onClick: () => void copy(ctx, i.sub) }] : []),
-          { label: t("copyField", label("password")), icon: "key", onClick: () => void copyOf(ctx, i.id, field("login", "password")) },
+          ...(i.hidesPassword ? [] : [{ label: t("copyField", label("password")), icon: "key" as const, onClick: () => void copyOf(ctx, i.id, field("login", "password")) }]),
           ...(i.hasTotp ? [{ label: t("copyField", t("oneTimeCode")), icon: "timer" as const, onClick: () => void copyTotp(ctx, i.id) }] : []),
         ]
       : i.type === 3
@@ -191,6 +191,7 @@ function copyKeys(ctx: Ctx, i: VaultItem): Record<string, unknown> {
       e.preventDefault();
       if (e.altKey) return void (i.hasTotp ? copyTotp(ctx, i.id) : toast(ctx, t("nothingToCopy")));
       if (e.shiftKey) return void (i.sub ? copy(ctx, i.sub) : toast(ctx, t("nothingToCopy")));
+      if (i.hidesPassword) return void toast(ctx, t("passwordHiddenByOrg"));
       void copyOf(ctx, i.id, (item) => str(obj(item.login)?.password));
     },
   };

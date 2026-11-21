@@ -253,6 +253,13 @@ freed rather than zeroed in place.
     `pagehide` (`src/autofill/content.ts`). The popup/side panel follow the session in `chrome.storage.session` and drop their
     decrypted state on the same event.
 
+15. **A password the organization hides is not shown.** An item in a "Hide passwords" collection (`viewPassword:
+    false`) leaves the worker without its password, hidden custom fields and password history (`getCipher`,
+    `src/offscreen/hidden-passwords.ts`), and `prepareSave` puts the stored ones back whatever the popup sent, so
+    a member can neither read nor change them; the save bar never offers such a login (`src/background/inline.ts`).
+    Autofill still writes the password into the page, as in the official clients: the setting keeps it off the
+    screen and the clipboard, it cannot keep it from a page the user fills.
+
 ## Cryptography direction
 
 Rules for every new or changed piece of cryptography. Within what Vaultwarden can read, they aim to put

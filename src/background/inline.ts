@@ -201,7 +201,8 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com"). A page
   // without one (the password step of a two-step sign-in) may be any of the site's logins.
   const sameUser = username ? matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase()) : matches;
-  const editable = sameUser.filter((m) => !m.readOnly);
+  // A login whose password the organization hides is not the user's to change (or to compare) from a page either.
+  const editable = sameUser.filter((m) => !m.readOnly && !m.hidesPassword);
   // Only read-only copies (e.g. an organization's): the login is saved already, never offer a duplicate.
   if (!editable.length && sameUser.length) return dropSave(tabId);
   // A flagged item is never compared or overwritten from inside a page: edit it in the popup.

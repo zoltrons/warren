@@ -2,7 +2,7 @@
 import * as core from "../../dist/wasm/core_wasm.js";
 import type { Collection, Folder, KdfParams, PasskeyCandidate, SecurityReport, SendItem, VaultItem, VaultList } from "../shared/messages.ts";
 import { csvToExport, itemsToCsv } from "../shared/csv.ts";
-import { cardBrand } from "../shared/card.ts";
+import { shownBrand } from "../shared/card.ts";
 import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
 import { parseRange, sha1Hex } from "../shared/pwned-range.ts";
@@ -13,6 +13,7 @@ import { MATCH, Psl, uriMatches } from "../autofill/match.ts";
 import { b64u } from "../shared/url.ts";
 import * as fido2 from "./fido2.ts";
 import { restorePasskeyKeys, withoutPasskeyKeys } from "./passkey-keys.ts";
+import { hidesPasswords, restoreHiddenPasswords, withoutHiddenPasswords } from "./hidden-passwords.ts";
 
 type Json = Record<string, unknown>;
 
@@ -111,10 +112,11 @@ export function summary(c: Json): VaultItem {
     ...(type === 1 && !s(ci(login, "password")) ? { noPassword: true } : {}),
     ...(Array.isArray(ci(login, "fido2Credentials")) && (ci(login, "fido2Credentials") as unknown[]).length ? { hasPasskey: true } : {}),
     ...(Number(ci(c, "reprompt")) === 1 ? { reprompt: true } : {}),
+    ...(hidesPasswords(c) ? { hidesPassword: true } : {}),
     ...(typeof ci(login, "autofillOnPageLoad") === "boolean" ? { autofillOnPageLoad: ci(login, "autofillOnPageLoad") as boolean } : {}),
     revisionDate: time(ci(c, "revisionDate")),
     creationDate: time(ci(c, "creationDate")),
-    ...(type === 3 ? { brand: s(ci(o(ci(c, "card")), "brand")) || cardBrand(s(ci(o(ci(c, "card")), "number"))) } : {}),
+    ...(type === 3 ? { brand: shownBrand(s(ci(o(ci(c, "card")), "brand")), s(ci(o(ci(c, "card")), "number"))) } : {}),
     ...(c.failed ? { failed: true } : {}),
   };
 }
@@ -194,7 +196,7 @@ function live(id: string): Json {
  * Full decrypted item for the item view / edit form, minus each passkey's private key: nothing outside this worker
  * signs, so it never leaves. prepareSave puts it back from the worker's copy.
  */
-export const getCipher = (id: string): Json => withoutPasskeyKeys(get(id));
+export const getCipher = (id: string): Json => withoutHiddenPasswords(withoutPasskeyKeys(get(id)));
 
 export const cipherSummary = (id: string): VaultItem => summary(get(id));
 
@@ -206,7 +208,7 @@ export const cipherSummary = (id: string): VaultItem => summary(get(id));
 export function prepareSave(input: Json): Json {
   const id = s(input.id);
   const existing = id ? get(id) : undefined;
-  const item = restorePasskeyKeys(input, existing);
+  const item = restoreHiddenPasswords(restorePasskeyKeys(input, existing), existing);
   if (existing && summary(existing).readOnly) throw new Error("item is read-only");
   // An edit never moves an item between vaults (that is prepareShare). A new one may be created in an organization
   // the user can add to (the server checks the collections).
@@ -254,7 +256,8 @@ export const encryptName = (name: string): string => s(o(JSON.parse(core.encrypt
  * copy that changed since (a sync, an edit elsewhere) is not overwritten, here or on the server (lastKnownRevisionDate).
  */
 export function preparePassword(id: string, password: string, revisionDate: number | undefined): Json {
-  const item = getCipher(id);
+  const item = withoutPasskeyKeys(get(id));
+  if (hidesPasswords(item)) throw new Error("Your organization hides this login's password, so it cannot be changed here");
   if (summary(item).revisionDate !== revisionDate) throw new Error("This login changed after the prompt was shown, so nothing was saved");
   return prepareSave({ ...item, login: { ...o(item.login), password } });
 }
