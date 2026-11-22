@@ -34,6 +34,7 @@ line2</Value></String>
       <String><Key>Recovery</Key><Value>abc</Value></String>
       <History><Entry><String><Key>Title</Key><Value>Old</Value></String></Entry></History>
     </Entry>
+    <Entry><String><Key>Title</Key><Value>KP2</Value></String><String><Key>UserName</Key><Value>k</Value></String><String><Key>TimeOtp-Secret-Base32</Key><Value ProtectInMemory="True">JBSWY3DP</Value></String></Entry>
     <Entry><String><Key>Title</Key><Value>Just a note</Value></String><String><Key>Notes</Key><Value>n</Value></String></Entry>
   </Group></Group>
   <Group><UUID>BIN</UUID><Name>Recycle Bin</Name><Entry><String><Key>Title</Key><Value>Gone</Value></String></Entry></Group>
@@ -44,9 +45,11 @@ test("KeePass XML: groups are folders, protected strings hidden fields, the recy
   assert.deepEqual(r.folders, [{ id: "0", name: "Email/Work" }]);
   assert.deepEqual(
     r.items.map((i) => i.name),
-    ["Top", "Mail", "Just a note"],
+    ["Top", "Mail", "KP2", "Just a note"],
   );
-  const [top, mail, note] = r.items as Record<string, any>[];
+  const [top, mail, kp2, note] = r.items as Record<string, any>[];
+  assert.equal(kp2!.login.totp, "JBSWY3DP", "KeePass 2's own TOTP secret");
+  assert.deepEqual(kp2!.fields, []);
   assert.equal(top!.folderId, null);
   assert.equal(top!.login.password, "  p w  ", "a password is never trimmed");
   assert.equal(mail!.folderId, "0");

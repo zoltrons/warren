@@ -157,7 +157,8 @@ function itemView(ctx: Ctx, item: Json): HTMLElement {
   const rows: Child[] = [];
   for (const k of ["login", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport"])
     for (const [key, v] of Object.entries(obj(k)))
-      if (typeof v === "string" && v) rows.push(h("div", { class: "row field-row" }, h("div", { class: "body" }, h("span", { class: "label" }, t(`field_${key}`) === `field_${key}` ? key : t(`field_${key}`)), h("span", { class: "value" }, v)), copyButton(ctx, `em.${key}`, v, t("copyField", key))));
+      // Only fields with a label: internal values (passwordRevisionDate, ...) stay out.
+      if (typeof v === "string" && v && t(`field_${key}`) !== `field_${key}`) rows.push(h("div", { class: "row field-row" }, h("div", { class: "body" }, h("span", { class: "label" }, t(`field_${key}`)), h("span", { class: "value" }, v)), copyButton(ctx, `em.${key}`, v, t("copyField", t(`field_${key}`)))));
   for (const u of Array.isArray(obj("login").uris) ? (obj("login").uris as Json[]) : []) if (typeof u.uri === "string") rows.push(h("div", { class: "row" }, icon("globe"), h("div", { class: "body" }, h("span", { class: "value" }, u.uri))));
   for (const f of Array.isArray(item.fields) ? (item.fields as Json[]) : []) if (typeof f.value === "string" && f.value) rows.push(h("div", { class: "row field-row" }, h("div", { class: "body" }, h("span", { class: "label" }, String(f.name ?? "")), h("span", { class: "value" }, f.value)), copyButton(ctx, `em.f.${String(f.name)}`, f.value, t("copyField", String(f.name ?? "")))));
   return h(

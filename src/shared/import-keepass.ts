@@ -7,8 +7,9 @@ import { child, children, parseXml, type XmlNode } from "./xml.ts";
 type Json = Record<string, unknown>;
 
 const STANDARD = new Set(["Title", "UserName", "Password", "URL", "Notes"]);
-/** KeePassXC keeps the authenticator as an otpauth:// URI under "otp"; older plugins use "TOTP Seed". */
-const TOTP_KEYS = ["otp", "TOTP Seed"];
+/** KeePassXC keeps the authenticator as an otpauth:// URI under "otp", KeePass 2.47+ a Base32 secret under
+ * "TimeOtp-Secret-Base32", older plugins "TOTP Seed". */
+const TOTP_KEYS = ["otp", "TimeOtp-Secret-Base32", "TOTP Seed"];
 
 export function keepassXmlToExport(text: string): Imported {
   const file = parseXml(text);
