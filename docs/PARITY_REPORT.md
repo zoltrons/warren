@@ -269,6 +269,19 @@ E2E: 94 of 95 steps pass against Vaultwarden 1.37.5 in Helium (the SSO step need
 * **Account switching / multiple accounts**: not started. Every store (account, vault cache, settings, private
   data, PIN, biometric key, session tokens) and the single key session in the crypto worker are one account's; it
   needs per-account storage keys, a worker session per account, and the lock/owner epochs per account.
+  Plan (2026-11-22, deferred as its own reviewed change, in a worktree):
+  1. `store.ts`: an `accounts` index (id = SHA-256 of `<server>|<email>`, server, email, last active) and every
+     account-scoped local/session key under `acct:<id>:<key>`; device id, theme and UI prefs stay global. One
+     migration on the first start moves today's keys under the active account and deletes them only after the copy
+     is written (like the clear-text moves in invariant 6a).
+  2. `lock.ts`: `lockEpoch`/`ownerEpoch` per account id; `lockNow(id)` and the auto-lock alarm name carry the id, so
+     locking one account never touches another's work in flight.
+  3. Crypto worker: one `Session` per account id in `api.rs` (a map instead of the single `SESSION`), every op
+     taking the id; switching only changes which id the service worker passes.
+  4. Push hub, refresh and sync per account; only the active one fills pages, badges the toolbar and shows the
+     save bar. Inactive unlocked accounts follow their own timeout.
+  5. Popup: an account menu (add, switch, lock, log out per account), capped at 5 like the official clients.
+  Proof: the race tests in `account.test.ts`/`vault-race.test.ts` per account, plus an e2e group with two users.
 * Other managers' import formats (only Bitwarden JSON/CSV), account-restricted encrypted export, `viewPassword:
   false`, SSH keys in the inline menu, and the web-vault-only account operations stay open.
 
