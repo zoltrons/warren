@@ -1,6 +1,7 @@
 // KeePass 2 XML exports (KeePass, KeePassXC, KeeWeb: "Export to XML"). The layout is KeePass's public file format;
 // nothing here is copied code. Groups become folders ("Email/Work"), the recycle bin and entry histories are left
-// out, and strings beyond the standard five become custom fields (hidden when KeePass protects them).
+// out, strings beyond the standard five become custom fields (hidden when KeePass protects them), and a field
+// referencing another entry's ({REF:P@I:...}) gets that entry's value.
 import type { Imported } from "./import-csv.ts";
 import { child, children, parseXml, type XmlNode } from "./xml.ts";
 
@@ -66,8 +67,15 @@ export function keepassXmlToExport(text: string): Imported {
   const recycleBin = child(child(file, "Meta"), "RecycleBinUUID")?.text.trim();
   const folders = new Map<string, string>();
   const items: Json[] = [];
+  // Every entry by its UUID, the recycle bin's too: a field may reference another entry's ({REF:P@I:<uuid>}).
+  const byUuid = new Map<string, XmlNode>();
+  const index = (group: XmlNode) => {
+    for (const entry of children(group, "Entry")) byUuid.set(uuidHex(child(entry, "UUID")?.text ?? ""), entry);
+    children(group, "Group").forEach(index);
+  };
+  index(root);
   const walk = (group: XmlNode, path: string) => {
-    for (const entry of children(group, "Entry")) items.push(item(entry, path ? folderId(folders, path) : null));
+    for (const entry of children(group, "Entry")) items.push(item(entry, path ? folderId(folders, path) : null, byUuid));
     for (const sub of children(group, "Group")) {
       if (recycleBin && child(sub, "UUID")?.text.trim() === recycleBin) continue;
       const name = child(sub, "Name")?.text.trim() || "--";
@@ -83,13 +91,41 @@ function folderId(folders: Map<string, string>, path: string): string {
   return folders.get(path)!;
 }
 
-function item(entry: XmlNode, folder: string | null): Json {
+function stringsOf(entry: XmlNode): Map<string, { value: string; hidden: boolean }> {
   const strings = new Map<string, { value: string; hidden: boolean }>();
   for (const s of children(entry, "String")) {
     const key = child(s, "Key")?.text ?? "";
     const v = child(s, "Value");
     if (key) strings.set(key, { value: v?.text ?? "", hidden: v?.attrs.ProtectInMemory === "True" || v?.attrs.Protected === "True" });
   }
+  return strings;
+}
+
+/** KeePass's UUIDs are Base64 in the XML and hex in a reference. */
+function uuidHex(b64: string): string {
+  try {
+    return Array.from(atob(b64.trim()), (c) => c.charCodeAt(0).toString(16).padStart(2, "0")).join("");
+  } catch {
+    return "";
+  }
+}
+
+const REF_FIELD: Record<string, string> = { T: "Title", U: "UserName", P: "Password", A: "URL", N: "Notes" };
+
+/** `value` with its references to another entry's field by UUID filled in, up to a few levels deep. Other kinds
+ * (search by title, ...) and a reference to nothing stay as written. */
+function resolveRefs(value: string, byUuid: Map<string, XmlNode>, depth = 0): string {
+  if (depth > 4 || !value.includes("{REF:")) return value;
+  return value.replace(/\{REF:([TUPAN])@I:([0-9a-f]{32})\}/gi, (ref, field: string, uuid: string) => {
+    const target = byUuid.get(uuid.toLowerCase());
+    const v = target && stringsOf(target).get(REF_FIELD[field.toUpperCase()]!)?.value;
+    return v === undefined ? ref : resolveRefs(v, byUuid, depth + 1);
+  });
+}
+
+function item(entry: XmlNode, folder: string | null, byUuid: Map<string, XmlNode>): Json {
+  const strings = stringsOf(entry);
+  for (const v of strings.values()) v.value = resolveRefs(v.value, byUuid);
   const get = (k: string) => strings.get(k)?.value ?? "";
   const { totp, used } = keepassTotp(get);
   const fields = [...strings]

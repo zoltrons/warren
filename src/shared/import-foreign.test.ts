@@ -85,6 +85,19 @@ test("KeePass TOTP: KeePass 2's encodings and settings, the KeeOtp plugin's sett
   assert.deepEqual(e.fields, []);
 });
 
+test("KeePass references: another entry's field by UUID is filled in, chains too; others stay as written", () => {
+  // UUIDs: AAECAwQFBgcICQoLDA0ODw== is 000102...0f, EBESExQVFhcYGRobHB0eHw== is 101112...1f.
+  const xml = `<KeePassFile><Root><Group><Name>D</Name>
+    <Entry><UUID>AAECAwQFBgcICQoLDA0ODw==</UUID><String><Key>Title</Key><Value>Main</Value></String><String><Key>UserName</Key><Value>ada</Value></String><String><Key>Password</Key><Value ProtectInMemory="True">s3cret</Value></String></Entry>
+    <Entry><UUID>EBESExQVFhcYGRobHB0eHw==</UUID><String><Key>Title</Key><Value>Alias</Value></String><String><Key>UserName</Key><Value>{REF:U@I:000102030405060708090A0B0C0D0E0F}</Value></String><String><Key>Password</Key><Value>{REF:P@I:000102030405060708090a0b0c0d0e0f}!</Value></String></Entry>
+    <Entry><String><Key>Title</Key><Value>Chain</Value></String><String><Key>Password</Key><Value>{REF:P@I:101112131415161718191a1b1c1d1e1f}</Value></String><String><Key>Other</Key><Value>{REF:P@T:Main} {REF:P@I:ffffffffffffffffffffffffffffffff}</Value></String></Entry>
+  </Group></Root></KeePassFile>`;
+  const [, alias, chain] = keepassXmlToExport(xml).items as Record<string, any>[];
+  assert.deepEqual([alias!.login.username, alias!.login.password], ["ada", "s3cret!"]);
+  assert.equal(chain!.login.password, "s3cret!");
+  assert.deepEqual(chain!.fields, [{ name: "Other", value: "{REF:P@T:Main} {REF:P@I:ffffffffffffffffffffffffffffffff}", type: 0 }]);
+});
+
 const ONEPUX = {
   accounts: [
     {
