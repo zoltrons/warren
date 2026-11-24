@@ -2,3 +2,5 @@
 586b098b7c1d8bef52c779f0dda75453e3196bcc:dev/vaultwarden/test-users.json:generic-api-key:4
 # Not a secret: a property name (encryptedPrivateKey: V1.private_key, a test vector's field) in the e2e harness.
 6b03a53026c81859e957489f6ddd6e7c6197d76a:tests/e2e/vectors.ts:generic-api-key:42
+# Not a secret: a fake OpenSSH key (a header and the letter k) in the 1Password SSH key import test.
+a8607c4c6857d50867a4568436b14b726401b46a:src/shared/import-foreign.test.ts:private-key:146
