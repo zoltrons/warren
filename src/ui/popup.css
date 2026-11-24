@@ -1249,13 +1249,14 @@ body.frame .row > svg.i { width: 1.25rem; height: 1.25rem; margin-inline: 4px; }
 .bar strong { font-size: var(--fs-title-small); font-weight: 500; }
 .bar .top { background: transparent; }
 .bar .body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-body.frame .bar .group { background: transparent; box-shadow: inset 0 0 0 1px var(--outline); border-radius: var(--corner-small); }
+/* The box only groups the two rows (outline-variant); the editable username inside keeps the field's 3:1 edge. */
+body.frame .bar .group { background: transparent; box-shadow: inset 0 0 0 1px var(--outline-variant); border-radius: var(--corner-medium); }
 body.frame .bar .group > * + * { border-top: 1px solid var(--outline-variant); }
 .bar .group .row { min-height: 40px; padding: 6px 12px; gap: 12px; border-radius: 0; cursor: default; }
 .bar .group .label { width: 5.5rem; flex: none; }
 .bar .group .value { min-width: 0; }
 .bar .sub { color: var(--on-surface-variant); font-size: var(--fs-body-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar-mark { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--primary-container); color: var(--on-primary-container); }
+.bar-mark { width: 32px; height: 32px; flex: none; }
 .bar .error { margin: 0; }
 
 /* ---------- motion ---------- */

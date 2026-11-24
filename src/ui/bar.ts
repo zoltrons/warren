@@ -44,7 +44,7 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
         h(
           "div",
           { class: "top" },
-          h("span", { class: "bar-mark", "aria-hidden": "true" }, icon("lock")),
+          h("img", { class: "bar-mark", src: "icons/warren-128.png", alt: "" }),
           h("div", { class: "body" }, h("strong", {}, t("barLockedTitle")), h("span", { class: "sub" }, d.host)),
           h("button", { type: "button", class: "icon-btn sm", "aria-label": t("close"), onclick: () => void act("close") }, icon("close")),
         ),
@@ -60,8 +60,8 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
       h(
         "div",
         { class: "top" },
-        // A key on the brand tint, as Chrome's save bubble leads with a key; the title names Warren.
-        h("span", { class: "bar-mark", "aria-hidden": "true" }, icon("key")),
+        // Warren's logo leads: the bar sits inside someone else's page, so who is asking shows at a glance.
+        h("img", { class: "bar-mark", src: "icons/warren-128.png", alt: "" }),
         h("div", { class: "body" }, h("strong", {}, t(d.addUsername ? "barAddUsernameTitle" : d.kind === "update" ? "barUpdateTitle" : d.generated ? "barSaveGeneratedTitle" : "barSaveTitle")), h("span", { class: "sub" }, d.host)),
         h("button", { type: "button", class: "icon-btn sm", "aria-label": t("close"), onclick: () => void act("close") }, icon("close")),
       ),
