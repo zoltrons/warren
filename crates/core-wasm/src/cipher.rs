@@ -327,13 +327,17 @@ pub fn decrypt_attachment(s: &Session, cipher: &Value, id: &str, data: &[u8]) ->
         .filter_map(Value::as_object)
         .find(|a| str_ci(a, "id") == Some(id))
         .ok_or("attachment not found")?;
-    // shortcut: attachments from before per-attachment keys (no `key`) are not supported; add if a vault has them.
-    let wrapped = str_ci(att, "key").ok_or("attachment has no key")?;
-    let key = decrypt_symmetric_key(item.as_ref().unwrap_or(base), wrapped)?;
-    EncString::from_buffer(data)
-        .map_err(err)?
-        .decrypt_with_key(&key)
-        .map_err(err)
+    let contents = EncString::from_buffer(data).map_err(err)?;
+    match str_ci(att, "key") {
+        Some(wrapped) => contents
+            .decrypt_with_key(&decrypt_symmetric_key(
+                item.as_ref().unwrap_or(base),
+                wrapped,
+            )?)
+            .map_err(err),
+        // Legacy v1 (no per-attachment key): the body is under the user/org key, as in the SDK.
+        None => contents.decrypt_with_key(base).map_err(err),
+    }
 }
 
 /// A new attachment for `cipher`: a fresh key wrapped like the fields, the encrypted file name,

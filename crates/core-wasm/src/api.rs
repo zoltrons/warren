@@ -796,4 +796,18 @@ mod tests {
         assert!(dec.contains(r#""fileName":"a.txt""#), "{dec}");
         assert!(decrypt_attachment(&with_att.to_string(), "nope", &body).is_err());
     }
+
+    #[test]
+    fn legacy_attachment_without_key_uses_user_key() {
+        use bitwarden_crypto::{KeyEncryptable, OctetStreamBytes};
+        let user = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let body = (&OctetStreamBytes::from(b"old".to_vec()))
+            .encrypt_with_key(&user)
+            .unwrap()
+            .to_buffer()
+            .unwrap();
+        open_session(user, None).unwrap();
+        let cipher = r#"{"id":"c1","attachments":[{"id":"a1"}]}"#;
+        assert_eq!(decrypt_attachment(cipher, "a1", &body).unwrap(), b"old");
+    }
 }

@@ -73,7 +73,8 @@ shipped as is: it is bundled, minified, into `worker.js`. All other budgets unch
 * **Timeout "log out" on browser start** is not tested (the test cannot restart the browser); it logs
   out on every browser start, whatever the timeout length.
 * **Attachments**: no delete, no attachments on organization items, files up to 25 MB (base64 through
-  two message hops, like Send). Attachments without their own key (very old vaults) are refused.
+  two message hops, like Send). Attachments without their own key (very old vaults) are read with the
+  user or organization key, as in the SDK.
 * **Send edit**: the text of a text send and "hide text" cannot be changed after creation; removing
   a password is not offered.
 * **Import / export**: only unencrypted Bitwarden JSON. No CSV, no password-protected or

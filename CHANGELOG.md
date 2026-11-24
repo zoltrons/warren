@@ -6,6 +6,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Attachments from very old vaults, saved before each attachment got its own key, download and open instead of
+  failing with "attachment has no key".
 - Generator: a password fills its lines edge to edge instead of leaving a wide gap on the right; up to 32
   characters fit on one line.
 
