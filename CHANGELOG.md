@@ -16,8 +16,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   pick, confirm them by their fingerprint phrase, and approve or reject a request; for accounts that trust you,
   request access, read their vault, or set a new master password for it.
 - Import from KeePass, KeePassXC and KeeWeb (XML export: groups become folders, protected strings hidden fields,
-  one-time codes with their digits, period and algorithm, KeePass 2's and the KeeOtp plugin's included, a field
-  referencing another entry's filled in with its value) and
+  one-time codes with their digits, period and algorithm, KeePass 2's and the KeeOtp and KeeTrayTOTP plugins'
+  included, a field referencing another entry's filled in with its value) and
   from 1Password's .1pux export (logins, cards, identities, SSH keys and their one-time codes; other categories as
   notes). Attached files are not imported: the import names the items that had them.
 - Turkish: the whole interface, error messages included, follows the browser's language, and dates follow it too.

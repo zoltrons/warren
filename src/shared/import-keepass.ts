@@ -8,27 +8,38 @@ import { child, children, parseXml, type XmlNode } from "./xml.ts";
 type Json = Record<string, unknown>;
 
 const STANDARD = new Set(["Title", "UserName", "Password", "URL", "Notes"]);
+/** KeePass 2.47+'s secret, in the first encoding the entry has. */
+const SECRETS = ["TimeOtp-Secret-Base32", "TimeOtp-Secret-Hex", "TimeOtp-Secret-Base64", "TimeOtp-Secret"];
+const HASH: Record<string, string> = { "HMAC-SHA-256": "SHA256", "HMAC-SHA-512": "SHA512", SHA256: "SHA256", SHA512: "SHA512" };
+
 /**
  * The entry's authenticator as Warren stores it (a Base32 secret, or a URI when it is not the default 6 digits every
- * 30 s with SHA-1), and the strings it was read from, which then do not become custom fields. KeePassXC keeps an
- * otpauth:// URI under "otp"; KeePass 2.47+ a secret under "TimeOtp-Secret[-Hex|-Base32|-Base64]" with
- * "TimeOtp-Length", "-Period" and "-Algorithm"; the older KeeOtp / KeeTrayTOTP plugins "TOTP Seed" with
- * "TOTP Settings" ("period;digits", digits "S" for Steam).
+ * 30 s with SHA-1), and the strings it was read from, which then do not become custom fields. "otp" holds an
+ * otpauth:// URI (KeePassXC) or "key=...&size=...&step=..." (the KeeOtp plugin); KeePass 2.47+ keeps a secret under
+ * "TimeOtp-Secret[-Hex|-Base32|-Base64]" with "TimeOtp-Length", "-Period" and "-Algorithm"; the KeeTrayTOTP plugin
+ * "TOTP Seed" with "TOTP Settings" ("period;digits", digits "S" for Steam). Anything else (an HOTP counter, a
+ * secret that does not decode) stays a custom field, as written.
  */
 export function keepassTotp(get: (key: string) => string): { totp: string | null; used: string[] } {
-  if (get("otp")) return { totp: get("otp"), used: ["otp"] };
-  const kp = ["TimeOtp-Secret-Base32", "TimeOtp-Secret-Hex", "TimeOtp-Secret-Base64", "TimeOtp-Secret"].find((k) => get(k));
+  const otp = get("otp").trim();
+  if (/^otpauth:\/\//i.test(otp)) return { totp: otp, used: ["otp"] };
+  if (otp) {
+    const q = new URLSearchParams(otp);
+    const key = (q.get("key") ?? "").replace(/\s+/g, "").toUpperCase();
+    if (key && (q.get("type") ?? "totp").toLowerCase() === "totp" && (q.get("encoding") ?? "base32").toLowerCase() === "base32")
+      return { totp: otpauth(key, q.get("size") || "6", q.get("step") || "30", HASH[(q.get("otpHashMode") ?? "").toUpperCase()] ?? "SHA1"), used: ["otp"] };
+  }
+  const kp = SECRETS.find((k) => get(k));
   if (kp) {
     const raw = get(kp).replace(/\s+/g, "");
     let secret: string;
     try {
       secret = kp.endsWith("Base32") ? raw.toUpperCase() : base32(kp.endsWith("Hex") ? hexBytes(raw) : kp.endsWith("Base64") ? b64Bytes(raw) : new TextEncoder().encode(get(kp)));
     } catch {
-      return { totp: null, used: [] }; // a secret that does not decode stays a custom field, as written
+      return { totp: null, used: [] };
     }
-    const algorithm = { "HMAC-SHA-256": "SHA256", "HMAC-SHA-512": "SHA512" }[get("TimeOtp-Algorithm")] ?? "SHA1";
-    const used = ["TimeOtp-Secret-Base32", "TimeOtp-Secret-Hex", "TimeOtp-Secret-Base64", "TimeOtp-Secret", "TimeOtp-Length", "TimeOtp-Period", "TimeOtp-Algorithm"].filter((k) => get(k));
-    return { totp: otpauth(secret, get("TimeOtp-Length") || "6", get("TimeOtp-Period") || "30", algorithm), used };
+    const used = [...SECRETS, "TimeOtp-Length", "TimeOtp-Period", "TimeOtp-Algorithm"].filter((k) => get(k));
+    return { totp: otpauth(secret, get("TimeOtp-Length") || "6", get("TimeOtp-Period") || "30", HASH[get("TimeOtp-Algorithm")] ?? "SHA1"), used };
   }
   if (get("TOTP Seed")) {
     const seed = get("TOTP Seed").replace(/\s+/g, "").toUpperCase();

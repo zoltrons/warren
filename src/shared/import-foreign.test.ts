@@ -63,7 +63,7 @@ test("KeePass XML: groups are folders, protected strings hidden fields, the recy
   assert.throws(() => keepassXmlToExport("<other/>"), /KeePass/);
 });
 
-test("KeePass TOTP: KeePass 2's encodings and settings, the KeeOtp plugin's settings and Steam", () => {
+test("KeePass TOTP: KeePass 2's encodings and settings, the KeeOtp and KeeTrayTOTP plugins' settings and Steam", () => {
   const of = (m: Record<string, string>) => keepassTotp((k) => m[k] ?? "");
   // "Hello!" (48 65 6c 6c 6f 21) is JBSWY3DPEE in Base32.
   assert.deepEqual(of({ "TimeOtp-Secret-Base32": "jbsw y3dp" }), { totp: "JBSWY3DP", used: ["TimeOtp-Secret-Base32"] });
@@ -75,6 +75,11 @@ test("KeePass TOTP: KeePass 2's encodings and settings, the KeeOtp plugin's sett
     used: ["TimeOtp-Secret-Base32", "TimeOtp-Length", "TimeOtp-Period", "TimeOtp-Algorithm"],
   });
   assert.deepEqual(of({ "TimeOtp-Secret-Hex": "zz" }), { totp: null, used: [] }, "a secret that does not decode stays a field");
+  // KeeOtp: a query string under "otp"; an HOTP one is not a TOTP and stays a field.
+  assert.deepEqual(of({ otp: "key=jbsw y3dp" }), { totp: "JBSWY3DP", used: ["otp"] });
+  assert.equal(of({ otp: "key=JBSWY3DP&size=8&step=60&otpHashMode=Sha256" }).totp, "otpauth://totp/?secret=JBSWY3DP&digits=8&period=60&algorithm=SHA256");
+  assert.deepEqual(of({ otp: "key=JBSWY3DP&type=Hotp&counter=3" }), { totp: null, used: [] });
+  assert.equal(of({ otp: " otpauth://totp/x?secret=JBSWY3DP " }).totp, "otpauth://totp/x?secret=JBSWY3DP");
   assert.equal(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "30;6" }).totp, "JBSWY3DP");
   assert.equal(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "60;8" }).totp, "otpauth://totp/?secret=JBSWY3DP&digits=8&period=60&algorithm=SHA1");
   assert.deepEqual(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "30;S" }), { totp: "steam://JBSWY3DP", used: ["TOTP Seed", "TOTP Settings"] });
