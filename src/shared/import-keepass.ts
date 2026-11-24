@@ -15,14 +15,16 @@ const HASH: Record<string, string> = { "HMAC-SHA-256": "SHA256", "HMAC-SHA-512":
 /**
  * The entry's authenticator as Warren stores it (a Base32 secret, or a URI when it is not the default 6 digits every
  * 30 s with SHA-1), and the strings it was read from, which then do not become custom fields. "otp" holds an
- * otpauth:// URI (KeePassXC) or "key=...&size=...&step=..." (the KeeOtp plugin); KeePass 2.47+ keeps a secret under
- * "TimeOtp-Secret[-Hex|-Base32|-Base64]" with "TimeOtp-Length", "-Period" and "-Algorithm"; the KeeTrayTOTP plugin
- * "TOTP Seed" with "TOTP Settings" ("period;digits", digits "S" for Steam). Anything else (an HOTP counter, a
- * secret that does not decode) stays a custom field, as written.
+ * otpauth:// URI (KeePassXC), "key=...&size=...&step=..." (the KeeOtp plugin) or a bare Base32 secret; KeePass
+ * 2.47+ keeps a secret under "TimeOtp-Secret[-Hex|-Base32|-Base64]" with "TimeOtp-Length", "-Period" and
+ * "-Algorithm"; the KeeTrayTOTP plugin "TOTP Seed" with "TOTP Settings" ("period;digits", digits "S" for Steam).
+ * Anything else (an HOTP counter, a secret that does not decode) stays a custom field, as written.
  */
 export function keepassTotp(get: (key: string) => string): { totp: string | null; used: string[] } {
   const otp = get("otp").trim();
   if (/^otpauth:\/\//i.test(otp)) return { totp: otp, used: ["otp"] };
+  // A bare secret (no "key=..."), as some tools and hand-made entries keep it.
+  if (otp && !otp.includes("=")) return { totp: otp.replace(/\s+/g, "").toUpperCase(), used: ["otp"] };
   if (otp) {
     const q = new URLSearchParams(otp);
     const key = (q.get("key") ?? "").replace(/\s+/g, "").toUpperCase();
