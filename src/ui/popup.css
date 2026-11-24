@@ -1021,7 +1021,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 }
 .field-block .meter { flex: 1; height: 2px; }
 .field-block .meter-label { font-size: var(--fs-body-small); line-height: 1; }
-.meter { height: 3px; border-radius: 2px; background: var(--outline-variant); overflow: hidden; }
+.meter { height: 4px; border-radius: var(--corner-full); background: var(--outline-variant); overflow: hidden; }
 /* The fill is scaled, not resized: a typed character never makes the browser lay the field out again. */
 .meter > i {
   display: block; height: 100%; width: 100%;
@@ -1044,7 +1044,8 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .field-card {
   display: flex; flex-direction: column; gap: 2px;
   padding: 4px; border-radius: var(--corner-small);
-  background: transparent; border: 1px solid var(--outline-variant);
+  /* Its inputs are borderless, so this box is their edge: the field's 3:1 outline. */
+  background: transparent; border: 1px solid var(--outline);
 }
 .field-card-top, .field-card-bottom { display: flex; align-items: center; gap: 4px; }
 .field-card-top { padding-bottom: 4px; border-bottom: 1px solid var(--outline-variant); }
@@ -1124,11 +1125,11 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
    pointer it shows its structure, and only then. The group of four it is in sits on a soft capsule (a shadow
    spread, so nothing moves) and the character names its place above it, for typing it in elsewhere. */
 .pw .c { position: relative; display: inline-block; }
-.pw .grp { display: inline-block; white-space: nowrap; border-radius: 6px; transition: background-color var(--effects-fast) var(--effects), box-shadow var(--effects-fast) var(--effects); }
+.pw .grp { display: inline-block; white-space: nowrap; border-radius: var(--corner-extra-small); transition: background-color var(--effects-fast) var(--effects), box-shadow var(--effects-fast) var(--effects); }
 .pw .grp:hover { background-color: var(--state-pressed); box-shadow: 0 0 0 3px var(--state-pressed); }
 .pw .c:hover::after {
   content: attr(data-i); position: absolute; bottom: calc(100% + 6px); left: 50%; translate: -50% 0;
-  min-width: 18px; padding: 2px 6px; border-radius: 6px;
+  min-width: 18px; padding: 2px 6px; border-radius: var(--corner-extra-small);
   background: var(--inverse-surface); color: var(--inverse-on-surface);
   font: 500 11px/14px var(--font); letter-spacing: 0; text-align: center; font-variant-numeric: tabular-nums;
   pointer-events: none; z-index: 1; animation: badge 120ms var(--ease);
