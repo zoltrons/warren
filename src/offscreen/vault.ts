@@ -413,7 +413,7 @@ export function customFieldValues(id: string): { name: string; value: string }[]
 
 // ---------- Import / export (Bitwarden's unencrypted JSON format) ----------
 
-const EXPORT_KEYS = ["id", "folderId", "type", "reprompt", "name", "notes", "favorite", "login", "secureNote", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport", "fields", "passwordHistory", "revisionDate", "creationDate"];
+const EXPORT_KEYS = ["id", "folderId", "type", "reprompt", "name", "notes", "favorite", "login", "secureNote", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport", "fields", "passwordHistory", "revisionDate", "creationDate", "archivedDate"];
 
 /**
  * Personal items (not the trash, not organization items) and folders, like the official individual export: Bitwarden

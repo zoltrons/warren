@@ -50,6 +50,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
   off (which left a login that could not sign in).
 - Importing another manager's CSV reports the cards and identities it cannot carry as skipped items, instead of
   leaving them out without a word.
+- An archived item stays archived when a Bitwarden JSON export is imported again (it came back into the vault).
 
 ## 0.0.22 — 2026-11-21
 
