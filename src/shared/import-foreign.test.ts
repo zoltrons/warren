@@ -80,7 +80,8 @@ test("KeePass TOTP: KeePass 2's encodings and settings, the KeeOtp and KeeTrayTO
   assert.equal(of({ otp: "key=JBSWY3DP&size=8&step=60&otpHashMode=Sha256" }).totp, "otpauth://totp/?secret=JBSWY3DP&digits=8&period=60&algorithm=SHA256");
   assert.deepEqual(of({ otp: "key=JBSWY3DP&type=Hotp&counter=3" }), { totp: null, used: [] });
   assert.equal(of({ otp: " otpauth://totp/x?secret=JBSWY3DP " }).totp, "otpauth://totp/x?secret=JBSWY3DP");
-  assert.deepEqual(of({ otp: "jbsw y3dp" }), { totp: "JBSWY3DP", used: ["otp"] }, "a bare secret under otp");
+  assert.deepEqual(of({ otp: "jbsw y3dp" }), { totp: "jbsw y3dp", used: ["otp"] }, "a bare secret under otp, as written");
+  assert.equal(of({ otp: "JBSWY3DPEE======" }).totp, "JBSWY3DPEE======", "Base32 padding is not a KeeOtp query");
   assert.equal(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "30;6" }).totp, "JBSWY3DP");
   assert.equal(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "60;8" }).totp, "otpauth://totp/?secret=JBSWY3DP&digits=8&period=60&algorithm=SHA1");
   assert.deepEqual(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "30;S" }), { totp: "steam://JBSWY3DP", used: ["TOTP Seed", "TOTP Settings"] });

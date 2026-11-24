@@ -23,8 +23,9 @@ const HASH: Record<string, string> = { "HMAC-SHA-256": "SHA256", "HMAC-SHA-512":
 export function keepassTotp(get: (key: string) => string): { totp: string | null; used: string[] } {
   const otp = get("otp").trim();
   if (/^otpauth:\/\//i.test(otp)) return { totp: otp, used: ["otp"] };
-  // A bare secret (no "key=..."), as some tools and hand-made entries keep it.
-  if (otp && !otp.includes("=")) return { totp: otp.replace(/\s+/g, "").toUpperCase(), used: ["otp"] };
+  // A bare secret (no KeeOtp "key=", Base32 padding allowed), kept as written: the TOTP reader ignores case,
+  // spaces and padding.
+  if (otp && !/(^|&)key=/i.test(otp)) return { totp: otp, used: ["otp"] };
   if (otp) {
     const q = new URLSearchParams(otp);
     const key = (q.get("key") ?? "").replace(/\s+/g, "").toUpperCase();
