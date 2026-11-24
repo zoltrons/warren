@@ -47,6 +47,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   still shows there.
 - Importing another manager's CSV keeps a password exactly as written: spaces at its start or end are no longer cut
   off (which left a login that could not sign in).
+- Importing another manager's CSV reports the cards and identities it cannot carry as skipped items, instead of
+  leaving them out without a word.
 
 ## 0.0.22 — 2026-11-21
 

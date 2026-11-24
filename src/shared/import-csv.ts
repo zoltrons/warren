@@ -7,6 +7,8 @@ type Json = Record<string, unknown>;
 export interface Imported {
   folders: { id: string; name: string }[];
   items: Json[];
+  /** Rows left out (a card or identity a CSV cannot carry), for the import's "skipped" count. */
+  skipped?: number;
 }
 
 /** Header names (lower case) each field may appear under. */
@@ -52,13 +54,17 @@ export function otherCsvToExport(text: string): Imported {
   const password = (r: string[]) => (raw(r, "password").trim() ? raw(r, "password") : "");
   const folders = new Map<string, string>();
   const items: Json[] = [];
+  let skipped = 0;
   for (const r of rows) {
     if (r.every((v) => !v.trim())) continue;
     const kind = get(r, "kind").toLowerCase();
     const url = get(r, "url");
     // LastPass keeps a secure note as a row whose URL is http://sn; others say so in a type column.
     const note = url === "http://sn" || /\bnote\b/.test(kind);
-    if (!note && /card|alias|identity|bank|passport|license/.test(kind) && !get(r, "password")) continue;
+    if (!note && /card|alias|identity|bank|passport|license/.test(kind) && !get(r, "password")) {
+      skipped++;
+      continue;
+    }
     const folder = get(r, "folder");
     if (folder && !folders.has(folder)) folders.set(folder, String(folders.size));
     const name = get(r, "name") || (url && url !== "http://sn" ? hostName(url) : "--");
@@ -69,5 +75,5 @@ export function otherCsvToExport(text: string): Imported {
         : { ...common, type: 1, login: { username: get(r, "username") || get(r, "email") || null, password: password(r) || null, totp: get(r, "totp") || null, uris: url ? [{ uri: url, match: null }] : [] } },
     );
   }
-  return { folders: [...folders].map(([name, id]) => ({ id, name })), items };
+  return { folders: [...folders].map(([name, id]) => ({ id, name })), items, skipped };
 }

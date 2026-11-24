@@ -37,6 +37,7 @@ test("KeePassXC and Keeper layouts", () => {
 test("Proton Pass: a file with type and name but no login_* column is not Bitwarden's; notes become notes", () => {
   const r = csvToExport("type,name,url,email,username,password,note,totp,vault\nlogin,Site,https://s.test,a@b.test,,pw,,,Personal\nnote,Memo,,,,,remember,,Personal\ncreditCard,Visa,,,,,,,Personal\n");
   assert.equal(r.items.length, 2);
+  assert.equal(r.skipped, 1, "the card row is counted, not lost silently");
   assert.equal(login(r.items[0]!).username, "a@b.test");
   assert.equal(r.items[1]!.type, 2);
 });

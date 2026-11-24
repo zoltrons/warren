@@ -455,7 +455,13 @@ interface ImportRequest {
  */
 export function prepareImport(text: string, password?: string): ImportRequest {
   let data: Json | undefined;
-  if (!text.trimStart().startsWith("{")) data = csvToExport(text);
+  // Rows a CSV reader left out; a JSON file's own keys never set it.
+  let csvSkipped = 0;
+  if (!text.trimStart().startsWith("{")) {
+    const csv = csvToExport(text);
+    csvSkipped = csv.skipped ?? 0;
+    data = csv;
+  }
   else
     try {
       data = o(JSON.parse(text));
@@ -471,7 +477,7 @@ export function prepareImport(text: string, password?: string): ImportRequest {
     throw new Error(data?.encrypted === true ? "Account-encrypted exports cannot be imported here; export with a file password instead" : "This is not a Bitwarden JSON or CSV export");
   const srcFolders = (Array.isArray(data.folders) ? data.folders : []).map(o).filter((f): f is Json => typeof f?.name === "string");
   const folderIndex = new Map(srcFolders.map((f, i) => [s(f.id), i]));
-  const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: encryptName(s(f.name)) })), folderRelationships: [], skipped: 0 };
+  const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: encryptName(s(f.name)) })), folderRelationships: [], skipped: csvSkipped };
   for (const raw of data.items) {
     const item = o(raw);
     const type = Number(item?.type);
