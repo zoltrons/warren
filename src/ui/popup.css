@@ -160,12 +160,14 @@
   --on-surface-variant: rgba(255 247 248 / 0.72);
   --outline: rgba(255 211 220 / 0.4);
   --outline-variant: rgba(255 211 220 / 0.14);
-  --primary: #ff4f7b;
+  /* Material's dark primary is a light tone: ear pink's hue, lifted (OKLCH 0.76 / 0.15), so a filled button
+     doesn't outshout the content; focus follows it (Material), the washes keep the ear pink's hue. */
+  --primary: #ff859b;
   --on-primary: #170a11;
   --primary-container: rgba(255 79 123 / 0.2);
   --on-primary-container: #ffd3dc;
   --link: #ffd3dc;
-  --focus-ring: #ff4f7b;
+  --focus-ring: var(--primary);
   --inverse-surface: #fff7f8;
   --inverse-on-surface: #170a11;
   --inverse-primary: #c2113f;
@@ -212,12 +214,12 @@
     --on-surface-variant: rgba(255 247 248 / 0.72);
     --outline: rgba(255 211 220 / 0.4);
     --outline-variant: rgba(255 211 220 / 0.14);
-    --primary: #ff4f7b;
+    --primary: #ff859b;
     --on-primary: #170a11;
     --primary-container: rgba(255 79 123 / 0.2);
   --on-primary-container: #ffd3dc;
     --link: #ffd3dc;
-    --focus-ring: #ff4f7b;
+    --focus-ring: var(--primary);
     --inverse-surface: #fff7f8;
     --inverse-on-surface: #170a11;
     --inverse-primary: #c2113f;

@@ -13,8 +13,10 @@ All notable changes to Warren. Versions match the `v*` release tags.
   page; chips and outlined buttons keep a lighter edge.
 - Switch and file rows in forms (Send, two-step login, the editor) are plain rows on a card, no longer boxed like a
   text field.
-- The vault list shows one banner at a time (weak and reused passwords first, then the default password manager
-  offer), both as quiet cards with the icon on the title line.
+- The vault list shows one banner at a time (the one-time default password manager offer first, then weak and
+  reused passwords), both as quiet cards with the icon on the title line.
+- Dark theme: filled buttons and focus rings use a lighter, softer pink, as Material sets dark themes, so the main
+  button no longer outshouts the content.
 - The lock screen, the passkey window and the save bar show Warren's logo.
 
 ### Fixed
