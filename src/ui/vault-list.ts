@@ -505,8 +505,12 @@ export function listView(ctx: Ctx): HTMLElement {
     );
 
   const folders = st.list?.folders ?? [];
+  // One banner at a time, so the list stays near the top. The default-manager offer goes first: it is asked once and
+  // never again, while "Not now" on the attention banner only lasts until the popup closes, so the other order could
+  // hold the offer back for good.
+  const askDefault = !!(ctx.settings() && !ctx.settings()!.defaultManager && uiPref("defaultAsked") !== "yes" && st.list?.items.length);
   // Logins with a reused or weak password, when the banner about them is to be shown (0: no banner).
-  const attention = !st.attentionHidden && uiPref("attentionBanner") === "on" && !st.query && !st.folder ? (st.list?.items.filter((i) => i.reused || i.weak).length ?? 0) : 0;
+  const attention = !askDefault && !st.attentionHidden && uiPref("attentionBanner") === "on" && !st.query && !st.folder ? (st.list?.items.filter((i) => i.reused || i.weak).length ?? 0) : 0;
   const chip = (id: string, label: string, ic?: IconName) =>
     h(
       "button",
@@ -574,8 +578,7 @@ export function listView(ctx: Ctx): HTMLElement {
           ),
         )
       : null,
-    // One banner at a time, so the list stays near the top; this one waits until the attention banner is gone.
-    !attention && ctx.settings() && !ctx.settings()!.defaultManager && uiPref("defaultAsked") !== "yes" && st.list?.items.length
+    askDefault
       ? h(
           "div",
           { class: "notice banner", role: "region", "aria-label": t("defaultAskTitle") },
