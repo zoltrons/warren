@@ -505,6 +505,8 @@ export function listView(ctx: Ctx): HTMLElement {
     );
 
   const folders = st.list?.folders ?? [];
+  // Logins with a reused or weak password, when the banner about them is to be shown (0: no banner).
+  const attention = !st.attentionHidden && uiPref("attentionBanner") === "on" && !st.query && !st.folder ? (st.list?.items.filter((i) => i.reused || i.weak).length ?? 0) : 0;
   const chip = (id: string, label: string, ic?: IconName) =>
     h(
       "button",
@@ -551,15 +553,15 @@ export function listView(ctx: Ctx): HTMLElement {
       h("button", { type: "button", class: "chip", onclick: () => open(ctx, { kind: "folders" }) }, icon("edit"), t("folders")),
     ),
     errorBox(),
-    !st.attentionHidden && uiPref("attentionBanner") === "on" && !st.query && !st.folder && st.list?.items.some((i) => i.reused || i.weak)
+    attention
       ? h(
           "div",
-          { class: "notice warn", role: "region", "aria-label": t("securityReport") },
+          { class: "notice banner warn", role: "region", "aria-label": t("securityReport") },
           icon("error"),
           h(
             "div",
             {},
-            h("strong", {}, t("attentionTitle", String(st.list.items.filter((i) => i.reused || i.weak).length))),
+            h("strong", {}, t("attentionTitle", String(attention))),
             h("p", { class: "caption" }, t("attentionBody")),
             h(
               "div",
@@ -572,10 +574,11 @@ export function listView(ctx: Ctx): HTMLElement {
           ),
         )
       : null,
-    ctx.settings() && !ctx.settings()!.defaultManager && uiPref("defaultAsked") !== "yes" && st.list?.items.length
+    // One banner at a time, so the list stays near the top; this one waits until the attention banner is gone.
+    !attention && ctx.settings() && !ctx.settings()!.defaultManager && uiPref("defaultAsked") !== "yes" && st.list?.items.length
       ? h(
           "div",
-          { class: "notice", role: "region", "aria-label": t("defaultAskTitle") },
+          { class: "notice banner", role: "region", "aria-label": t("defaultAskTitle") },
           icon("shield"),
           h(
             "div",

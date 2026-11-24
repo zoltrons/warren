@@ -816,6 +816,15 @@ a.row { text-decoration: none; color: var(--on-surface); }
 .notice svg.i { color: var(--on-surface-variant); }
 .notice.warn { padding: 8px 12px; border-radius: var(--corner-small); border: 1px solid; background: var(--error-container); border-color: color-mix(in srgb, var(--error) 22%, transparent); color: var(--error); }
 .notice.warn svg.i { color: var(--error); }
+/* A banner with actions (vault list) is a card: the icon carries the tone and sits on the title's line, the text
+   stays in the ink roles, so a warning doesn't paint the whole top of the list red. */
+.notice.banner, .notice.banner.warn {
+  align-items: flex-start; gap: 12px; padding: 12px 16px 8px;
+  border: 0; border-radius: var(--corner-medium);
+  background: var(--surface-container); color: var(--on-surface-variant);
+}
+.notice.banner strong { color: var(--on-surface); font-weight: 500; }
+.notice.banner > svg.i { margin-top: 1px; }
 
 /* ---------- empty ---------- */
 
