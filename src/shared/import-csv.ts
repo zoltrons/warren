@@ -8,8 +8,6 @@ type Json = Record<string, unknown>;
 export interface Imported {
   folders: { id: string; name: string }[];
   items: Json[];
-  /** Rows left out (a card or identity a CSV cannot carry), for the import's "skipped" count. */
-  skipped?: number;
   /** Names of the items whose attached files the import cannot carry (KeePass and 1Password files). */
   attachmentsLeft?: string[];
 }
@@ -29,6 +27,8 @@ const COLUMNS = {
 } as const;
 type Field = keyof typeof COLUMNS;
 /** Bookkeeping columns of known exports (Firefox, Proton Pass, KeePassXC, 1Password): not worth a custom field. */
+/** Columns whose value is a secret: their custom field is hidden. */
+const SECRET = /pass|secret|cvc|cvv|card.?num|^pin|pin$|security/i;
 const METADATA = new Set(["httprealm", "formactionorigin", "guid", "timecreated", "timelastused", "timepasswordchanged", "createtime", "modifytime", "last modified", "created", "icon", "archived"]);
 
 /** The column index of each field in `header`. */
@@ -59,12 +59,11 @@ export function otherCsvToExport(text: string): Imported {
   const password = (r: string[]) => (raw(r, "password").trim() ? raw(r, "password") : "");
   const folders = new Map<string, string>();
   const items: Json[] = [];
-  let skipped = 0;
   // Every other column with a value is kept as a custom field: nothing in the file is lost.
   const mapped = new Set(c.values());
   const extra = (header ?? []).flatMap((h, i) => (mapped.has(i) || METADATA.has(h.trim().toLowerCase()) ? [] : [i]));
   const fieldsOf = (r: string[], login: boolean) => {
-    const out = extra.filter((i) => (r[i] ?? "").trim()).map((i) => ({ name: header![i]!.trim(), value: r[i]!, type: 0 }));
+    const out = extra.filter((i) => (r[i] ?? "").trim()).map((i) => ({ name: header![i]!.trim(), value: r[i]!, type: SECRET.test(header![i]!.trim()) ? 1 : 0 }));
     // An e-mail that is not the username (both columns filled, or a note) would otherwise be dropped.
     const email = get(r, "email");
     if (email && (!login || (get(r, "username") && get(r, "username") !== email))) out.unshift({ name: "email", value: email, type: 0 });
@@ -74,12 +73,9 @@ export function otherCsvToExport(text: string): Imported {
     if (r.every((v) => !v.trim())) continue;
     const kind = get(r, "kind").toLowerCase();
     const url = get(r, "url");
-    // LastPass keeps a secure note as a row whose URL is http://sn; others say so in a type column.
-    const note = url === "http://sn" || /\bnote\b/.test(kind);
-    if (!note && /card|alias|identity|bank|passport|license/.test(kind) && !get(r, "password")) {
-      skipped++;
-      continue;
-    }
+    // LastPass keeps a secure note as a row whose URL is http://sn; others say so in a type column. A card or
+    // identity without a password (NordPass, Proton Pass) is a note too: its columns become its fields.
+    const note = url === "http://sn" || /\bnote\b/.test(kind) || (/card|alias|identity|bank|passport|license/.test(kind) && !get(r, "password"));
     const folder = get(r, "folder");
     if (folder && !folders.has(folder)) folders.set(folder, String(folders.size));
     const name = get(r, "name") || (url && url !== "http://sn" ? hostName(url) : "--");
@@ -90,5 +86,5 @@ export function otherCsvToExport(text: string): Imported {
         : { ...common, type: 1, login: { username: get(r, "username") || get(r, "email") || null, password: password(r) || null, totp: get(r, "totp") || null, uris: url ? [{ uri: url, match: null }] : [] } },
     );
   }
-  return { folders: [...folders].map(([name, id]) => ({ id, name })), items, skipped };
+  return { folders: [...folders].map(([name, id]) => ({ id, name })), items };
 }

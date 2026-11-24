@@ -74,7 +74,7 @@ export function itemsToCsv(items: Json[], folderName: (id: string) => string): {
 }
 
 /** A Bitwarden CSV as the JSON export shape prepareImport takes: { folders: [{id, name}], items }. */
-export function csvToExport(text: string): { folders: { id: string; name: string }[]; items: Json[]; skipped?: number } {
+export function csvToExport(text: string): { folders: { id: string; name: string }[]; items: Json[] } {
   const [header, ...rows] = parseCsv(text);
   const col = new Map((header ?? []).map((h, i) => [h.trim().toLowerCase(), i]));
   // Bitwarden's own columns; a file with name and type but no login_* column (Proton Pass, NordPass) is another manager's.

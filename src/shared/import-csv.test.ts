@@ -36,9 +36,9 @@ test("KeePassXC and Keeper layouts", () => {
 
 test("Proton Pass: a file with type and name but no login_* column is not Bitwarden's; notes become notes", () => {
   const r = csvToExport("type,name,url,email,username,password,note,totp,vault\nlogin,Site,https://s.test,a@b.test,,pw,,,Personal\nnote,Memo,,,,,remember,,Personal\ncreditCard,Visa,,,,,,,Personal\n");
-  assert.equal(r.items.length, 2);
-  assert.equal(r.skipped, 1, "the card row is counted, not lost silently");
+  assert.equal(r.items.length, 3);
   assert.equal(login(r.items[0]!).username, "a@b.test");
+  assert.equal(r.items[2]!.type, 2, "a card row without a password is a note, never dropped");
   assert.equal(r.items[1]!.type, 2);
 });
 
@@ -67,4 +67,15 @@ test("columns without a place of their own become custom fields; bookkeeping col
   ]);
   // The e-mail standing in for a missing username is not repeated as a field.
   assert.deepEqual(csvToExport("name,url,email,username,password\nY,https://y.test,a@y.test,,pw\n").items[0]!.fields, []);
+});
+
+test("NordPass: a card row keeps its card columns as fields of a note, the secret ones hidden", () => {
+  const r = csvToExport("name,url,username,password,note,cardholdername,cardnumber,cvc,expirydate,folder,type\nVisa,,,,,Ada,4111111111111111,123,12/29,,credit_card\n");
+  assert.equal(r.items[0]!.type, 2);
+  assert.deepEqual(r.items[0]!.fields, [
+    { name: "cardholdername", value: "Ada", type: 0 },
+    { name: "cardnumber", value: "4111111111111111", type: 1 },
+    { name: "cvc", value: "123", type: 1 },
+    { name: "expirydate", value: "12/29", type: 0 },
+  ]);
 });
