@@ -657,6 +657,26 @@ await step("import: a KeePass XML export, converted in the popup", async () => {
   await page.getByRole("button", { name: "Vault", exact: true }).click();
 });
 
+await step("import: an archived item stays archived; a note the server refuses is named and nothing lands", async () => {
+  await page.getByRole("button", { name: "Settings" }).click();
+  const importJson = (items: unknown[]) => page.getByLabel("Import items").setInputFiles({ name: "x.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ encrypted: false, folders: [], items })) });
+  await importJson([{ type: 2, name: "Archived import", secureNote: { type: 0 }, archivedDate: "2026-01-02T03:04:05.000Z" }]);
+  await page.getByRole("status").filter({ hasText: "Imported 1 item(s)." }).waitFor();
+  // Vaultwarden's default limit is 10 000 encrypted characters: this note is well over it.
+  await importJson([
+    { type: 2, name: "Short one", secureNote: { type: 0 }, notes: "ok" },
+    { type: 2, name: "Big note", secureNote: { type: 0 }, notes: "x".repeat(12_000) },
+  ]);
+  await page.getByRole("alert").filter({ hasText: "Big note" }).waitFor();
+  assert.ok(!(await page.getByRole("alert").textContent())?.includes("Short one"), "the item within the limit is named too");
+  const s = await apiSession(vaultUser);
+  const all = await s.ciphers();
+  s.done();
+  assert.ok(all.find((x) => x.name === "Archived import")?.archivedDate, "the imported item lost its archive date");
+  assert.ok(!all.some((x) => x.name === "Short one" || x.name === "Big note"), "a refused import landed in part");
+  await page.getByRole("button", { name: "Vault", exact: true }).click();
+});
+
 await step("export and import: CSV, and JSON protected by a file password", async () => {
   await page.getByRole("button", { name: "Settings" }).click();
   const exportAs = async (format: string, filePassword?: string) => {
