@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { onePuxDataToExport, onePuxToExport } from "./import-1password.ts";
-import { keepassXmlToExport } from "./import-keepass.ts";
+import { keepassTotp, keepassXmlToExport } from "./import-keepass.ts";
 import { parseXml } from "./xml.ts";
 import { readZipEntry } from "./zip.ts";
 
@@ -61,6 +61,28 @@ test("KeePass XML: groups are folders, protected strings hidden fields, the recy
   ]);
   assert.equal(note!.type, 2);
   assert.throws(() => keepassXmlToExport("<other/>"), /KeePass/);
+});
+
+test("KeePass TOTP: KeePass 2's encodings and settings, the KeeOtp plugin's settings and Steam", () => {
+  const of = (m: Record<string, string>) => keepassTotp((k) => m[k] ?? "");
+  // "Hello!" (48 65 6c 6c 6f 21) is JBSWY3DPEE in Base32.
+  assert.deepEqual(of({ "TimeOtp-Secret-Base32": "jbsw y3dp" }), { totp: "JBSWY3DP", used: ["TimeOtp-Secret-Base32"] });
+  assert.equal(of({ "TimeOtp-Secret-Hex": "48656c6c6f21" }).totp, "JBSWY3DPEE");
+  assert.equal(of({ "TimeOtp-Secret-Base64": "SGVsbG8h" }).totp, "JBSWY3DPEE");
+  assert.equal(of({ "TimeOtp-Secret": "Hello!" }).totp, "JBSWY3DPEE");
+  assert.deepEqual(of({ "TimeOtp-Secret-Base32": "JBSWY3DP", "TimeOtp-Length": "8", "TimeOtp-Period": "60", "TimeOtp-Algorithm": "HMAC-SHA-256" }), {
+    totp: "otpauth://totp/?secret=JBSWY3DP&digits=8&period=60&algorithm=SHA256",
+    used: ["TimeOtp-Secret-Base32", "TimeOtp-Length", "TimeOtp-Period", "TimeOtp-Algorithm"],
+  });
+  assert.deepEqual(of({ "TimeOtp-Secret-Hex": "zz" }), { totp: null, used: [] }, "a secret that does not decode stays a field");
+  assert.equal(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "30;6" }).totp, "JBSWY3DP");
+  assert.equal(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "60;8" }).totp, "otpauth://totp/?secret=JBSWY3DP&digits=8&period=60&algorithm=SHA1");
+  assert.deepEqual(of({ "TOTP Seed": "JBSWY3DP", "TOTP Settings": "30;S" }), { totp: "steam://JBSWY3DP", used: ["TOTP Seed", "TOTP Settings"] });
+  // Through the entry: the settings are not left behind as custom fields.
+  const xml = `<KeePassFile><Root><Group><Name>D</Name><Entry><String><Key>Title</Key><Value>T</Value></String><String><Key>TimeOtp-Secret-Base32</Key><Value>JBSWY3DP</Value></String><String><Key>TimeOtp-Length</Key><Value>8</Value></String></Entry></Group></Root></KeePassFile>`;
+  const e = keepassXmlToExport(xml).items[0] as Record<string, any>;
+  assert.equal(e.login.totp, "otpauth://totp/?secret=JBSWY3DP&digits=8&period=30&algorithm=SHA1");
+  assert.deepEqual(e.fields, []);
 });
 
 const ONEPUX = {
