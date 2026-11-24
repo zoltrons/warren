@@ -8,7 +8,7 @@ Status: pins, map, report tool and weekly report job exist; pin bumps come as Re
    wasm-bindgen version. `crates/core-wasm/Cargo.toml` uses the same rev; CI fails if they differ.
 2. **`upstream-map.yaml`** — upstream path → local module, with what to watch.
 3. **`tools/sync-upstream.mjs`** — for every mapped path, `gh api repos/<repo>/compare/<pin>...main`
-   filtered to that path; outputs Markdown grouped by local module. Flags: new/removed serde fields,
+   (the diff media type: the JSON lists only 300 files) filtered to that path; outputs Markdown grouped by local module. Flags: new/removed serde fields,
    changed enums (cipher types, KDF types, EncString types), new key formats (COSE, type 7+), KDF
    default changes, new required request fields (Vaultwarden `CipherData`, `ConnectData`). Read-only.
 4. **`.github/workflows/upstream.yml`** — weekly, read-only: runs the report into the job summary. A bump PR runs

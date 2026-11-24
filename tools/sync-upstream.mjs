@@ -44,7 +44,6 @@ const pins = {
   vaultwarden: { slug: "dani-garcia/vaultwarden", base: lock.vaultwarden.version, head: "main" },
 };
 
-// shortcut: one compare page (GitHub caps it at 300 files), fine for weekly runs; paginate if a pin falls far behind.
 // Patterns in added/removed lines that usually mean a protocol or format change.
 const FLAGS = [
   [/\benum\b|=\s*\d+,\s*$/, "enum / numeric discriminant"],
@@ -56,15 +55,59 @@ const FLAGS = [
   [/minimum_chrome_version|"permissions"|host_permissions/, "manifest"],
 ];
 
+/** A diff header path: git quotes one with special or non-ASCII bytes, C-style ("a/caf\303\251.rs"). */
+function unquote(path) {
+  if (!path.startsWith('"')) return path;
+  const bytes = path.slice(1, -1).replace(/\\([0-7]{3}|.)/g, (_, e) =>
+    e.length === 3 ? String.fromCharCode(parseInt(e, 8)) : ({ t: "\t", n: "\n" }[e] ?? e),
+  );
+  return Buffer.from(bytes, "latin1").toString("utf8");
+}
+
+/** A unified diff as the compare JSON's `files`: filename, status, additions, deletions, patch. */
+function parseDiff(diff) {
+  const files = [];
+  for (const chunk of diff.split(/^(?=diff --git )/m)) {
+    const m = chunk.match(/^diff --git ("a\/(?:[^"\\]|\\.)*"|a\/.+?) ("b\/(?:[^"\\]|\\.)*"|b\/.+)$/m);
+    if (!m) continue;
+    const [from, to] = [m[1], m[2]].map((p) => unquote(p).slice(2));
+    const at = chunk.search(/^@@/m);
+    const patch = at < 0 ? "" : chunk.slice(at);
+    const lines = patch.split("\n");
+    const status = /^new file mode/m.test(chunk)
+      ? "added"
+      : /^deleted file mode/m.test(chunk)
+        ? "removed"
+        : from !== to
+          ? "renamed"
+          : "modified";
+    files.push({
+      filename: to,
+      status,
+      additions: lines.filter((l) => l.startsWith("+")).length,
+      deletions: lines.filter((l) => l.startsWith("-")).length,
+      patch,
+    });
+  }
+  return files;
+}
+
 const compares = new Map();
 function compare(repo) {
   if (!compares.has(repo)) {
     const { slug, base, head } = pins[repo];
-    const json = execFileSync("gh", ["api", `repos/${slug}/compare/${base}...${head}`], {
-      encoding: "utf8",
-      maxBuffer: 256 * 1024 * 1024,
-    });
-    compares.set(repo, JSON.parse(json));
+    const api = (...args) =>
+      execFileSync("gh", ["api", ...args, `repos/${slug}/compare/${base}...${head}`], {
+        encoding: "utf8",
+        maxBuffer: 256 * 1024 * 1024,
+      });
+    // The JSON lists at most 300 files (on page 1 only); the diff media type carries every file.
+    const { ahead_by, names } = JSON.parse(api("--jq", "{ahead_by, names: [.files[].filename]}"));
+    const files = parseDiff(api("-H", "Accept: application/vnd.github.diff"));
+    const parsed = new Set(files.map((f) => f.filename));
+    const lost = names.filter((n) => !parsed.has(n));
+    if (lost.length) throw new Error(`${repo}: the diff parser lost ${lost.join(", ")}`);
+    compares.set(repo, { ahead_by, files });
   }
   return compares.get(repo);
 }
