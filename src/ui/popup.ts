@@ -571,7 +571,7 @@ function lockedView(s: State): HTMLElement {
     h(
       "div",
       { class: "brand" },
-      h("div", { class: "logo" }, icon("lock")),
+      h("img", { class: "logo", src: "icons/warren-128.png", alt: "" }),
       h("h1", {}, t("lockedTitle")),
       h("p", {}, s.email ?? ""),
       h("p", { class: "host" }, host(s.serverUrl)),

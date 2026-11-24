@@ -431,7 +431,8 @@ svg.i.solid { fill: currentColor; }
 .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 12px 0 4px; }
 .logo { width: 48px; height: 48px; }
 /* A glyph instead of the app icon (locked, passkey, re-prompt screens): a tinted badge. */
-div.logo { display: grid; place-items: center; border-radius: 50%; background: var(--primary-container); color: var(--on-primary-container); }
+/* A screen inside the unlocked vault (reprompt) shows its glyph plain; the lock and passkey screens show the logo. */
+div.logo { display: grid; place-items: center; color: var(--on-surface-variant); }
 div.logo > svg.i { width: 1.75rem; height: 1.75rem; }
 .brand h1 { font-size: var(--fs-title-medium); font-weight: 500; line-height: 1.2; margin: 0; }
 .brand p { margin: 0; color: var(--on-surface-variant); font-size: var(--fs-body-small); }

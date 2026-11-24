@@ -74,7 +74,7 @@ export function passkeyScreen(ctx: Ctx): HTMLElement {
   return h(
     "div",
     { class: "page" },
-    h("div", { class: "brand" }, h("div", { class: "logo" }, icon("fingerprint")), h("h1", {}, t(create ? "passkeySaveTitle" : "passkeySignInTitle")), p ? h("p", {}, p.origin) : null),
+    h("div", { class: "brand" }, h("img", { class: "logo", src: "icons/warren-128.png", alt: "" }), h("h1", {}, t(create ? "passkeySaveTitle" : "passkeySignInTitle")), p ? h("p", {}, p.origin) : null),
     pk.error ? h("div", { class: "error", role: "alert" }, icon("error"), h("div", {}, pk.error)) : null,
     pk.confirm
       ? h(
