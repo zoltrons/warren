@@ -1086,10 +1086,16 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 }
 .generated-value[aria-disabled="true"] { cursor: default; }
 .generated-value:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring); }
-/* A random value takes the largest size at which its --len characters fit one line, between 15 and 20 px. */
+/* A random value fills its lines edge to edge, at most 20 px: --lines is how many it needs at 13.5 px (above body
+   text), --per the characters on each (whole groups of four), and the size is the one at which --per characters span
+   the width. 0.66em is one Atkinson Hyperlegible Mono character with the .mono letter spacing (measured 0.65em in
+   Helium; a little over so a full line never wraps). --n is at least 1: an empty value ("…") would make 0 / 0. */
 .generated output {
-  display: block; font-size: clamp(0.9375rem, calc(100cqi / (var(--len, 16) * 0.62)), 1.25rem);
-  line-height: 1.4; letter-spacing: 0.02em; word-break: break-all; text-wrap: balance;
+  --n: max(var(--len, 16), 1);
+  --lines: round(up, var(--n) * 0.66 * 13.5px / 100cqi, 1);
+  --per: min(var(--n), round(up, var(--n) / 4 / var(--lines), 1) * 4);
+  display: block; font-size: min(1.25rem, 100cqi / (var(--per) * 0.66));
+  line-height: 1.4; letter-spacing: 0.02em; word-break: break-all;
   transform-origin: left center; transition: transform 160ms var(--ease);
 }
 /* Pressed, the value gives a little, as a key does; it comes back when let go. */

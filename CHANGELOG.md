@@ -2,6 +2,13 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
+## Unreleased
+
+### Fixed
+
+- Generator: a password fills its lines edge to edge instead of leaving a wide gap on the right; up to 32
+  characters fit on one line.
+
 ## 0.0.23 — 2026-11-24
 
 ### Security
