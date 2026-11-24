@@ -666,8 +666,9 @@ a.row { text-decoration: none; color: var(--on-surface); }
 /* A row that does something at once (Lock now) reads as an action, not a setting. */
 .row.action-row, .row.action-row > svg.i { color: var(--link); }
 .row .sub.warn-text { color: var(--error); }
-/* A switch or file row in a form (Send) sits in a card like the fields around it. */
-.form-row, .check-card { border: 1px solid var(--outline); border-radius: var(--corner-small); background: transparent; cursor: pointer; }
+/* A switch or file row in a form (Send, 2FA, editor) is a list row on a card surface, as Material sets switches: no
+   field edge, so it is not mistaken for a box to type in. */
+.form-row, .check-card { border: 0; border-radius: var(--corner-small); background: var(--surface-container); cursor: pointer; }
 .form-row:hover { background-image: linear-gradient(var(--state-hover), var(--state-hover)); }
 .form-row:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--focus-ring); }
 .row select { border: 0; background: transparent; color: var(--on-surface); font-weight: 500; font-size: var(--fs-body-small); cursor: pointer; padding: 4px; border-radius: var(--corner-extra-small); }
