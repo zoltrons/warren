@@ -2,7 +2,7 @@
 // WCAG contrast check for the brand palette and the popup theme tokens (src/ui/popup.css).
 //   node tools/check-contrast.mjs
 // Text pairs must reach 4.5:1 and UI (icons, borders) 3:1; translucent tokens are composited over the
-// surface they sit on. `--faint` marks icons and meta glyphs, so it is held to the UI 3:1 (placeholders use `--muted`).
+// surface they sit on. `--on-surface-variant` carries secondary text, placeholders and icons alike (Material's role), so it is held to text 4.5:1.
 // Exits 1 when an enforced pair fails or the two dark-theme blocks drift apart.
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -66,17 +66,18 @@ let failed = 0;
 for (const k of new Set([...Object.keys(darkVars), ...Object.keys(darkMedia)]))
   if (darkVars[k] !== darkMedia[k]) (failed++, console.log(`DRIFT  --${k}: data-theme="${darkVars[k]}" vs media="${darkMedia[k]}"`));
 
-const BGS = ["bg", "surface", "surface-sunken", "surface-raised"];
+const BGS = ["surface", "surface-container", "surface-dim", "surface-container-high"];
 const PAIRS = [
-  ...["text", "muted", "link", "digit", "symbol", "success", "warning", "critical", "attention", "ink-aqua"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
+  ...["on-surface", "on-surface-variant", "link", "digit", "symbol", "success", "warning", "error", "attention", "ink-aqua"].flatMap((fg) => BGS.map((bg) => [fg, bg, "text"])),
   ["success", "success-weak", "text"], ["warning", "warning-weak", "text"], ["attention", "attention-weak", "text"],
   ["on-primary", "primary", "text"],
-  ["text", "selected", "text"], ["text", "pressed", "text"], ["link", "primary-weak", "text"], ["on-primary-weak", "primary-weak", "text"], ["critical", "critical-weak", "text"],
-  ...["primary", "favorite"].flatMap((fg) => ["bg", "surface"].map((bg) => [fg, bg, "ui"])),
-  ...["bg", "surface", "surface-sunken"].map((bg) => ["faint", bg, "ui"]),
+  ["on-surface", "selected", "text"], ["on-surface", "state-pressed", "text"], ["link", "primary-container", "text"], ["on-primary-container", "primary-container", "text"], ["error", "error-container", "text"],
+  ...["primary", "favorite"].flatMap((fg) => ["surface", "surface-container"].map((bg) => [fg, bg, "ui"])),
   // Switches: the off track against its card, and the knob against both tracks (WCAG 1.4.11).
-  ["focus-ring", "bg", "ui"], ["focus-ring", "surface", "ui"],
-  ["switch-off", "surface", "ui"], ["switch-thumb", "switch-off", "ui"], ["switch-thumb", "switch-on", "ui"],
+  // Field and chip borders: a control's only edge (WCAG 1.4.11).
+  ...BGS.map((bg) => ["outline", bg, "ui"]),
+  ["focus-ring", "surface", "ui"], ["focus-ring", "surface-container", "ui"],
+  ["switch-off", "surface-container", "ui"], ["switch-thumb", "switch-off", "ui"], ["switch-thumb", "switch-on", "ui"],
 ];
 const MIN = { text: 4.5, ui: 3 };
 
@@ -86,10 +87,10 @@ for (const [name, t] of [["light", light], ["dark", { ...light, ...darkVars }], 
     const alias = /^var\(--([\w-]+)\)$/.exec(t[k]); // a token that names another one
     if (alias) return color(alias[1], under);
     const c = parse(t[k]);
-    return c[3] < 1 ? over(c, under ?? color("surface")) : c;
+    return c[3] < 1 ? over(c, under ?? color("surface-container")) : c;
   };
   for (const [fg, bg, rule] of PAIRS) {
-    const b = color(bg, color("surface"));
+    const b = color(bg, color("surface-container"));
     const r = ratio(color(fg, b), b);
     rows.push({ theme: name, pair: `--${fg} on --${bg}`, ratio: r, rule, ok: !MIN[rule] || r >= MIN[rule] });
   }

@@ -4,6 +4,14 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ## Unreleased
 
+### Changed
+
+- The look follows Material 3's current specs: filter chips have 8 px corners, menus 12 px, the busy bar is 4 px,
+  hover and press shading use Material's 8 % and 10 %, and state changes and movement use Material's newer motion
+  curves.
+- Field, chip and outlined-button borders are clearly visible (3:1 against every background), so an empty field
+  can be told apart from the page.
+
 ### Fixed
 
 - Attachments from very old vaults, saved before each attachment got its own key, download and open instead of
