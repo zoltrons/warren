@@ -9,8 +9,13 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - The look follows Material 3's current specs: filter chips have 8 px corners, menus 12 px, the busy bar is 4 px,
   hover and press shading use Material's 8 % and 10 %, and state changes and movement use Material's newer motion
   curves.
-- Field, chip and outlined-button borders are clearly visible (3:1 against every background), so an empty field
-  can be told apart from the page.
+- Field borders are clearly visible (3:1 against every background), so an empty field can be told apart from the
+  page; chips and outlined buttons keep a lighter edge.
+- Switch and file rows in forms (Send, two-step login, the editor) are plain rows on a card, no longer boxed like a
+  text field.
+- The vault list shows one banner at a time (weak and reused passwords first, then the default password manager
+  offer), both as quiet cards with the icon on the title line.
+- The lock screen, the passkey window and the save bar show Warren's logo.
 
 ### Fixed
 
