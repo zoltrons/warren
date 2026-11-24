@@ -2,7 +2,8 @@
    Warren popup.
 
    Visual language: Warren's own palette on Chrome's structure. Colors: a warm snow page with white tonal cards
-   (a deep, quiet cherry in dark, darker than the logo's night cherry so the ear pink carries); raspberry (light) / ear pink (dark) for the primary action, focus and selection; brand
+   (a deep, quiet cherry in dark, darker than the logo's night cherry so the ear pink carries); raspberry (light) / a lifted ear pink (dark, Material's light dark-theme tone) for the primary action and focus,
+   ear-pink washes for selection; brand
    tints for state layers (brand/README.md). The tokens are Material 3's own (m3.material.io, Nov 2026): color roles
    (surface, surface-container*, on-surface*, outline*, primary/error-container, inverse-*), state-layer opacities,
    the corner-radius scale, type-scale role names and the motion physics system's web curves, at Chrome's desktop
@@ -1046,7 +1047,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .field-card {
   display: flex; flex-direction: column; gap: 2px;
   padding: 4px; border-radius: var(--corner-small);
-  /* Its inputs are borderless, so this box is their edge: the field's 3:1 outline. */
+  /* A website box's input is borderless, so the box is its edge: the field's 3:1 outline. */
   background: transparent; border: 1px solid var(--outline);
 }
 .field-card-top, .field-card-bottom { display: flex; align-items: center; gap: 4px; }
@@ -1064,7 +1065,8 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
 .field-card-col input { flex: none; width: 100%; border-color: var(--outline); }
 .field-card-hint { margin: 0; padding: 4px 9px; font-size: var(--fs-body-small); color: var(--on-surface-variant); }
 /* Captioned boxes: the boxes already separate the rows, and the row's buttons sit level with the box, not its caption. */
-.field-card:has(.field-card-col) { gap: 4px; }
+/* Captioned boxes (custom fields) hold inputs with their own field edge, so the box only groups them. */
+.field-card:has(.field-card-col) { gap: 4px; border-color: var(--outline-variant); }
 .field-card-top:has(.field-card-col) { align-items: flex-end; padding-bottom: 0; border-bottom: 0; }
 .field-card-col .select-value { font-size: var(--fs-body-small); color: var(--on-surface); }
 .field-card-col.grow .select { display: flex; justify-content: space-between; }
