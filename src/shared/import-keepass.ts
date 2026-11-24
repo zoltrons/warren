@@ -118,20 +118,30 @@ function uuidHex(b64: string): string {
 
 const REF_FIELD: Record<string, string> = { T: "Title", U: "UserName", P: "Password", A: "URL", N: "Notes" };
 
-/** `value` with its references to another entry's field by UUID filled in, up to a few levels deep. Other kinds
- * (search by title, ...) and a reference to nothing stay as written. */
-function resolveRefs(value: string, byUuid: Map<string, XmlNode>, depth = 0): string {
-  if (depth > 4 || !value.includes("{REF:")) return value;
-  return value.replace(/\{REF:([TUPAN])@I:([0-9a-f]{32})\}/gi, (ref, field: string, uuid: string) => {
+/** `value` with its references to another entry's field by UUID filled in, up to a few levels deep, and whether one
+ * of them was secret (a password or a protected string), so the field stays hidden. Other kinds (search by title,
+ * ...) and a reference to nothing stay as written. */
+function resolveRefs(value: string, byUuid: Map<string, XmlNode>, depth = 0): { value: string; hidden: boolean } {
+  let hidden = false;
+  if (depth > 4 || !value.includes("{REF:")) return { value, hidden };
+  const out = value.replace(/\{REF:([TUPAN])@I:([0-9a-f]{32})\}/gi, (ref, field: string, uuid: string) => {
     const target = byUuid.get(uuid.toLowerCase());
-    const v = target && stringsOf(target).get(REF_FIELD[field.toUpperCase()]!)?.value;
-    return v === undefined ? ref : resolveRefs(v, byUuid, depth + 1);
+    const hit = target && stringsOf(target).get(REF_FIELD[field.toUpperCase()]!);
+    if (!hit) return ref;
+    const r = resolveRefs(hit.value, byUuid, depth + 1);
+    hidden ||= field.toUpperCase() === "P" || hit.hidden || r.hidden;
+    return r.value;
   });
+  return { value: out, hidden };
 }
 
 function item(entry: XmlNode, folder: string | null, byUuid: Map<string, XmlNode>): Json {
   const strings = stringsOf(entry);
-  for (const v of strings.values()) v.value = resolveRefs(v.value, byUuid);
+  for (const v of strings.values()) {
+    const r = resolveRefs(v.value, byUuid);
+    v.value = r.value;
+    v.hidden ||= r.hidden;
+  }
   const get = (k: string) => strings.get(k)?.value ?? "";
   const { totp, used } = keepassTotp(get);
   const fields = [...strings]
