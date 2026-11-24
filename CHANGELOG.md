@@ -9,6 +9,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - An organization collection set to "Hide passwords" is honored: the item's password, hidden fields and password
   history never reach the popup (no reveal, copy or editing), an edit keeps them, and the save bar never offers to
   change them. Autofill still works, as in the official clients. ([96b7343](https://github.com/zoltrons/warren/commit/96b73436182b77091536ccb23ce9f5c07a548ae0))
+- The `url` library the crypto core is built with is updated to 2.5.9, which fixes a stack overflow on a deeply
+  nested `blob:` URL ([RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592)).
 
 ### Added
 

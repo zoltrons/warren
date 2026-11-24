@@ -2,6 +2,7 @@
 // Runs alone with --only inline (run.ts), together with the groups it imports.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { call } from "../../src/transport/http.ts";
 import { type Page } from "playwright-core";
 import { BASE, step, poll, apiSession, SITE, ctx, sw, page, fill, unlockIfLocked, rows } from "./harness.ts";
 import { vaultUser } from "./vault.ts";
@@ -672,8 +673,12 @@ await step("Use a strong password: the menu shows it, the save bar asks at once,
   await loginPage.waitForFunction(() => !document.querySelector("warren-bar"));
   const s = await apiSession(vaultUser);
   const c = (await s.ciphers()).find((x) => x.login?.username === "gen-user@signup.test" && !x.deletedDate);
-  s.done();
   assert.equal(c?.login.password, shown);
+  // Gone again, so later groups see the site's logins as before (a sixth row would scroll the menu).
+  await call(BASE, "DELETE", `/api/ciphers/${c.id}`, { token: s.token });
+  s.done();
+  if (page.isClosed()) await reopenPopup();
+  await page.evaluate(() => chrome.runtime.sendMessage({ type: "sync", force: true }));
 });
 
 await step("save bar: a changed password is offered as an update and keeps history", async () => {
