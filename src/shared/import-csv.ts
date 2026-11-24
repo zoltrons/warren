@@ -46,7 +46,10 @@ export function otherCsvToExport(text: string): Imported {
   const [header, ...rows] = parseCsv(text);
   const c = header ? mapColumns(header) : new Map<Field, number>();
   if (!c.has("password") || !(c.has("url") || c.has("name"))) throw new Error("This CSV is not an export Warren knows: it needs a password column and a name or website column");
-  const get = (r: string[], f: Field) => (c.has(f) ? (r[c.get(f)!] ?? "").trim() : "");
+  const raw = (r: string[], f: Field) => (c.has(f) ? (r[c.get(f)!] ?? "") : "");
+  const get = (r: string[], f: Field) => raw(r, f).trim();
+  // A password is kept exactly: a space at either end is part of it.
+  const password = (r: string[]) => (raw(r, "password").trim() ? raw(r, "password") : "");
   const folders = new Map<string, string>();
   const items: Json[] = [];
   for (const r of rows) {
@@ -63,7 +66,7 @@ export function otherCsvToExport(text: string): Imported {
     items.push(
       note
         ? { ...common, type: 2, secureNote: { type: 0 } }
-        : { ...common, type: 1, login: { username: get(r, "username") || get(r, "email") || null, password: get(r, "password") || null, totp: get(r, "totp") || null, uris: url ? [{ uri: url, match: null }] : [] } },
+        : { ...common, type: 1, login: { username: get(r, "username") || get(r, "email") || null, password: password(r) || null, totp: get(r, "totp") || null, uris: url ? [{ uri: url, match: null }] : [] } },
     );
   }
   return { folders: [...folders].map(([name, id]) => ({ id, name })), items };

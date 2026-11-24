@@ -44,6 +44,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   add the name to it ("Add the username to this login?").
 - After a sign-up redirects to another host of the same site (accounts.example.com to example.com), the save bar
   still shows there.
+- Importing another manager's CSV keeps a password exactly as written: spaces at its start or end are no longer cut
+  off (which left a login that could not sign in).
 
 ## 0.0.22 — 2026-11-21
 

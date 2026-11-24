@@ -50,3 +50,8 @@ test("a CSV without a password column is refused, empty rows are skipped", () =>
   assert.throws(() => csvToExport("a,b\n1,2\n"), /not an export Warren knows/);
   assert.equal(csvToExport("name,url,username,password\n,,,\nA,https://a.test,u,p\n").items.length, 1);
 });
+
+test("a password keeps the spaces at its ends; other columns are trimmed", () => {
+  const r = csvToExport('name,url,username,password\n A ,https://a.test, u ,"  p w "\n');
+  assert.deepEqual([r.items[0]!.name, login(r.items[0]!).username, login(r.items[0]!).password], ["A", "u", "  p w "]);
+});
