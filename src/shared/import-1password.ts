@@ -47,14 +47,19 @@ export function onePuxDataToExport(doc: unknown): Imported {
   if (!vaults.length) throw new Error("This is not a 1Password .1pux export");
   const folders = vaults.length > 1 ? vaults.map((v, i) => ({ id: String(i), name: s(o(o(v).attrs).name) || "--" })) : [];
   const items: Json[] = [];
+  const attachmentsLeft: string[] = [];
   vaults.forEach((vault, vi) => {
     for (const raw of a(o(vault).items)) {
       const it = o(raw);
       if (it.trashed === true || it.state === "trashed") continue;
-      items.push(item(it, folders.length ? String(vi) : null));
+      const made = item(it, folders.length ? String(vi) : null);
+      items.push(made);
+      // A document, or a file field: the files are not imported, and the user is told which items had them.
+      const details = o(it.details);
+      if (Object.keys(o(details.documentAttributes)).length || a(details.sections).some((sec) => a(o(sec).fields).some((f) => "file" in o(o(f).value)))) attachmentsLeft.push(String(made.name));
     }
   });
-  return { folders, items };
+  return { folders, items, attachmentsLeft };
 }
 
 function item(it: Json, folderId: string | null): Json {

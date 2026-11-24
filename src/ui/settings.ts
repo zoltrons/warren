@@ -5,6 +5,7 @@ import type { ExportFormat, Request, SignupUsernames, State } from "../shared/me
 import { applyTheme, type Child, h, inPanel, leave, plural, rowOf, savedTheme, send, sessionNow, setUiPref, switchOf, t, THEMES, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { onePuxToExport } from "../shared/import-1password.ts";
+import type { Imported } from "../shared/import-csv.ts";
 import { keepassXmlToExport } from "../shared/import-keepass.ts";
 import { openEmergency } from "./emergency.ts";
 import { uriMatchLabel } from "./vault-edit.ts";
@@ -526,8 +527,9 @@ async function importVault(file: File | undefined) {
   render();
   const asked = sessionNow();
   let text: string;
+  let attachmentsLeft: string[];
   try {
-    text = await foreignToBitwardenJson(file);
+    ({ text, attachmentsLeft } = await foreignToBitwardenJson(file));
   } catch (e) {
     return void Object.assign(ui, { busy: false, error: (e as Error).message }), render();
   }
@@ -541,28 +543,31 @@ async function importVault(file: File | undefined) {
     /* the worker reports what is wrong with it */
   }
   if (protectedFile) return void ((ui.busy = false), (ui.importing = text), render());
-  await sendImport(text);
+  await sendImport(text, undefined, attachmentsLeft);
 }
 
 /**
  * The file's text for the worker's importer (Bitwarden JSON or a CSV). KeePass XML and 1Password .1pux are turned
  * into an unencrypted Bitwarden JSON export here: the popup can read a ZIP, and the worker gets one format less.
  */
-async function foreignToBitwardenJson(file: File): Promise<string> {
-  const asJson = (r: { folders: unknown[]; items: unknown[] }) => JSON.stringify({ encrypted: false, ...r });
+async function foreignToBitwardenJson(file: File): Promise<{ text: string; attachmentsLeft: string[] }> {
+  const asJson = ({ folders, items, attachmentsLeft = [] }: Imported) => ({ text: JSON.stringify({ encrypted: false, folders, items }), attachmentsLeft });
   if (file.name.toLowerCase().endsWith(".1pux")) return asJson(await onePuxToExport(new Uint8Array(await file.arrayBuffer())));
   const text = await file.text();
-  return text.trimStart().startsWith("<") && text.includes("<KeePassFile") ? asJson(keepassXmlToExport(text)) : text;
+  return text.trimStart().startsWith("<") && text.includes("<KeePassFile") ? asJson(keepassXmlToExport(text)) : { text, attachmentsLeft: [] };
 }
 
-async function sendImport(text: string, password?: string) {
+async function sendImport(text: string, password?: string, attachmentsLeft: string[] = []) {
   Object.assign(ui, { busy: true, error: undefined, info: undefined });
   render();
   const r = await send<{ imported: number; skipped: number }>({ type: "importVault", text, ...(password ? { password } : {}) });
   ui.busy = false;
   if (r.ok || !password) ui.importing = undefined;
   if (r.ok) {
-    ui.info = t("imported", String(r.data.imported)) + (r.data.skipped ? ` ${t("importSkipped", String(r.data.skipped))}` : "");
+    ui.info =
+      t("imported", String(r.data.imported)) +
+      (r.data.skipped ? ` ${t("importSkipped", String(r.data.skipped))}` : "") +
+      (attachmentsLeft.length ? ` ${t("importAttachmentsLeft", attachmentsLeft.join(", "))}` : "");
     resetVault(); // the list reloads with the new items
   } else ui.error = r.error;
   render();

@@ -1395,6 +1395,14 @@
       }
     }
   },
+  "importAttachmentsLeft": {
+    "message": "Ekli dosyalar içe aktarılmaz; şu öğelere yeniden ekleyin: $P1$.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "importSkipped": {
     "message": "Desteklenmeyen $P1$ öğe atlandı.",
     "placeholders": {

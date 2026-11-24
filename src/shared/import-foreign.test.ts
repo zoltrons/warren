@@ -98,6 +98,17 @@ test("KeePass references: another entry's field by UUID is filled in, chains too
   assert.deepEqual(chain!.fields, [{ name: "Other", value: "{REF:P@T:Main} {REF:P@I:ffffffffffffffffffffffffffffffff}", type: 0 }]);
 });
 
+test("attached files are not imported, and the items that had them are named", () => {
+  const xml = `<KeePassFile><Root><Group><Name>D</Name>
+    <Entry><String><Key>Title</Key><Value>Scan</Value></String><Binary><Key>id.pdf</Key><Value Ref="0"/></Binary></Entry>
+    <Entry><String><Key>Title</Key><Value>Plain</Value></String></Entry>
+  </Group></Root></KeePassFile>`;
+  assert.deepEqual(keepassXmlToExport(xml).attachmentsLeft, ["Scan"]);
+  const doc = (details: unknown) => ({ categoryUuid: "006", overview: { title: "Doc" }, details });
+  const r = onePuxDataToExport({ accounts: [{ vaults: [{ items: [doc({ documentAttributes: { fileName: "a.pdf", documentId: "x" } }), { ...doc({ sections: [{ fields: [{ title: "f", value: { file: { fileName: "b.png" } } }] }] }), overview: { title: "Field" } }, doc({})] }] }] });
+  assert.deepEqual(r.attachmentsLeft, ["Doc", "Field"]);
+});
+
 const ONEPUX = {
   accounts: [
     {

@@ -9,6 +9,8 @@ export interface Imported {
   items: Json[];
   /** Rows left out (a card or identity a CSV cannot carry), for the import's "skipped" count. */
   skipped?: number;
+  /** Names of the items whose attached files the import cannot carry (KeePass and 1Password files). */
+  attachmentsLeft?: string[];
 }
 
 /** Header names (lower case) each field may appear under. */

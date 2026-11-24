@@ -67,6 +67,7 @@ export function keepassXmlToExport(text: string): Imported {
   const recycleBin = child(child(file, "Meta"), "RecycleBinUUID")?.text.trim();
   const folders = new Map<string, string>();
   const items: Json[] = [];
+  const attachmentsLeft: string[] = [];
   // Every entry by its UUID, the recycle bin's too: a field may reference another entry's ({REF:P@I:<uuid>}).
   const byUuid = new Map<string, XmlNode>();
   const index = (group: XmlNode) => {
@@ -75,7 +76,12 @@ export function keepassXmlToExport(text: string): Imported {
   };
   index(root);
   const walk = (group: XmlNode, path: string) => {
-    for (const entry of children(group, "Entry")) items.push(item(entry, path ? folderId(folders, path) : null, byUuid));
+    for (const entry of children(group, "Entry")) {
+      const it = item(entry, path ? folderId(folders, path) : null, byUuid);
+      items.push(it);
+      // An import carries no attached files: the user is told which items had them.
+      if (children(entry, "Binary").length) attachmentsLeft.push(String(it.name));
+    }
     for (const sub of children(group, "Group")) {
       if (recycleBin && child(sub, "UUID")?.text.trim() === recycleBin) continue;
       const name = child(sub, "Name")?.text.trim() || "--";
@@ -83,7 +89,7 @@ export function keepassXmlToExport(text: string): Imported {
     }
   };
   walk(root, ""); // the root group is the database itself, not a folder
-  return { folders: [...folders].map(([name, id]) => ({ id, name })), items };
+  return { folders: [...folders].map(([name, id]) => ({ id, name })), items, attachmentsLeft };
 }
 
 function folderId(folders: Map<string, string>, path: string): string {

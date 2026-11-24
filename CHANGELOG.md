@@ -19,7 +19,7 @@ All notable changes to Warren. Versions match the `v*` release tags.
   one-time codes with their digits, period and algorithm, KeePass 2's and the KeeOtp plugin's included, a field
   referencing another entry's filled in with its value) and
   from 1Password's .1pux export (logins, cards, identities, SSH keys and their one-time codes; other categories as
-  notes).
+  notes). Attached files are not imported: the import names the items that had them.
 - Turkish: the whole interface, error messages included, follows the browser's language, and dates follow it too.
 - Warren can run in private (incognito) windows: turn on "Allow in Incognito" on the extension's details page.
   Private windows use the same vault and the same lock as the normal ones; it stays off until you allow it.
