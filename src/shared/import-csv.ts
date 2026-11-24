@@ -26,9 +26,9 @@ const COLUMNS = {
   kind: ["type", "item type", "kind"],
 } as const;
 type Field = keyof typeof COLUMNS;
-/** Bookkeeping columns of known exports (Firefox, Proton Pass, KeePassXC, 1Password): not worth a custom field. */
 /** Columns whose value is a secret: their custom field is hidden. */
 const SECRET = /pass|secret|cvc|cvv|card.?num|^pin|pin$|security/i;
+/** Bookkeeping columns of known exports (Firefox, Proton Pass, KeePassXC, 1Password): not worth a custom field. */
 const METADATA = new Set(["httprealm", "formactionorigin", "guid", "timecreated", "timelastused", "timepasswordchanged", "createtime", "modifytime", "last modified", "created", "icon", "archived"]);
 
 /** The column index of each field in `header`. */
@@ -67,6 +67,16 @@ export function otherCsvToExport(text: string): Imported {
     // An e-mail that is not the username (both columns filled, or a note) would otherwise be dropped.
     const email = get(r, "email");
     if (email && (!login || (get(r, "username") && get(r, "username") !== email))) out.unshift({ name: "email", value: email, type: 0 });
+    // A note has no login to hold these: they become its fields (LastPass's http://sn only marks the note).
+    if (!login) {
+      const url = get(r, "url");
+      const before = [
+        ...(get(r, "username") ? [{ name: "username", value: get(r, "username"), type: 0 }] : []),
+        ...(url && url !== "http://sn" ? [{ name: "url", value: url, type: 0 }] : []),
+        ...(get(r, "totp") ? [{ name: "totp", value: get(r, "totp"), type: 1 }] : []),
+      ];
+      out.unshift(...before);
+    }
     return out;
   };
   for (const r of rows) {

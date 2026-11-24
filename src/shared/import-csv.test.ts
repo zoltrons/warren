@@ -79,3 +79,15 @@ test("NordPass: a card row keeps its card columns as fields of a note, the secre
     { name: "expirydate", value: "12/29", type: 0 },
   ]);
 });
+
+test("a row that becomes a note keeps its username, website and one-time code as fields", () => {
+  const r = csvToExport("type,name,url,email,username,password,note,totp,vault\ncreditCard,Bank card,https://bank.test,,card-login,,,JBSWY3DP,P\n");
+  assert.equal(r.items[0]!.type, 2);
+  assert.deepEqual(r.items[0]!.fields, [
+    { name: "username", value: "card-login", type: 0 },
+    { name: "url", value: "https://bank.test", type: 0 },
+    { name: "totp", value: "JBSWY3DP", type: 1 },
+  ]);
+  // LastPass's http://sn marks the note; it is not a website.
+  assert.deepEqual(csvToExport("url,username,password,totp,extra,name,grouping,fav\nhttp://sn,,,,code 42,Wifi,,0\n").items[0]!.fields, []);
+});
