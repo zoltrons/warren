@@ -84,6 +84,7 @@ function item(it: Json, folderId: string | null): Json {
     folderId,
   };
   let typed: Json;
+  const sshKey = category === "114" ? fields.find((f) => f.kind === "sshKey" && f.text) : undefined;
   if (category === "001" || category === "005") {
     const loginFields = a(details.loginFields).map(o);
     const designated = (d: string) => loginFields.find((f) => f.designation === d);
@@ -132,11 +133,10 @@ function item(it: Json, folderId: string | null): Json {
         country: s(ad.country).toUpperCase() || null,
       },
     };
-  } else if (category === "114" && fields.some((f) => f.kind === "sshKey" && f.text)) {
-    const key = fields.find((f) => f.kind === "sshKey" && f.text)!;
-    taken.add(key);
-    const meta = o(o(o(key.raw).sshKey).metadata);
-    typed = { type: 5, sshKey: { privateKey: key.text, publicKey: s(meta.publicKey) || null, keyFingerprint: s(meta.fingerprint) || null } };
+  } else if (sshKey) {
+    taken.add(sshKey);
+    const meta = o(o(o(sshKey.raw).sshKey).metadata);
+    typed = { type: 5, sshKey: { privateKey: sshKey.text, publicKey: s(meta.publicKey) || null, keyFingerprint: s(meta.fingerprint) || null } };
   } else typed = { type: 2, secureNote: { type: 0 } };
   const { loginExtra, ...rest } = typed as Json & { loginExtra?: unknown[] };
   const custom = fields.filter((f) => !taken.has(f) && f.text).map((f) => ({ name: f.title || f.id, value: f.text, type: f.concealed ? 1 : 0 }));
