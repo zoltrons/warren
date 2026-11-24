@@ -2,71 +2,71 @@
 
 All notable changes to Warren. Versions match the `v*` release tags.
 
-## Unreleased
+## 0.0.23 — 2026-11-24
 
 ### Security
 
 - An organization collection set to "Hide passwords" is honored: the item's password, hidden fields and password
   history never reach the popup (no reveal, copy or editing), an edit keeps them, and the save bar never offers to
-  change them. Autofill still works, as in the official clients.
+  change them. Autofill still works, as in the official clients. ([96b7343](https://github.com/zoltrons/warren/commit/96b73436182b77091536ccb23ce9f5c07a548ae0))
 
 ### Added
 
 - Emergency access (Settings): name trusted contacts who may view or take over your vault after a waiting time you
   pick, confirm them by their fingerprint phrase, and approve or reject a request; for accounts that trust you,
-  request access, read their vault, or set a new master password for it.
+  request access, read their vault, or set a new master password for it. ([b2196c7](https://github.com/zoltrons/warren/commit/b2196c7556a352cd76c313941368a73f1748c884))
 - Import from KeePass, KeePassXC and KeeWeb (XML export: groups become folders, protected strings hidden fields,
   one-time codes with their digits, period and algorithm, KeePass 2's and the KeeOtp and KeeTrayTOTP plugins'
   included, a field referencing another entry's filled in with its value) and
   from 1Password's .1pux export (logins, cards, identities, SSH keys and their one-time codes; other categories as
-  notes). Attached files are not imported: the import names the items that had them.
-- Turkish: the whole interface, error messages included, follows the browser's language, and dates follow it too.
+  notes). Attached files are not imported: the import names the items that had them. ([2ec4217](https://github.com/zoltrons/warren/commit/2ec421757fa08a68756bc7989b6a4230949e0e7a))
+- Turkish: the whole interface, error messages included, follows the browser's language, and dates follow it too. ([b0440cd](https://github.com/zoltrons/warren/commit/b0440cd28657d308e5f139533a05983872c99b27))
 - Warren can run in private (incognito) windows: turn on "Allow in Incognito" on the extension's details page.
-  Private windows use the same vault and the same lock as the normal ones; it stays off until you allow it.
+  Private windows use the same vault and the same lock as the normal ones; it stays off until you allow it. ([20c5fcf](https://github.com/zoltrons/warren/commit/20c5fcf07b0126759d9f6a20f448fabc119ba111))
 - Troy cards show the Troy mark, worked out from the card number (979200-979289 and known Troy BINs in the 65 and
   900 ranges), also when the card is saved as Discover or Other. Nothing new is written to the vault: Troy is not
-  in the Bitwarden clients' brand list.
-- The inline menu's "Use a strong password" shows the password it will fill before you pick it.
-- The save bar's username box drops down the form's other values.
+  in the Bitwarden clients' brand list. ([bc0b4c7](https://github.com/zoltrons/warren/commit/bc0b4c7489c1331924cd7e8bb0d9f4b77186c436))
+- The inline menu's "Use a strong password" shows the password it will fill before you pick it. ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
+- The save bar's username box drops down the form's other values. ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
 - Usernames on sign-up (Settings → Autofill): Private (the default) has a sign-up's username field offer "Use a
   private username", a new one for each site from the username generator's settings (an e-mail box gets a plus
   address of the generator's e-mail, never a plain word); Your usual ones adds the usernames you use most to the save
-  bar's list; Off offers only what the form holds.
+  bar's list; Off offers only what the form holds. ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
 
 ### Fixed
 
 - Closing the popup while editing an item no longer loses the edits: the next open shows the editor as you
   left it, still unsaved, until the vault locks. For an item that asks for the master password again, only within
   5 minutes of entering it; later the popup says the edits were discarded. Typing in the editor also counts as
-  activity for the auto-lock.
+  activity for the auto-lock. ([0632b18](https://github.com/zoltrons/warren/commit/0632b181342c7bac48ad35491b95e5bee47083e6))
 - Changing or removing a hidden custom field keeps its old value in the password history ("name: value"), as the
-  official clients do.
+  official clients do. ([0632b18](https://github.com/zoltrons/warren/commit/0632b181342c7bac48ad35491b95e5bee47083e6))
 - A password or username taken from the generator into the editor ("Use this password") is kept in the generator
-  history, so it can be found again if the item is never saved.
-- A folder name typed on the Folders screen is no longer wiped by a failed save or a sync arriving meanwhile.
-- A field value made only of spaces (a password, say) is saved as typed instead of being dropped.
+  history, so it can be found again if the item is never saved. ([0632b18](https://github.com/zoltrons/warren/commit/0632b181342c7bac48ad35491b95e5bee47083e6))
+- A folder name typed on the Folders screen is no longer wiped by a failed save or a sync arriving meanwhile. ([0632b18](https://github.com/zoltrons/warren/commit/0632b181342c7bac48ad35491b95e5bee47083e6))
+- A field value made only of spaces (a password, say) is saved as typed instead of being dropped. ([0632b18](https://github.com/zoltrons/warren/commit/0632b181342c7bac48ad35491b95e5bee47083e6))
 - A password from "Use a strong password" is no longer lost when the sign-up page submits in a way Warren does not
   see: the save bar asks right after the password is filled, with the account name the form already holds (edit it
   in the bar), and stays for 30 minutes. The page's own submit later keeps that prompt and its account name. A
   password generated for a login you already have (a change-password page) is offered as an update only once the
   page is submitted, so a password the site refuses (or a page left unsaved) never replaces the one that works. A
-  second account on a site you already use is offered as a new login, even before its e-mail is typed.
+  second account on a site you already use is offered as a new login, even before its e-mail is typed. ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
 - Saving a sign-up picks the account field (username, e-mail) as the username, not the nearest filled box before the
-  password (a name or phone field), and finds an e-mail box placed after the password.
+  password (a name or phone field), and finds an e-mail box placed after the password. ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
 - A login saved without a username is not saved twice: signing in with its password and an account name offers to
-  add the name to it ("Add the username to this login?").
+  add the name to it ("Add the username to this login?"). ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
 - After a sign-up redirects to another host of the same site (accounts.example.com to example.com), the save bar
-  still shows there.
+  still shows there. ([e7318b2](https://github.com/zoltrons/warren/commit/e7318b2e1c0c2784bd396041aa1b1be5690c3737))
 - Importing another manager's CSV keeps a password exactly as written: spaces at its start or end are no longer cut
-  off (which left a login that could not sign in).
+  off (which left a login that could not sign in). ([1a91640](https://github.com/zoltrons/warren/commit/1a91640076c18774da29c65d2299784c0e43d755))
 - Importing another manager's CSV keeps its cards and identities (NordPass, Proton Pass) as secure notes with their
-  columns as fields, the card number and code hidden, instead of leaving them out without a word.
+  columns as fields, the card number and code hidden, instead of leaving them out without a word. ([e662cd3](https://github.com/zoltrons/warren/commit/e662cd36e784e995fd9b543e885677c7c6dbd9d7))
 - Importing another manager's CSV keeps the columns Warren has no place for (a second username, a security
   question, an e-mail next to the username, ...) as custom fields, hidden when the column holds a secret, instead
-  of dropping them, and reads Dashlane's one-time code (`otpSecret`).
-- An archived item stays archived when a Bitwarden JSON export is imported again (it came back into the vault).
+  of dropping them, and reads Dashlane's one-time code (`otpSecret`). ([86b19cd](https://github.com/zoltrons/warren/commit/86b19cdbad3e69cd8ae5b42b8e19f33153a3a87e))
+- An archived item stays archived when a Bitwarden JSON export is imported again (it came back into the vault). ([de870d3](https://github.com/zoltrons/warren/commit/de870d336f70eeba169df4f4dfde54edd3f4abd6))
 - An import the server refuses over a note that is too long names the items with those notes, instead of only
-  "The model state is invalid".
+  "The model state is invalid". ([9a2be99](https://github.com/zoltrons/warren/commit/9a2be990beb0c78cc55c5fa8ccb179f51a14230a))
 
 ## 0.0.22 — 2026-11-21
 
