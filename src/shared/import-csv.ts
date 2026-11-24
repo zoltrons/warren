@@ -70,12 +70,11 @@ export function otherCsvToExport(text: string): Imported {
     // A note has no login to hold these: they become its fields (LastPass's http://sn only marks the note).
     if (!login) {
       const url = get(r, "url");
-      const before = [
+      out.unshift(
         ...(get(r, "username") ? [{ name: "username", value: get(r, "username"), type: 0 }] : []),
         ...(url && url !== "http://sn" ? [{ name: "url", value: url, type: 0 }] : []),
         ...(get(r, "totp") ? [{ name: "totp", value: get(r, "totp"), type: 1 }] : []),
-      ];
-      out.unshift(...before);
+      );
     }
     return out;
   };
