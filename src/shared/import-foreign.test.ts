@@ -142,6 +142,17 @@ test("1pux: logins, cards and identities map to their types; other categories ar
   await assert.rejects(readZipEntry(zip, () => true, 10), /too large/);
 });
 
+test("1pux: an SSH key item keeps its private key, public key and fingerprint", () => {
+  const key = { sshKey: { privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nk\n", metadata: { publicKey: "ssh-ed25519 AAAA", fingerprint: "SHA256:fp", keyType: "ed25519" } } };
+  const items = (fields: unknown[], categoryUuid = "114") => onePuxDataToExport({ accounts: [{ vaults: [{ items: [{ categoryUuid, overview: { title: "K" }, details: { sections: [{ fields }] } }] }] }] }).items[0] as Record<string, any>;
+  const k = items([{ id: "private_key", title: "private key", value: key }, { id: "c", title: "comment", value: { string: "laptop" } }]);
+  assert.equal(k.type, 5);
+  assert.deepEqual(k.sshKey, { privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nk\n", publicKey: "ssh-ed25519 AAAA", keyFingerprint: "SHA256:fp" });
+  assert.deepEqual(k.fields, [{ name: "comment", value: "laptop", type: 0 }]);
+  // Elsewhere, the private key is a hidden field rather than nothing.
+  assert.deepEqual(items([{ id: "k", title: "deploy key", value: key }], "003").fields, [{ name: "deploy key", value: "-----BEGIN OPENSSH PRIVATE KEY-----\nk\n", type: 1 }]);
+});
+
 /** A one-file ZIP with a deflated entry. */
 async function zipOf(name: string, data: Uint8Array): Promise<Uint8Array> {
   const packed = new Uint8Array(await new Response(new Blob([data as BlobPart]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());

@@ -1,6 +1,6 @@
 // 1Password's .1pux export: a ZIP whose export.data is JSON (accounts → vaults → items). The layout is 1Password's
 // published 1PUX format; nothing here is copied code. Logins and passwords become logins, credit cards cards,
-// identities identities; every other category (documents, licences, routers, ...) becomes a secure note whose
+// identities identities, SSH keys SSH keys; every other category (documents, licences, routers, ...) becomes a secure note whose
 // fields are custom fields. Concealed values stay hidden fields. Trashed items are left out. With more than one
 // vault, each vault becomes a folder.
 import type { Imported } from "./import-csv.ts";
@@ -27,6 +27,8 @@ function valueOf(v: unknown): { text: string; concealed: boolean; kind: string }
     const ad = o(raw);
     return { text: [ad.street, ad.city, ad.state, ad.zip, ad.country].map(s).filter(Boolean).join(", "), concealed: false, kind };
   }
+  // An SSH key's value is an object: its private key is the secret, the rest is read where the key item is built.
+  if (kind === "sshKey") return { text: s(o(raw).privateKey), concealed: true, kind };
   if (kind === "date" && typeof raw === "number") return { text: new Date(raw * 1000).toISOString().slice(0, 10), concealed: false, kind };
   return { text: s(raw), concealed: kind === "concealed" || kind === "totp", kind };
 }
@@ -125,6 +127,11 @@ function item(it: Json, folderId: string | null): Json {
         country: s(ad.country).toUpperCase() || null,
       },
     };
+  } else if (category === "114" && fields.some((f) => f.kind === "sshKey" && f.text)) {
+    const key = fields.find((f) => f.kind === "sshKey" && f.text)!;
+    taken.add(key);
+    const meta = o(o(o(key.raw).sshKey).metadata);
+    typed = { type: 5, sshKey: { privateKey: key.text, publicKey: s(meta.publicKey) || null, keyFingerprint: s(meta.fingerprint) || null } };
   } else typed = { type: 2, secureNote: { type: 0 } };
   const { loginExtra, ...rest } = typed as Json & { loginExtra?: unknown[] };
   const custom = fields.filter((f) => !taken.has(f) && f.text).map((f) => ({ name: f.title || f.id, value: f.text, type: f.concealed ? 1 : 0 }));
