@@ -40,7 +40,7 @@ import { PUSH_ALARM, pushUp, startPush, stopPush } from "./push.ts";
 import { REPROMPT_MESSAGE, repromptGranted, repromptPending } from "./reprompt.ts";
 import { coreAlive, coreCall } from "./core.ts";
 import { safeKdf } from "./kdf.ts";
-import { AUTOLOCK_ALARM, lockNow, ownerEpoch, touchAutoLock } from "./lock.ts";
+import { AUTOLOCK_ALARM, assertEpoch, lockEpoch, lockNow, ownerEpoch, touchAutoLock } from "./lock.ts";
 import {
   getLocal,
   getSession,
@@ -222,6 +222,14 @@ async function handle(req: Request): Promise<unknown> {
     case "takeFieldPick":
       await requireUnlocked();
       return takeFieldPick();
+    case "stashDraft": {
+      const epoch = lockEpoch();
+      await requireUnlocked();
+      await touchAutoLock(epoch); // typing in the editor is activity
+      // A worker started after a lock must never get the decrypted values (as startFieldPicker).
+      await coreCall({ op: "stashDraft", draft: req.draft }, () => assertEpoch(epoch));
+      return null;
+    }
     case "pageMatches":
     case "fill":
     case "readPageLogin":
@@ -478,7 +486,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, sender, reply: (r: Response<
   const run = () => handle(req).then((data) => reply({ ok: true, data } as Response<unknown>), (e: unknown) => reply(toError(e)));
   // Reads run immediately; anything that changes state or talks to the server is queued, and may
   // change what the badge and the context menu show (unlock, lock, sync, edits).
-  if (["getState", "loginRequests", "vaultList", "getItem", "totp", "generate", "aliasSettings", "generatorHistory", "downloadAttachment", "pageMatches", "takeNewLogin", "takeFieldPick", "readPageLogin", "sendList", "getSend", "passkeyPrompt", "repromptGranted"].includes(req.type)) void run();
+  if (["getState", "loginRequests", "vaultList", "getItem", "totp", "generate", "aliasSettings", "generatorHistory", "downloadAttachment", "pageMatches", "takeNewLogin", "takeFieldPick", "stashDraft", "readPageLogin", "sendList", "getSend", "passkeyPrompt", "repromptGranted"].includes(req.type)) void run();
   // Locking must not wait behind a slow server call: it ends whatever is running by killing the worker.
   else if (req.type === "lock") void run().then(updateTabUi);
   else queue = queue.then(run, run).then(updateTabUi);

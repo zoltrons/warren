@@ -35,6 +35,16 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- Closing the popup while editing an item no longer loses the edits: the next open shows the editor as you
+  left it, still unsaved, until the vault locks. For an item that asks for the master password again, only within
+  5 minutes of entering it; later the popup says the edits were discarded. Typing in the editor also counts as
+  activity for the auto-lock.
+- Changing or removing a hidden custom field keeps its old value in the password history ("name: value"), as the
+  official clients do.
+- A password or username taken from the generator into the editor ("Use this password") is kept in the generator
+  history, so it can be found again if the item is never saved.
+- A folder name typed on the Folders screen is no longer wiped by a failed save or a sync arriving meanwhile.
+- A field value made only of spaces (a password, say) is saved as typed instead of being dropped.
 - A password from "Use a strong password" is no longer lost when the sign-up page submits in a way Warren does not
   see: the save bar asks right after the password is filled, with the account name the form already holds (edit it
   in the bar), and stays for 30 minutes. The page's own submit later keeps that prompt and its account name. A

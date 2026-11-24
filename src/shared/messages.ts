@@ -180,6 +180,8 @@ export type Request =
   | { type: "startFieldPicker"; draft: string; panel: boolean }
   /** One-shot: the draft to return to after a pick, with the picked field if there is one. */
   | { type: "takeFieldPick" }
+  /** The popup's unsaved editor, kept in the worker until the popup opens again (takeFieldPick); `""` drops it. */
+  | { type: "stashDraft"; draft: string }
   /**
    * `tabId` / `origin`: the page the popup showed (PageMatches); the fill goes there or nowhere. `anyway`: the user
    * confirmed filling a login whose URIs do not match that page.
@@ -337,6 +339,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
   takeNewLogin: obj({ type: literal("takeNewLogin") }),
   startFieldPicker: obj({ type: literal("startFieldPicker"), draft: str, panel: bool }),
   takeFieldPick: obj({ type: literal("takeFieldPick") }),
+  stashDraft: obj({ type: literal("stashDraft"), draft: str }),
   fill: obj({ type: literal("fill"), id: str, tabId: num, origin: str, anyway: opt(bool) }),
   readPageLogin: obj({ type: literal("readPageLogin"), tabId: num, origin: str }),
 };

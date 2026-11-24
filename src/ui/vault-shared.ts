@@ -3,7 +3,7 @@ import { cardMark } from "./card-mark.ts";
 import { cachedFavicon, type Favicon, loadFavicon } from "./favicon.ts";
 import { clipboardDigest } from "../shared/digest.ts";
 import type { BreachResults, PageMatches, Response as Reply, SecurityReport, Settings, VaultList } from "../shared/messages.ts";
-import { type Child, h, send, t } from "./dom.ts";
+import { type Child, h, inPanel, send, t } from "./dom.ts";
 import { type GeneratorPick, resetGenerator } from "./generator.ts";
 import { icon, type IconName } from "./icons.ts";
 import { sitePrefill, returnFromPicker, startEdit } from "./vault-edit.ts";
@@ -163,6 +163,8 @@ export const st = {
   uriOpen: new Set<number>(),
   /** Editor: the generator is open for this field. */
   picking: undefined as GeneratorPick["field"] | undefined,
+  /** Folders: names typed and not saved yet, by folder id ("" the new one). A render (an error, a sync) keeps them. */
+  folderNames: new Map<string, string>(),
 };
 /**
  * The item view's TOTP ticker, and the re-check of an open flagged item's grant (it expires, and dies with the service
@@ -187,7 +189,7 @@ export function resetVault(): void {
     list: undefined, report: undefined, attentionHidden: false, page: undefined, loading: false, syncing: false, busy: false, error: undefined, route: { kind: "list" }, query: "",
     folder: "", item: undefined, reveal: new Set(), totp: undefined, confirmDelete: 0, draft: undefined,
     large: undefined, qr: undefined, pwned: undefined, memory: undefined, notesPreview: false,
-    toast: "", toastError: false, toastAction: undefined, toastLeaving: false, copied: "", sawList: false, uriOpen: new Set(), picking: undefined,
+    toast: "", toastError: false, toastAction: undefined, toastLeaving: false, copied: "", sawList: false, uriOpen: new Set(), picking: undefined, folderNames: new Map(),
   });
 }
 
@@ -492,10 +494,11 @@ export async function loadList(ctx: Ctx) {
   if (p?.ok) st.page = p.data;
   ctx.rerender();
   if (!r.ok) return;
-  // Opened by the inline menu's "Create account": go straight to the form.
-  const site = await send<string | null>({ type: "takeNewLogin" });
-  if (site.ok && site.data) startEdit(ctx, undefined, sitePrefill(site.data));
+  // Unsaved edits first: a "Create account" from the inline menu can be asked again, they cannot.
   await returnFromPicker(ctx);
+  // Opened by the inline menu's "Create account": go straight to the form (the request is taken either way).
+  const site = await send<string | null>({ type: "takeNewLogin" });
+  if (site.ok && site.data && st.route.kind !== "edit") startEdit(ctx, undefined, sitePrefill(site.data));
   await syncNow(ctx, false);
 }
 
@@ -545,8 +548,11 @@ export function open(ctx: Ctx, route: Route) {
   stopRepromptWatch();
   const from = st.route;
   Object.assign(st, { route, error: undefined, confirmDelete: 0, totp: undefined, totpFailed: undefined, large: undefined, qr: undefined, notesPreview: false, pwned: undefined, memory: undefined, reveal: new Set(), copied: "", uriOpen: new Set(), picking: undefined, repromptFor: undefined, itemFailedFor: undefined });
-  if (route.kind !== "edit") st.draft = undefined;
-  else if (from.kind !== "edit") st.draftAtOpen = JSON.stringify(st.draft);
+  if (route.kind !== "edit") {
+    // Saved or discarded: a draft the popup stashed must not come back (stashEdits).
+    if (from.kind === "edit" && !inPanel) void send({ type: "stashDraft", draft: "" });
+    st.draft = undefined;
+  } else if (from.kind !== "edit") st.draftAtOpen = JSON.stringify(st.draft);
   if (route.kind === "org") orgDraft.id = ""; // read from the item on the first render
   if (route.kind === "report") void loadReport(ctx);
   else st.report = undefined;

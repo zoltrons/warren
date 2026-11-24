@@ -32,9 +32,10 @@ export async function newItem(ctx: Ctx) {
 
 /** Back to the editor after "Pick from page", with the picked field added. */
 export async function returnFromPicker(ctx: Ctx) {
-  const r = await send<{ draft: string; field?: { name: string; fieldType: string; label?: string; autofillType?: string } } | null>({ type: "takeFieldPick" });
+  const r = await send<{ draft: string; field?: { name: string; fieldType: string; label?: string; autofillType?: string } } | { dropped: true } | null>({ type: "takeFieldPick" });
   if (!r.ok || !r.data) return;
-  const { draft, isNew } = JSON.parse(r.data.draft) as { draft: EditDraft; isNew: boolean };
+  if ("dropped" in r.data) return toast(ctx, t("draftDropped"));
+  const { draft, isNew, atOpen } = JSON.parse(r.data.draft) as { draft: EditDraft; isNew: boolean; atOpen?: string };
   const f = r.data.field;
   if (f) {
     const toggle = f.fieldType === "checkbox" || f.fieldType === "radio";
@@ -44,6 +45,8 @@ export async function returnFromPicker(ctx: Ctx) {
   }
   st.draft = draft;
   open(ctx, { kind: "edit", isNew });
+  // Compared with the item as it was before any edit, so leaving still asks before dropping what came back.
+  if (atOpen) st.draftAtOpen = atOpen;
   if (!f) return;
   // The editor opens on its Name box, at the top: take the user to the row they just added, ready for its value.
   ctx.afterRender(() => {
@@ -53,8 +56,20 @@ export async function returnFromPicker(ctx: Ctx) {
   });
 }
 
+const stashed = (isNew: boolean) => JSON.stringify({ draft: st.draft, isNew, atOpen: st.draftAtOpen });
+
+/**
+ * Popup only: it closes at any click outside it, so unsaved edits wait in the worker and come back at the next open
+ * (returnFromPicker). Not while a save is under way: that one finishes without the popup.
+ */
+export function stashEdits(): void {
+  const r = st.route;
+  if (r.kind !== "edit" || !st.draft || st.busy || JSON.stringify(st.draft) === st.draftAtOpen) return;
+  void send({ type: "stashDraft", draft: stashed(r.isNew) });
+}
+
 export async function pickFromPage(ctx: Ctx, isNew: boolean) {
-  const r = await send({ type: "startFieldPicker", draft: JSON.stringify({ draft: st.draft, isNew }), panel: inPanel });
+  const r = await send({ type: "startFieldPicker", draft: stashed(isNew), panel: inPanel });
   if (!r.ok) {
     st.error = r.error;
     return ctx.rerender();
@@ -103,7 +118,8 @@ export function buildItem(d: EditDraft): Json {
   for (const k of ["login", "secureNote", "card", "identity", "sshKey", "bankAccount", "driversLicense", "passport"]) if (k !== schema?.obj) delete item[k];
   if (schema) {
     const typed: Json = { ...obj(d.base[schema.obj]) };
-    for (const f of schema.fields) typed[f.key] = orNull(d.data[f.key] ?? "");
+    // Only empty is none: a password of spaces is still the password.
+    for (const f of schema.fields) typed[f.key] = d.data[f.key] || null;
     if (d.type === 1) {
       typed.uris = d.uris.map((u) => ({ uri: u.uri.trim(), match: u.match })).filter((u) => u.uri);
       typed.autofillOnPageLoad = d.autofillOnPageLoad;

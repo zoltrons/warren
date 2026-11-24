@@ -13,7 +13,7 @@ import { loadCommonWords } from "../shared/strength.ts";
 import { vaultScreen } from "./vault.ts";
 import { row, settingsTab } from "./settings.ts";
 import { closeEmergency, emergencyOpen, emergencyScreen } from "./emergency.ts";
-import { uriMatchLabel } from "./vault-edit.ts";
+import { stashEdits, uriMatchLabel } from "./vault-edit.ts";
 import { type Ctx, refreshPageMatches, reloadList, resetVault, setIconBase, toastEl, vaultRouteKey } from "./vault-shared.ts";
 
 // ---------- state ----------
@@ -831,6 +831,14 @@ document.addEventListener("keydown", (e) => {
 // Test-only hook for tools/smoke-biometric.mjs (no Vaultwarden needed); compiled out of releases.
 declare const E2E: boolean;
 if (typeof E2E !== "undefined" && E2E) Object.assign(globalThis, { warrenBiometric: { createBiometricCredential, getBiometricPrf, platformAuthenticatorAvailable } });
+
+// The popup closes at any click outside it: the editor's unsaved edits follow each change into the worker, and one
+// last time as it closes. The side panel stays open and keeps its own.
+if (!inPanel) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  for (const ev of ["input", "change", "click"]) document.addEventListener(ev, () => (clearTimeout(timer), (timer = setTimeout(stashEdits, 300))));
+  addEventListener("pagehide", stashEdits);
+}
 
 // Fetched up front so the side panel button can call sidePanel.open synchronously in its click.
 export let windowId: number | undefined;

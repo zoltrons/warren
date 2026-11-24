@@ -145,7 +145,7 @@ freed rather than zeroed in place.
 8b. **Every unlock path ends in the same place.** Master password, PIN and biometrics all go through
     `afterUnlock` (`src/background/account.ts`), which sets `unlocked` and arms the auto-lock, so no path
     can unlock without the lock timer. A lock always wins over work in flight (`src/background/lock.ts`): `lockNow`
-    bumps `lockEpoch` first, and every login, unlock, re-prompt grant, fill, save bar, field picker, passkey save and
+    bumps `lockEpoch` first, and every login, unlock, re-prompt grant, fill, save bar, field picker, editor draft, passkey save and
     vault cache write takes the epoch before its first await and checks it synchronously right before each write or
     send (`assertEpoch`, `checkEpoch`), so no lock slips in between; an unlock a lock overtook locks again instead.
     Account changes (login, SSO, logout, server change) bump a second counter, `ownerEpoch`: server credentials and
@@ -426,7 +426,8 @@ short on purpose. Either way the reason is given here or in Known gaps.
 - **Master password re-prompt (`reprompt`) is enforced, with one exception.** Items flagged in the web
   vault are gated in the service worker for the item view (and therefore editing), copy, TOTP, filling
   (popup, inline menu and "fill the first match"), passkey assertions (`passkeyDecision` in
-  `src/background/passkey.ts`) and attachment downloads — see `src/background/reprompt.ts`. Page-load
+  `src/background/passkey.ts`), attachment downloads and an unsaved editor brought back when the popup opens
+  again (`takeFieldPick` drops a flagged item's draft outside its grant) — see `src/background/reprompt.ts`. Page-load
   autofill skips flagged items entirely. **Not** covered: an org policy that forces the flag is only
   honored as far as Vaultwarden reports it on each cipher.
 - **`clipboardRead` and `unlimitedStorage`.** The clipboard is read only by the timed clear (invariant 13), to

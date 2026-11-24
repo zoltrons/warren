@@ -376,13 +376,14 @@ export async function refreshTotp(ctx: Ctx, id: string) {
 export const actionRow = (ic: IconName, title: string, onclick: () => void, danger = false) =>
   h("button", { type: "button", class: `row${danger ? " danger" : ""}`, disabled: st.busy, onclick }, icon(ic), h("div", { class: "body" }, h("span", { class: "title" }, title)));
 
-export async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: string, back = true, undo?: () => void) {
+/** Resolves to whether the worker took it. */
+export async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], done: string, back = true, undo?: () => void): Promise<boolean> {
   st.busy = true;
   ctx.rerender();
   const r = await send<VaultList>(req);
   st.busy = false;
   st.confirmDelete = 0;
-  if (!r.ok) return ((st.error = r.error), ctx.rerender());
+  if (!r.ok) return ((st.error = r.error), ctx.rerender(), false);
   st.list = r.data;
   st.item = undefined;
   await refreshPageMatches(); // e.g. a restored login of this site is back under "On this site"
@@ -397,6 +398,7 @@ export async function vaultAction(ctx: Ctx, req: Parameters<typeof send>[0], don
     ctx.rerender();
   }
   toast(ctx, t(done), undo ? { action: { label: t("undo"), run: undo } } : {});
+  return true;
 }
 
 /** Arm a destructive action on the first tap, run it on the second; disarms itself after a while. */

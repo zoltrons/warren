@@ -396,9 +396,11 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
   // A random string is drawn character by character (decode, live length); a passphrase or a name as text.
   const chunked = g.type === "password" || g.type === "pin";
   const copied = st.copied === "generated";
+  // Kept in the history once it leaves the generator: an editor closed before Save would lose it otherwise.
+  const keep = (value: string) => g.type !== "identity" && void send({ type: "generatorHistoryAdd", value });
   const copyGenerated = () => {
     void copy(ctx, gst.generated, "generated");
-    if (g.type !== "identity") void send({ type: "generatorHistoryAdd", value: gst.generated });
+    keep(gst.generated);
   };
   const output = h(
     "output",
@@ -760,9 +762,9 @@ export function generatorScreen(ctx: Ctx, pick?: GeneratorPick): HTMLElement {
       ? h(
           "div",
           { class: "editor-footer" },
-          h("button", { type: "button", class: "btn filled wide", onclick: () => pick.use(gst.generated) }, icon("check"), t(pick.field === "password" ? "usePassword" : "useUsername")),
+          h("button", { type: "button", class: "btn filled wide", onclick: () => (keep(gst.generated), pick.use(gst.generated)) }, icon("check"), t(pick.field === "password" ? "usePassword" : "useUsername")),
           // Named for what it is: custom fields fill page fields by id, name or label, so "Email" lands in an email box.
-          pick.addField ? h("button", { type: "button", class: "btn tonal wide", onclick: () => pick.addField!(customFieldName(gst.generated), gst.generated) }, icon("plus"), t("addAsCustomField", customFieldName(gst.generated))) : null,
+          pick.addField ? h("button", { type: "button", class: "btn tonal wide", onclick: () => (keep(gst.generated), pick.addField!(customFieldName(gst.generated), gst.generated)) }, icon("plus"), t("addAsCustomField", customFieldName(gst.generated))) : null,
         )
       : null,
     !pick && g.type === "identity" && gst.identity

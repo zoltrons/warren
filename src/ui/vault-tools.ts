@@ -193,19 +193,21 @@ export function reportView(ctx: Ctx): HTMLElement {
 }
 
 export function foldersView(ctx: Ctx): HTMLElement {
-  const names = new Map((st.list?.folders ?? []).map((f) => [f.id, f.name]));
-  const fresh = { name: "" };
+  const typed = st.folderNames;
+  const nameOf = (id: string) => typed.get(id) ?? st.list?.folders.find((f) => f.id === id)?.name ?? "";
+  // Saved: what the list now shows replaces what was typed. A failed save keeps it, with the error.
+  const save = (id: string, req: Parameters<typeof vaultAction>[1]) => void vaultAction(ctx, req, "saved", false).then((ok) => ok && typed.delete(id) && ctx.rerender());
   // One compact row per folder: the name edits in place, the actions sit next to it.
   const folderRow = (id: string) =>
     h(
       "div",
       { class: "row" },
       icon("folder"),
-      h("input", { class: "row-input", value: names.get(id) ?? "", "aria-label": t("folderName"), spellcheck: false, oninput: (e: Event) => names.set(id, (e.target as HTMLInputElement).value) }),
+      h("input", { class: "row-input", value: nameOf(id), "aria-label": t("folderName"), spellcheck: false, oninput: (e: Event) => typed.set(id, (e.target as HTMLInputElement).value) }),
       h(
         "span",
         { class: "field-actions" },
-        iconButton("edit", t("rename"), () => void vaultAction(ctx, { type: "saveFolder", id, name: names.get(id) ?? "" }, "saved", false), { class: "icon-btn sm" }),
+        iconButton("edit", t("rename"), () => save(id, { type: "saveFolder", id, name: nameOf(id) }), { class: "icon-btn sm" }),
         // Two clicks, like the other deletes that cannot be undone: the folder and every item's place in it go.
         st.confirmDelete && st.armed === `folder:${id}`
           ? iconButton("trash", t("tapAgainToDelete"), (e) => twoTap(ctx, () => leave(rowOf(e), () => void vaultAction(ctx, { type: "deleteFolder", id }, "deleted", false)), `folder:${id}`), { class: "icon-btn sm danger" })
@@ -227,11 +229,12 @@ export function foldersView(ctx: Ctx): HTMLElement {
           class: "row",
           onsubmit: (e: Event) => {
             e.preventDefault();
-            if (fresh.name.trim()) void vaultAction(ctx, { type: "saveFolder", name: fresh.name.trim() }, "saved", false);
+            const name = nameOf("").trim();
+            if (name) save("", { type: "saveFolder", name });
           },
         },
         icon("plus"),
-        h("input", { class: "row-input", placeholder: t("newFolder"), "aria-label": t("newFolder"), oninput: (e: Event) => (fresh.name = (e.target as HTMLInputElement).value) }),
+        h("input", { class: "row-input", value: nameOf(""), placeholder: t("newFolder"), "aria-label": t("newFolder"), oninput: (e: Event) => typed.set("", (e.target as HTMLInputElement).value) }),
         h("button", { type: "submit", class: "btn tonal small" }, t("add")),
       ),
     ),

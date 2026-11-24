@@ -6,6 +6,7 @@ import { UserError } from "./account.ts";
 import { coreCall } from "./core.ts";
 import { analyzeFocus } from "./engine.ts";
 import { assertEpoch, lockEpoch } from "./lock.ts";
+import { repromptPending } from "./reprompt.ts";
 import type { CollectedPageDetails } from "../shared/messages.ts";
 import { getSession, updateSession } from "./store.ts";
 
@@ -17,10 +18,8 @@ export interface PickedField {
   autofillType?: string;
 }
 
-interface FieldPick {
-  draft: string;
-  field?: PickedField;
-}
+/** `dropped`: there was a draft, of a flagged item outside its re-prompt grant; the popup says it is gone. */
+type FieldPick = { draft: string; field?: PickedField } | { dropped: true };
 
 const inFrames = (tabId: number, type: "pickerStart" | "pickerStop") => chrome.tabs.sendMessage(tabId, { type });
 
@@ -60,12 +59,20 @@ export async function finishFieldPicker(tabId: number, pick: { name: string; fie
   else await chrome.action.openPopup().catch(() => undefined); // if refused, the draft waits for the next open
 }
 
-/** One-shot, whenever the popup opens: the draft to go back to. Opening it also ends a picker still running. */
+/**
+ * One-shot, whenever the popup opens: the draft to go back to, after a pick or a popup closed with unsaved edits
+ * (stashDraft). Opening it also ends a picker still running.
+ */
 export async function takeFieldPick(): Promise<FieldPick | null> {
   const { picker } = await getSession();
-  if (!picker) return null;
-  await updateSession({ picker: undefined });
-  if (!picker.done) await inFrames(picker.tabId, "pickerStop").catch(() => undefined);
+  if (picker) {
+    await updateSession({ picker: undefined });
+    if (!picker.done) await inFrames(picker.tabId, "pickerStop").catch(() => undefined);
+  }
   const draft = await coreCall<string | null>({ op: "takeDraft" });
-  return draft ? { draft, field: picker.field } : null;
+  if (!draft) return null;
+  // A flagged item's secrets come back only within its re-prompt grant: an editor closed long ago, or a clone of a
+  // flagged item (no id, so never granted), is dropped rather than shown without asking.
+  if (repromptPending((JSON.parse(draft) as { draft?: { base?: Record<string, unknown> } }).draft?.base)) return { dropped: true };
+  return { draft, field: picker?.field };
 }

@@ -214,7 +214,10 @@ await step("card shown with masked number and editable", async () => {
   await back();
 });
 
+const historyLength = () => sw.evaluate(async () => ((await chrome.storage.local.get("genHistory")).genHistory ?? []).length);
+
 await step("create login in popup; server copy decrypts independently", async () => {
+  const history = await historyLength();
   await page.getByRole("button", { name: "New item" }).click();
   await fill("Name", "Example");
   await page.getByRole("button", { name: "Generate username" }).click();
@@ -231,6 +234,8 @@ await step("create login in popup; server copy decrypts independently", async ()
   assert.equal((await page.getByLabel("Password", { exact: true }).inputValue()).length, 30);
   assert.equal(await page.getByLabel("Username", { exact: true }).inputValue(), "alice");
   assert.equal(await page.getByLabel("Name", { exact: true }).inputValue(), "Example");
+  // What the editor took from the generator is in its history, should the item never be saved.
+  await poll("used values in the generator history", async () => (await historyLength()) === history + 2);
   await page.getByRole("button", { name: "Generate password" }).click();
   await length.fill("20"); // later steps expect the default length
   await page.waitForFunction(() => document.querySelector("output")?.textContent?.length === 20);
@@ -281,6 +286,21 @@ await step("edit password keeps history; a stale edit is refused and reported as
   await page.getByRole("status").filter({ hasText: "Unsaved changes" }).waitFor();
   await page.getByRole("button", { name: "Cancel" }).click();
   await back();
+});
+
+await step("a popup closed on unsaved edits opens on them again; discarded, they stay gone", async () => {
+  await page.getByRole("button", { name: "New item" }).click();
+  await fill("Name", "Half-typed");
+  await open(); // the popup closes at once: its last edit goes as it closes (pagehide)
+  assert.equal(await page.getByLabel("Name", { exact: true }).inputValue(), "Half-typed");
+  // Still unsaved: Cancel warns first, as it would have before the popup closed.
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("status").filter({ hasText: "Unsaved changes" }).waitFor();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("searchbox", { name: "Search vault" }).waitFor();
+  await open();
+  await page.getByRole("searchbox", { name: "Search vault" }).waitFor();
+  assert.equal(await page.getByLabel("Name", { exact: true }).count(), 0, "a discarded draft came back");
 });
 
 await step("external change arrives with sync", async () => {
@@ -572,6 +592,20 @@ await step("editor: new card with a hidden custom field; clone; favorite", async
   assert.ok(c?.key && copy?.key && c.key !== copy.key, "new item and clone each carry their own key");
 });
 
+await step("editor: a hidden field's old value goes to the password history when it changes", async () => {
+  await rows().filter({ hasText: "Work Amex (copy)" }).click();
+  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByLabel("Value to fill").fill("1111");
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("heading", { name: "Work Amex (copy)" }).waitFor();
+  const s = await apiSession(vaultUser);
+  const c = (await s.ciphers()).find((x) => x.name === "Work Amex (copy)");
+  s.done();
+  assert.equal(c?.fields?.[0]?.value, "1111");
+  assert.equal(c?.passwordHistory?.[0]?.password, "PIN: 9876");
+  await back();
+});
+
 await step("folders: create, rename, delete (names checked on the server)", async () => {
   const names = () => page.locator("input[aria-label=\"Folder name\"]");
   const index = (name: string) => page.evaluate((n) => [...document.querySelectorAll<HTMLInputElement>("input[aria-label=\"Folder name\"]")].findIndex((i) => i.value === n), name);
@@ -588,13 +622,35 @@ await step("folders: create, rename, delete (names checked on the server)", asyn
   assert.ok((await serverFolders()).includes("Banking"));
   const i = await index("Banking");
   await names().nth(i).fill("Bank");
+  // The typed name stays in the box while it saves: the end of the save is its "Saved" (the add's one gone first).
+  await page.locator(".toast").waitFor({ state: "detached" });
   await page.getByRole("button", { name: "Rename" }).nth(i).click();
-  await page.waitForFunction(() => [...document.querySelectorAll<HTMLInputElement>("input[aria-label=\"Folder name\"]")].some((i) => i.value === "Bank"));
+  await page.getByRole("status").filter({ hasText: "Saved" }).waitFor();
   assert.ok((await serverFolders()).includes("Bank"));
   await page.getByRole("button", { name: "Delete folder" }).nth(await index("Bank")).click();
   await page.getByRole("button", { name: "Click again to delete" }).click(); // a folder delete takes two clicks
   await page.waitForFunction(() => ![...document.querySelectorAll<HTMLInputElement>("input[aria-label=\"Folder name\"]")].some((i) => i.value === "Bank"));
   assert.ok(!(await serverFolders()).includes("Bank"));
+  // A save the server refuses keeps what was typed, in the row and in the new-folder box, next to the error.
+  await sw.evaluate(() => {
+    const real = globalThis.fetch;
+    (globalThis as { realFetch?: typeof fetch }).realFetch = real;
+    globalThis.fetch = (async (u: RequestInfo | URL, init?: RequestInit) =>
+      String(u).includes("/api/folders") && (init?.method === "PUT" || init?.method === "POST") ? new Response("{}", { status: 500 }) : real(u, init)) as typeof fetch;
+  });
+  try {
+    await names().nth(await index("Work")).fill("Work renamed");
+    await page.getByLabel("New folder").fill("Unsaved");
+    await page.getByRole("button", { name: "Rename" }).nth(await index("Work renamed")).click();
+    await page.getByRole("alert").waitFor();
+    assert.ok((await index("Work renamed")) >= 0, "the typed name was replaced after the failed rename");
+    assert.equal(await page.getByLabel("New folder").inputValue(), "Unsaved");
+  } finally {
+    await sw.evaluate(() => void (globalThis.fetch = (globalThis as { realFetch?: typeof fetch }).realFetch!));
+  }
+  assert.ok((await serverFolders()).includes("Work"));
+  await names().nth(await index("Work renamed")).fill("Work");
+  await page.getByLabel("New folder").fill("");
   await page.getByRole("button", { name: "Back" }).click();
 });
 
@@ -924,16 +980,17 @@ await step("generator: an alias API key survives closing the popup and a lock, e
   await page.waitForFunction(() => /^[a-z0-9]{8}@catch\.example$/.test(document.querySelector("output")?.textContent ?? ""));
 });
 
-await step("generator history: copied values listed, encrypted at rest, clearable", async () => {
+await step("generator history: copied and used values listed, encrypted at rest, clearable", async () => {
+  const before = await historyLength();
   const value = await page.locator("output").innerText();
   await page.getByRole("button", { name: "Copy Generated value" }).click();
-  await poll("history entry", () => sw.evaluate(async () => ((await chrome.storage.local.get("genHistory")).genHistory ?? []).length === 1));
+  await poll("history entry", async () => (await historyLength()) === before + 1);
   const raw = await sw.evaluate(async () => JSON.stringify(await chrome.storage.local.get("genHistory")));
   assert.ok(!raw.includes(value) && raw.includes('"2.'), raw);
   await page.getByRole("button", { name: "Generator history" }).click();
   await page.getByRole("listitem").filter({ hasText: value }).waitFor();
   await page.getByRole("button", { name: "Clear", exact: true }).click();
-  await page.getByText("Copied values show up here").waitFor();
+  await page.getByText("Copied and used values show up here").waitFor();
   assert.equal(await sw.evaluate(async () => Object.keys(await chrome.storage.local.get("genHistory")).length), 0);
   await page.getByRole("button", { name: "Back" }).click();
 });

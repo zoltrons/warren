@@ -21,6 +21,7 @@ let release: (() => void) | undefined;
 const held = () => new Promise<void>((r) => (release = r));
 const ops: string[] = [];
 let offscreen = true;
+let stashed: string | null = null;
 const noop = async () => undefined;
 (globalThis as { chrome?: unknown }).chrome = {
   storage: { session: area(session), local: area({}) },
@@ -39,6 +40,7 @@ const noop = async () => undefined;
     sendMessage: async (m: { req?: { op: string } }) => {
       if (m.req) ops.push(m.req.op);
       if (m.req?.op === "stashDraft") await held();
+      if (m.req?.op === "takeDraft") return { ok: true, value: stashed };
       return { ok: true, value: null };
     },
   },
@@ -49,8 +51,9 @@ globalThis.fetch = (async () => {
   return new Response(readFileSync(wasm), { headers: { "content-type": "application/wasm" } });
 }) as typeof fetch;
 
-const { finishFieldPicker, startFieldPicker } = await import("./picker.ts");
+const { finishFieldPicker, startFieldPicker, takeFieldPick } = await import("./picker.ts");
 const { lockNow } = await import("./lock.ts");
+const { grantReprompt } = await import("./reprompt.ts");
 
 const picker = () => (session.session as { picker?: unknown } | undefined)?.picker;
 async function until(ready: () => boolean) {
@@ -78,4 +81,19 @@ test("a lock while the pick is analyzed: no picked field is stored for the popup
   release!();
   await finishing;
   assert.equal(picker(), undefined);
+});
+
+test("a draft of a flagged item comes back only within its re-prompt grant", async () => {
+  session.session = { unlocked: true };
+  const draft = (base: Record<string, unknown>) => (stashed = JSON.stringify({ draft: { base }, isNew: !base.id }));
+  draft({ id: "plain", reprompt: 0 });
+  assert.equal((await takeFieldPick())?.draft, stashed);
+  draft({ id: "flagged", reprompt: 1 });
+  assert.deepEqual(await takeFieldPick(), { dropped: true }, "shown without the master password");
+  grantReprompt("flagged");
+  assert.equal((await takeFieldPick())?.draft, stashed);
+  draft({ reprompt: 1 }); // a clone of a flagged item: no id, no grant
+  assert.deepEqual(await takeFieldPick(), { dropped: true });
+  stashed = null;
+  assert.equal(await takeFieldPick(), null, "no draft, nothing to say");
 });

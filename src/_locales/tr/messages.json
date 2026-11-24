@@ -1281,7 +1281,7 @@
     "message": "Üretici geçmişi"
   },
   "generatorHistoryEmpty": {
-    "message": "Kopyalanan değerler burada görünür"
+    "message": "Kopyalanan ve kullanılan değerler burada görünür"
   },
   "pin": {
     "message": "PIN"
@@ -1446,6 +1446,9 @@
   },
   "itemActions": {
     "message": "Öğe eylemleri"
+  },
+  "draftDropped": {
+    "message": "Ana parolayı yeniden soran bir kaydın kaydedilmemiş değişiklikleri atıldı."
   },
   "unsavedChanges": {
     "message": "Kaydedilmemiş değişiklikler var. Korumak için kaydet."

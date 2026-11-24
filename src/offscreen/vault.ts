@@ -218,8 +218,8 @@ export function emergencyItem(grantId: string, id: string): Json {
 }
 
 /**
- * Encrypts an edited/new personal Login or Note. Mirrors the official clients: a changed password is
- * pushed to passwordHistory (max 5), and edits carry lastKnownRevisionDate so the server refuses
+ * Encrypts an edited/new personal Login or Note. Mirrors the official clients: a changed password, and a hidden field
+ * changed or removed, is pushed to passwordHistory (max 5), and edits carry lastKnownRevisionDate so the server refuses
  * to overwrite a newer copy.
  */
 export function prepareSave(input: Json): Json {
@@ -232,14 +232,25 @@ export function prepareSave(input: Json): Json {
   if (existing) item.organizationId = ci(existing, "organizationId") ?? null;
   else if (ci(item, "organizationId") && !collections.some((c) => c.organizationId === ci(item, "organizationId") && !c.readOnly))
     throw new Error("You cannot add items to this organization");
-  if (existing && Number(item.type) === 1) {
+  if (existing) {
+    const now = new Date().toISOString();
+    const old: string[] = [];
     const oldPw = s(ci(o(ci(existing, "login")), "password"));
     const login = o(item.login);
-    if (login && oldPw && oldPw !== s(login.password)) {
-      const now = new Date().toISOString();
-      const history = Array.isArray(ci(existing, "passwordHistory")) ? (ci(existing, "passwordHistory") as unknown[]) : [];
-      item.passwordHistory = [{ password: oldPw, lastUsedDate: now }, ...history].slice(0, 5);
+    if (Number(item.type) === 1 && login && oldPw && oldPw !== s(login.password)) {
+      old.push(oldPw);
       login.passwordRevisionDate = now;
+    }
+    // A hidden field whose value changed or that went keeps its old value too, as "name: value" (official clients).
+    const hidden = (x: Json) => (Array.isArray(ci(x, "fields")) ? (ci(x, "fields") as Json[]) : []).filter((f) => Number(ci(f, "type")) === 1 && s(ci(f, "name")));
+    const kept = hidden(item);
+    for (const f of hidden(existing)) {
+      const [name, value] = [s(ci(f, "name")), s(ci(f, "value"))];
+      if (value && !kept.some((g) => s(ci(g, "name")) === name && s(ci(g, "value")) === value)) old.push(`${name}: ${value}`);
+    }
+    if (old.length) {
+      const history = Array.isArray(ci(existing, "passwordHistory")) ? (ci(existing, "passwordHistory") as unknown[]) : [];
+      item.passwordHistory = [...old.map((password) => ({ password, lastUsedDate: now })), ...history].slice(0, 5);
     }
   }
   // A new item (also a clone or a passkey's new login) gets its own key, which binds its URIs to it (cipher.rs).
@@ -384,7 +395,7 @@ export function fillData(id: string): { username: string; password: string; totp
   return { username: s(ci(login, "username")), password: s(ci(login, "password")), ...(secret ? { totp: JSON.parse(core.totp(secret, Date.now())).code as string } : {}) };
 }
 
-/** An unsaved item editor, while the user picks a field on the page (background/picker.ts). */
+/** An unsaved item editor: while the user picks a field on the page (background/picker.ts), or after the popup closed on it. */
 let stashedDraft: string | undefined;
 
 export function stashDraft(draft: string): void {

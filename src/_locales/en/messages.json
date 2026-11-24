@@ -1281,7 +1281,7 @@
     "message": "Generator history"
   },
   "generatorHistoryEmpty": {
-    "message": "Copied values show up here"
+    "message": "Copied and used values show up here"
   },
   "pin": {
     "message": "PIN"
@@ -1446,6 +1446,9 @@
   },
   "itemActions": {
     "message": "Item actions"
+  },
+  "draftDropped": {
+    "message": "Unsaved edits of an item that asks for the master password again were discarded."
   },
   "unsavedChanges": {
     "message": "Unsaved changes. Save to keep them."
