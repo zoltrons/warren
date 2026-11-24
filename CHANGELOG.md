@@ -51,6 +51,9 @@ All notable changes to Warren. Versions match the `v*` release tags.
   off (which left a login that could not sign in).
 - Importing another manager's CSV reports the cards and identities it cannot carry as skipped items, instead of
   leaving them out without a word.
+- Importing another manager's CSV keeps the columns Warren has no place for (a second username, a security
+  question, an e-mail next to the username, ...) as custom fields instead of dropping them, and reads Dashlane's
+  one-time code (`otpSecret`).
 - An archived item stays archived when a Bitwarden JSON export is imported again (it came back into the vault).
 - An import the server refuses over a note that is too long names the items with those notes, instead of only
   "The model state is invalid".

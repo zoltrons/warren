@@ -56,3 +56,15 @@ test("a password keeps the spaces at its ends; other columns are trimmed", () =>
   const r = csvToExport('name,url,username,password\n A ,https://a.test, u ,"  p w "\n');
   assert.deepEqual([r.items[0]!.name, login(r.items[0]!).username, login(r.items[0]!).password], ["A", "u", "  p w "]);
 });
+
+test("columns without a place of their own become custom fields; bookkeeping columns do not", () => {
+  const r = csvToExport("title,url,username,username2,email,password,note,otpSecret,category,guid,timeCreated\nX,https://x.test,me,alt,me@x.test,pw,,JBSWY3DP,Work,{1},1700\n");
+  const x = r.items[0]!;
+  assert.equal(login(x).totp, "JBSWY3DP", "Dashlane's otpSecret");
+  assert.deepEqual(x.fields, [
+    { name: "email", value: "me@x.test", type: 0 },
+    { name: "username2", value: "alt", type: 0 },
+  ]);
+  // The e-mail standing in for a missing username is not repeated as a field.
+  assert.deepEqual(csvToExport("name,url,email,username,password\nY,https://y.test,a@y.test,,pw\n").items[0]!.fields, []);
+});
