@@ -50,7 +50,8 @@ function readLogin(form?: HTMLFormElement | null): PageLogin | null {
   const username = user?.value.trim() ?? "";
   // Outside a form any box on the page is in `texts` (a search, a newsletter): only the ones that name an account.
   const others = [...texts.filter(accountField), ...(pass.form ? texts : [])].map((i) => i.value.trim()).filter((v) => v !== username && v.length <= MAX_PAGE_STRING);
-  const accountBox = inputs.some((i) => TEXTISH.includes(i.type) && accountField(i) && (!pass.form || i.form === pass.form));
+  // Outside a form, only a box before the password: a newsletter e-mail in the footer is no sign-up's account.
+  const accountBox = inputs.some((i) => TEXTISH.includes(i.type) && accountField(i) && (pass.form ? i.form === pass.form : inputs.indexOf(i) < at));
   return { url: location.href, username, password: pass.value, usernames: [...new Set(others)].slice(0, MAX_USERNAME_CHOICES), accountBox };
 }
 

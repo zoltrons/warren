@@ -368,11 +368,26 @@ test("Use a private username: a sign-up's username field gets one from the gener
     session["inline:1"] = { frameId: 3, url: "https://evil.test/signup", kind: "login", nonce: "u2", signup: true, account: "email" };
     assert.equal((await list("u2")).username, undefined);
     await assert.rejects(handleFrame(parseFrameRequest({ type: "inlineUsername", nonce: "u2" }), 1), /no private username/);
+    // With the generator's e-mail set, an e-mail box gets a plus address of it; an address the generator refuses, no row.
+    const prefs = (email: string) => {
+      local.private = "sealed";
+      const generator = { options: { usernameType: "word" }, email, domain: "", wordlist: 0 };
+      return JSON.stringify({ neverSave: [], blocked: [], lastUsed: {}, opened: {}, generator });
+    };
+    let stored = prefs("me@mail.test");
+    const inner = c.runtime.sendMessage;
+    c.runtime.sendMessage = async (m) => (m.req.op === "decryptText" ? { ok: true, value: [stored] } : inner(m));
+    session["inline:1"] = { frameId: 3, url: "https://evil.test/signup", kind: "login", nonce: "u4", signup: true, account: "email" };
+    assert.equal((await list("u4")).username, "quiet-otter");
+    assert.deepEqual([asked.at(-1)?.usernameType, asked.at(-1)?.email], ["plus", "me@mail.test"]);
+    stored = prefs("me@");
+    assert.equal((await list("u4")).username, undefined);
     // Turned off in Settings.
     local.settings = { signupUsernames: "off" };
     session["inline:1"] = { frameId: 3, url: "https://evil.test/signup", kind: "login", nonce: "u3", signup: true, account: "username" };
     assert.equal((await list("u3")).username, undefined);
   } finally {
+    delete local.private; // a failed assert above must not leave later tests an undecryptable record
     delete local.settings;
     c.runtime.sendMessage = worker;
     delete c.scripting;
