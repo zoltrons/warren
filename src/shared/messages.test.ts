@@ -13,7 +13,8 @@ test("core requests: a KDF reaches the worker only as values its u8/u32 paramete
 
 test("page requests: a submitted login is size-capped", () => {
   const ok = parsePageRequest({ type: "loginSubmitted", username: "u", password: "p" });
-  assert.deepEqual(ok, { type: "loginSubmitted", username: "u", password: "p" });
+  assert.deepEqual(ok, { type: "loginSubmitted", username: "u", password: "p", usernames: undefined });
+  throws(() => parsePageRequest({ type: "loginSubmitted", username: "u", password: "p", usernames: ["x".repeat(301)] }), /too long/);
   throws(() => parsePageRequest({ type: "loginSubmitted", username: "u", password: "x".repeat(9000) }), /too long/);
   throws(() => parsePageRequest({ type: "loginSubmitted", username: "x".repeat(9000), password: "p" }), /too long/);
 });

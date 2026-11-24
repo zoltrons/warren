@@ -650,6 +650,32 @@ await step("save bar: a submitted new login is offered and saved", async () => {
   assert.deepEqual([c?.login.password, c?.login.uris[0].uri], ["bar-pass", SITE]);
 });
 
+await step("Use a strong password: the menu shows it, the save bar asks at once, and the e-mail is the username", async () => {
+  await loginPage.goto(`${SITE}/signup-spa`);
+  await loginPage.fill("#name", "Gen Person");
+  await loginPage.fill("#em", "gen-user@signup.test");
+  await loginPage.click("#p");
+  const menu = await frameOf(loginPage, "menu.html");
+  const row = menu.getByRole("option", { name: "Use a strong password" });
+  const shown = (await row.locator(".sub").textContent()) ?? "";
+  assert.ok(shown.length >= 12, `the row shows the password (${shown})`);
+  await row.click();
+  await loginPage.waitForFunction(() => (document.getElementById("p") as HTMLInputElement).value !== "");
+  assert.deepEqual([await loginPage.inputValue("#p"), await loginPage.inputValue("#rep")], [shown, shown], "the shown password, in both boxes");
+  // No submit at all ("Get started" is a div): the bar is already there.
+  const bar = await frameOf(loginPage, "bar.html");
+  await bar.getByText("Save the generated password in Warren?").waitFor();
+  assert.equal(await bar.locator("input").inputValue(), "gen-user@signup.test", "the account field, not the name next to the password");
+  // No <form>: a box that does not name an account (here the name) is no username choice.
+  assert.equal(await bar.locator("datalist option").count(), 0);
+  await bar.getByRole("button", { name: "Save", exact: true }).click();
+  await loginPage.waitForFunction(() => !document.querySelector("warren-bar"));
+  const s = await apiSession(vaultUser);
+  const c = (await s.ciphers()).find((x) => x.login?.username === "gen-user@signup.test" && !x.deletedDate);
+  s.done();
+  assert.equal(c?.login.password, shown);
+});
+
 await step("save bar: a changed password is offered as an update and keeps history", async () => {
   await loginPage.goto(`${SITE}/login`);
   await loginPage.fill("#u", "bar-user");

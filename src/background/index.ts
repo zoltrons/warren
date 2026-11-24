@@ -342,6 +342,7 @@ async function handle(req: Request): Promise<unknown> {
         autosubmit: req.autosubmit ?? current.autosubmit,
         inlineMenuCards: req.inlineMenuCards ?? current.inlineMenuCards,
         inlineMenuIdentities: req.inlineMenuIdentities ?? current.inlineMenuIdentities,
+        signupUsernames: req.signupUsernames ?? current.signupUsernames,
         contextMenu: req.contextMenu ?? current.contextMenu,
         showCardsOnTab: req.showCardsOnTab ?? current.showCardsOnTab,
         showIdentitiesOnTab: req.showIdentitiesOnTab ?? current.showIdentitiesOnTab,

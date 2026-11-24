@@ -1,17 +1,17 @@
 // Inline menu and save/update bar. The content script reports focused fields and submitted logins;
 // menu.html / bar.html (extension pages framed into the site) ask for data and act. Matching always
 // uses the URL of the frame the field is in, as reported by the browser (sender.url).
-import type { FillResult } from "../autofill/types.ts";
-import type { BarInfo, FieldKind, FrameRequest, MenuData, MenuItem, PageRequest, VaultItem } from "../shared/messages.ts";
-import { httpUrl } from "../shared/url.ts";
+import type { FillResult, PageLogin } from "../autofill/types.ts";
+import { type BarInfo, type FieldKind, type FrameRequest, type MenuData, type MenuItem, type PageRequest, parsePageRequest, type VaultItem } from "../shared/messages.ts";
+import { emailAt, httpUrl } from "../shared/url.ts";
 import { type PasswordConstraints, ruleOptions } from "../shared/password-rules.ts";
 import { coreCall } from "./core.ts";
 import { UserError, msg } from "./errors.ts";
-import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageDeadline } from "./engine.ts";
+import { analyzeFocus, customFieldsOf, fillActiveField, fillInFrames, pageCall, pageDeadline } from "./engine.ts";
 import { lockEpoch, touchAutoLock } from "./lock.ts";
 import { pageLoadFill, rememberLockedFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
-import { conditionalReady, openConditional, rememberFill } from "./passkey.ts";
+import { conditionalReady, openConditional, publicSuffixes, rememberFill } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
 import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/alias.ts";
 import { generateAlias, getAliasSettings } from "./alias.ts";
@@ -29,6 +29,8 @@ export interface InlineContext {
   signup: boolean;
   /** The form's password fields: `passwordrules` and length limits, for "Use a strong password". */
   password?: PasswordConstraints;
+  /** The field asks for the account: an e-mail box, or a username one (the engine's designation). */
+  account?: "email" | "username";
 }
 
 export interface PendingSave {
@@ -44,11 +46,21 @@ export interface PendingSave {
   choices?: { id: string; name: string; sub: string; revisionDate?: number }[];
   /** Secret handed to the bar frame, so a bar the page frames itself cannot save (see showBar). */
   token: string;
+  /** From "Use a strong password": prompted as soon as it is filled, and kept longer, as no one typed it anywhere. */
+  generated?: boolean;
+  /** Add: account names the bar offers for the username (BarInfo.usernames). */
+  usernames?: string[];
+  /** Update `itemId`, a login saved without a username: the save sets the (editable) username too. */
+  addUsername?: boolean;
+  /** Made at a fill, before the site took the password: shown only once a submit makes it again (showBar skips it). */
+  untilSubmit?: boolean;
   /** epoch ms */
   expiresAt: number;
 }
 
 const SAVE_TTL_MS = 5 * 60_000;
+/** A generated password exists nowhere else but the generator history: a slow sign-up (e-mail check, captcha) keeps its prompt. */
+const GENERATED_TTL_MS = 30 * 60_000;
 /** Logins the update bar offers to choose from. */
 const MAX_CHOICES = 10;
 
@@ -103,11 +115,12 @@ export async function handlePage(req: PageRequest, sender: chrome.runtime.Messag
       async () => {
         const field = await analyzeFocus(req.details);
         if (!field.kind) return { rows: 0 };
-        return { kind: field.kind, ...(await onFocus(field.kind, req.nonce, field.signup, field.password, url, tabId, sender.frameId!)) };
+        const account = field.autofillType === "Email" ? "email" : field.autofillType === "Username" ? "username" : undefined;
+        return { kind: field.kind, ...(await onFocus(field.kind, req.nonce, field.signup, field.password, account, url, tabId, sender.frameId!)) };
       },
       { rows: 0 },
     );
-  await loginSubmitted(tabId, url, req.username, req.password);
+  await loginSubmitted(tabId, url, req.username, req.password, { usernames: req.usernames ?? [] });
   return null;
 }
 
@@ -160,9 +173,25 @@ async function generateFor(ctx: InlineContext, options: GeneratorPrefs["options"
 const offerGenerate = (ctx: InlineContext) => ctx.kind === "login" && ctx.signup;
 const offerAlias = async (ctx: InlineContext) => ctx.kind === "login" && ctx.signup && !!(await aliasVendor());
 
-async function onFocus(kind: FieldKind, nonce: string, signup: boolean, password: PasswordConstraints | undefined, url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
+/**
+ * "Use a private username": the username generator's own settings, for a registration form's account field when the
+ * user picked private sign-up usernames. A plain word is no e-mail: an e-mail box gets a plus address of the
+ * generator's e-mail instead, or no row. An alias service has its own row (offerAlias).
+ */
+async function privateUsername(ctx: InlineContext): Promise<Record<string, unknown> | undefined> {
+  if (ctx.kind !== "login" || !ctx.signup || !ctx.account || (await getSettings()).signupUsernames !== "private") return undefined;
+  const { options, email, domain } = await generatorPrefs();
+  const chosen = String(options.usernameType || "word");
+  const usernameType = ctx.account === "email" && chosen === "word" ? "plus" : chosen;
+  if (!["word", "plus", "subdomain", "catchall"].includes(usernameType)) return undefined;
+  // The generator's own rules, so the row onFocus counts is the row inlineList can fill.
+  if ((usernameType === "catchall" && !domain.trim()) || ((usernameType === "plus" || usernameType === "subdomain") && emailAt(email.trim()) === undefined)) return undefined;
+  return { type: "username", usernameType, email, domain, capitalize: options.capitalize === true, includeNumber: options.includeNumber === true };
+}
+
+async function onFocus(kind: FieldKind, nonce: string, signup: boolean, password: PasswordConstraints | undefined, account: InlineContext["account"], url: string, tabId: number, frameId: number): Promise<{ rows: number; footer?: boolean }> {
   if (!(await getSettings()).inlineMenu || !(await getLocal("account"))) return { rows: 0 };
-  const ctx: InlineContext = { frameId, url, kind, nonce, signup, ...(password ? { password } : {}) };
+  const ctx: InlineContext = { frameId, url, kind, nonce, signup, ...(password ? { password } : {}), ...(account ? { account } : {}) };
   await setTabState("inline", tabId, ctx);
   if (!(await isUnlocked())) return { rows: 1 }; // "Unlock to fill"
   if (await isBlocked(url, true)) return { rows: 0 };
@@ -170,11 +199,33 @@ async function onFocus(kind: FieldKind, nonce: string, signup: boolean, password
   // A website waiting on a conditional passkey request gets one extra row for it.
   const passkey = kind === "login" && (await conditionalReady(tabId, frameId));
   // footer: the menu's "Manage passwords" row under the list, as in Chrome's own autofill dropdown.
-  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) + (offerGenerate(ctx) ? 1 : 0) + ((await offerAlias(ctx)) ? 1 : 0), footer: true };
+  return { rows: logins + (passkey ? 1 : 0) + (offerCreate(ctx, logins) ? 1 : 0) + (offerGenerate(ctx) ? 1 : 0) + ((await privateUsername(ctx)) ? 1 : 0) + ((await offerAlias(ctx)) ? 1 : 0), footer: true };
 }
 
-/** `resumed`: replayed after an unlock (resumeSaves); a lock meanwhile ends it instead of keeping the password again. */
-async function loginSubmitted(tabId: number, url: string, username: string, password: string, resumed = false) {
+interface Submitted {
+  /** Replayed after an unlock (resumeSaves): a lock meanwhile ends it instead of keeping the password again. */
+  resumed?: boolean;
+  /** Warren generated the password into this page ("Use a strong password"). */
+  generated?: boolean;
+  /**
+   * Asked at the fill, before the site took the password. Only a new login is shown then: an update waits for the
+   * submit or the next page, so a password the site refuses never replaces the one that works.
+   */
+  beforeSubmit?: boolean;
+  /** The form's other values, offered as the username (PageLogin.usernames). */
+  usernames?: string[];
+  /** With `beforeSubmit`: the form has an account box (PageLogin.accountBox), so no username yet means a new account. */
+  accountBox?: boolean;
+}
+
+/** The user's most used account names (logins' usernames), for a new login's username list. */
+async function frequentUsernames(n: number): Promise<string[]> {
+  const counts = new Map<string, number>();
+  for (const i of (await list()).items) if (i.type === 1 && !i.failed && i.sub) counts.set(i.sub, (counts.get(i.sub) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1]).slice(0, n).map(([u]) => u);
+}
+
+async function loginSubmitted(tabId: number, url: string, username: string, password: string, { resumed = false, generated = false, beforeSubmit = false, usernames = [], accountBox = false }: Submitted = {}) {
   const epoch = lockEpoch();
   const settings = await getSettings();
   const host = new URL(url).hostname.replace(/\.$/, ""); // no port or trailing dot: the form hostOf gives the settings list
@@ -187,11 +238,19 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
     const ident = await getTabState("ident", tabId);
     if (ident && ident.origin === origin && Date.now() - ident.at < SAVE_TTL_MS) username = ident.username;
   }
+  // The submit of a password Warren generated here: it stays the generated prompt (TTL, title), with the username it found.
+  const earlier = await pendingSave(tabId);
+  if (earlier?.generated && earlier.password === password && new URL(earlier.url).origin === origin) {
+    generated = true;
+    username ||= earlier.username;
+    if (!usernames.length) usernames = earlier.usernames ?? [];
+  }
   if (!(await isUnlocked())) {
     // Logged out: there is nothing to unlock. A replay that a lock overtook keeps nothing.
     if (resumed || !(await getLocal("account"))) return;
     // Kept until it expires or the next lock, like any pending save: the bar asks for an unlock, then decides.
-    await setTabState("save", tabId, { kind: "locked", url, username, password, token: "", expiresAt: Date.now() + SAVE_TTL_MS });
+    // (Never a generated password: generating needs the vault open, and a lock drops its prompt.)
+    await setTabState("save", tabId, { kind: "locked", url, username, password, token: "", expiresAt: Date.now() + SAVE_TTL_MS, ...(usernames.length ? { usernames } : {}) });
     return showBar(tabId, epoch);
   }
   if ((await readPrivate()).neverSave.includes(host)) return;
@@ -200,19 +259,39 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
   const matches = (await coreCall<VaultItem[]>({ op: "matchUri", url, defaultMatch: settings.defaultUriMatch })).filter((m) => !m.regexOnly);
   // Usernames compare case-insensitively, like the official clients ("Ali@x.com" is "ali@x.com"). A page
   // without one (the password step of a two-step sign-in) may be any of the site's logins.
-  const sameUser = username ? matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase()) : matches;
+  // A sign-up whose account box is still empty, at the fill: a new account, whatever the site's saved logins (a second
+  // account there). A password reset has no such box, and stays "which of the logins".
+  const newAccount = beforeSubmit && !username && accountBox;
+  const sameUser = newAccount ? [] : username ? matches.filter((m) => m.sub.toLowerCase() === username.toLowerCase()) : matches;
   // A login whose password the organization hides is not the user's to change (or to compare) from a page either.
-  const editable = sameUser.filter((m) => !m.readOnly && !m.hidesPassword);
+  const changeable = (m: VaultItem) => !m.readOnly && !m.hidesPassword;
+  const editable = sameUser.filter(changeable);
   // Only read-only copies (e.g. an organization's): the login is saved already, never offer a duplicate.
   if (!editable.length && sameUser.length) return dropSave(tabId);
   // A flagged item is never compared or overwritten from inside a page: edit it in the popup.
   if (editable.some((m) => repromptPending(m))) return;
+  const passwordOf = async (m: VaultItem) => (await coreCall<{ password: string }>({ op: "fillData", id: m.id })).password;
   // A saved login signing in: nothing to offer, and a save an earlier (mistyped) submit left waiting goes.
-  for (const m of editable) if ((await coreCall<{ password: string }>({ op: "fillData", id: m.id })).password === password) return dropSave(tabId);
-  const expiresAt = Date.now() + SAVE_TTL_MS;
+  for (const m of editable) if ((await passwordOf(m)) === password) return dropSave(tabId);
+  const expiresAt = Date.now() + (generated ? GENERATED_TTL_MS : SAVE_TTL_MS);
+  // The site's login saved without an account name (the bar's username left empty) and this very password: it is
+  // this account, so it gets the name rather than a second copy.
+  let unnamed: VaultItem | undefined;
+  if (!editable.length && username)
+    for (const m of matches)
+      if (!m.sub && changeable(m) && !repromptPending(m) && (await passwordOf(m)) === password) {
+        unnamed = m;
+        break;
+      }
   let pending: PendingSave;
-  if (!editable.length) pending = { kind: "add", url, username, password, token: "", expiresAt };
-  else if (editable.length === 1) {
+  if (unnamed) pending = { kind: "update", url, username, password, itemId: unnamed.id, revisionDate: unnamed.revisionDate, addUsername: true, token: "", expiresAt };
+  else if (!editable.length) {
+    // The username list: what the form held, then the user's own most used names (an e-mail for a sign-up). Only a
+    // hint: a vault list that fails never costs the prompt.
+    const usual = settings.signupUsernames === "usual" ? await frequentUsernames(3).catch(() => []) : [];
+    const offered = [...new Set([...usernames, ...usual])].filter((u) => u && u !== username).slice(0, 6);
+    pending = { kind: "add", url, username, password, token: "", expiresAt, ...(offered.length ? { usernames: offered } : {}) };
+  } else if (editable.length === 1) {
     const [m] = editable as [VaultItem];
     pending = { kind: "update", url, username: username || m.sub, password, itemId: m.id, revisionDate: m.revisionDate, token: "", expiresAt };
   } else {
@@ -220,10 +299,34 @@ async function loginSubmitted(tabId: number, url: string, username: string, pass
     const choices = editable.slice(0, MAX_CHOICES).map((m) => ({ id: m.id, name: m.name, sub: m.sub, ...(m.revisionDate ? { revisionDate: m.revisionDate } : {}) }));
     pending = { kind: "update", url, username, password, choices, token: "", expiresAt };
   }
+  if (generated) pending.generated = true;
   // A lock while this was decided cleared the pending saves: the typed password must not come back after it.
   if (epoch !== lockEpoch()) return;
+  if (beforeSubmit && pending.kind !== "add") pending.untilSubmit = true;
   await setTabState("save", tabId, pending);
+  // A bar still up from an earlier prompt would now act on this one and fail (its token is gone): it goes.
+  if (pending.untilSubmit) return void (await chrome.tabs.sendMessage(tabId, { type: "barHide" }, { frameId: 0 }).catch(() => undefined));
   await showBar(tabId, epoch);
+}
+
+/**
+ * The save prompt for a password just generated into the frame of `ctx`: the account name is what the form already
+ * holds (the user corrects it in the bar), the password the one Warren made, never the field's value read back.
+ */
+async function offerGeneratedSave(tabId: number, ctx: InlineContext, password: string) {
+  const [read] = await pageCall<PageLogin | null>({ tabId, frameIds: [ctx.frameId] }, "readFocusedLogin", undefined).catch(() => []);
+  const login = read?.result;
+  let found = { username: "", usernames: [] as string[], accountBox: false };
+  // The frame may have navigated since the fill. Its values pass the validator of the page's own submit report.
+  if (login && URL.parse(login.url)?.origin === new URL(ctx.url).origin) {
+    try {
+      const r = parsePageRequest({ type: "loginSubmitted", username: login.username, password, usernames: login.usernames ?? [] }) as Extract<PageRequest, { type: "loginSubmitted" }>;
+      found = { username: r.username, usernames: r.usernames ?? [], accountBox: login.accountBox === true };
+    } catch {
+      // nothing usable: the bar asks for the username
+    }
+  }
+  await loginSubmitted(tabId, ctx.url, found.username, password, { generated: true, beforeSubmit: true, usernames: found.usernames, accountBox: found.accountBox });
 }
 
 /** After an unlock: logins submitted while locked are matched now, and get the save or update bar they need. */
@@ -234,7 +337,7 @@ export async function resumeSaves(): Promise<void> {
     const p = await pendingSave(tabId);
     if (p?.kind !== "locked") continue;
     await dropSave(tabId);
-    await loginSubmitted(tabId, p.url, p.username, p.password, true).catch((e: unknown) => console.warn("resume save", e));
+    await loginSubmitted(tabId, p.url, p.username, p.password, { resumed: true, usernames: p.usernames ?? [] }).catch((e: unknown) => console.warn("resume save", e));
   }
 }
 
@@ -255,7 +358,8 @@ async function pendingSave(tabId: number): Promise<PendingSave | undefined> {
  */
 export async function showBar(tabId: number, epoch = lockEpoch()): Promise<void> {
   const p = await pendingSave(tabId);
-  if (!p) return;
+  // A prompt made before the site took the password (the fill) waits for the submit, not for any page load.
+  if (!p || p.untilSubmit) return;
   // The pending login was typed on `p.url`: never offer it on a page of another site (the tab may have
   // navigated away). It is kept until it expires, so coming back to the site still prompts.
   if (!(await onSameSite(tabId, p.url))) return;
@@ -268,13 +372,22 @@ export async function showBar(tabId: number, epoch = lockEpoch()): Promise<void>
   await pageDeadline(chrome.tabs.sendMessage(tabId, { type: "barShow", token }, { frameId: 0 })).catch(() => undefined);
 }
 
+/**
+ * The tab shows the site the login was typed on: its origin, or after a sign-up's redirect another host of the same
+ * registrable domain (accounts.example.com to example.com), on the same scheme. Without the suffix list, the origin.
+ */
 async function onSameSite(tabId: number, url: string): Promise<boolean> {
+  let now: URL;
   try {
-    const tab = await chrome.tabs.get(tabId);
-    return !!tab.url && new URL(tab.url).origin === new URL(url).origin;
+    now = new URL((await chrome.tabs.get(tabId)).url ?? "");
   } catch {
     return false; // no such tab, or a page we cannot read (chrome://, the web store)
   }
+  const then = new URL(url);
+  if (now.origin === then.origin) return true;
+  if (now.protocol !== then.protocol || now.port !== then.port) return false;
+  const psl = await publicSuffixes().catch(() => undefined);
+  return !!psl && psl.baseDomain(now.hostname) === psl.baseDomain(then.hostname) && !psl.isPublicSuffix(psl.baseDomain(then.hostname));
 }
 
 async function dropSave(tabId: number) {
@@ -292,7 +405,15 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     // Only the bar this tab was just opened with may read or act.
     if (!p.token || req.token !== p.token) throw new Error("this save prompt is no longer active");
     if (req.type === "barInfo")
-      return { kind: p.kind, host: new URL(p.url).host, username: p.username, ...(p.choices ? { choices: p.choices.map(({ id, name, sub }) => ({ id, name, sub })) } : {}) } satisfies BarInfo;
+      return {
+        kind: p.kind,
+        host: new URL(p.url).host,
+        username: p.username,
+        ...(p.choices ? { choices: p.choices.map(({ id, name, sub }) => ({ id, name, sub })) } : {}),
+        ...(p.generated ? { generated: true as const } : {}),
+        ...(p.kind === "add" && p.usernames?.length ? { usernames: p.usernames } : {}),
+        ...(p.addUsername ? { addUsername: true as const } : {}),
+      } satisfies BarInfo;
     if (req.action === "unlock") {
       await chrome.action.openPopup().catch(() => undefined);
       return null; // the prompt stays: resumeSaves picks it up after the unlock
@@ -309,7 +430,9 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
         // flagged after the prompt was queued
         if (repromptPending(await coreCall<VaultItem>({ op: "cipherSummary", id: choice.id }))) throw new Error(REPROMPT_MESSAGE);
         // Against the revision the prompt was made for: an older prompt never undoes a newer password.
-        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: choice.id, password: p.password, revisionDate: choice.revisionDate }));
+        // A login that lacked a username gets the one the bar shows (the user may correct it); others keep theirs.
+        const username = p.addUsername ? (req.username ?? p.username) : undefined;
+        await saveEncrypted(await coreCall<Record<string, unknown>>({ op: "preparePassword", id: choice.id, password: p.password, revisionDate: choice.revisionDate, ...(username === undefined ? {} : { username }) }));
       } else {
         const u = new URL(p.url);
         // The bar lets the user correct the username of a new login before it is saved.
@@ -352,8 +475,10 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     if (!offerGenerate(ctx)) throw new Error("not a registration form");
     await touchAutoLock();
     // The user's own password or passphrase settings; a username-generator setting gets a default password.
-    const { options } = await generatorPrefs();
-    const password = await generateFor(ctx, options);
+    // The password the menu showed, if it is this document's; a fresh one otherwise.
+    const shown = await getTabState("suggest", tabId);
+    await setTabState("suggest", tabId, undefined);
+    const password = (shown?.nonce === ctx.nonce && shown.password) || (await generateFor(ctx, (await generatorPrefs()).options));
     // Kept like any generated value, so it is not lost if the page never submits.
     await addGeneratorHistory(password);
     await closeMenu(tabId, ctx);
@@ -361,12 +486,48 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     // The new and confirm fields of this frame's form; no username, no submit.
     const [res] = await fillInFrames(tabId, { frameIds: [ctx.frameId] }, { mode: "login", origin, username: "", password, passwordOnly: true, epoch });
     await setTabState("inline", tabId, undefined);
+    // Asked now, not only on submit: a sign-up that submits in a way the page hides (or never navigates) would
+    // otherwise leave the account with a password no one saved. The submit later refreshes the username.
+    if (res?.result.filled) await offerGeneratedSave(tabId, ctx, password);
     return res?.result ?? { filled: false };
+  }
+
+  if (req.type === "inlineUsername") {
+    const naming = await privateUsername(ctx);
+    if (!naming) throw new Error("no private username is offered here");
+    await touchAutoLock();
+    // The name the menu showed, if it is this document's; a fresh one otherwise.
+    const shown = await getTabState("suggest", tabId);
+    await setTabState("suggest", tabId, undefined);
+    const username = (shown?.nonce === ctx.nonce && shown.username) || (await coreCall<string>({ op: "generate", options: naming }));
+    await addGeneratorHistory(username);
+    await closeMenu(tabId, ctx);
+    const res = await fillActiveField(tabId, ctx.frameId, { origin: new URL(ctx.url).origin, value: username, epoch });
+    await setTabState("inline", tabId, undefined);
+    return res ?? { filled: false };
   }
 
   const available = await items(ctx.kind, ctx.url);
   const passkey = ctx.kind === "login" && (await conditionalReady(tabId, ctx.frameId));
-  if (req.type === "inlineList") return { kind: ctx.kind, locked: false, items: available, passkey, create: offerCreate(ctx, available.length), alias: await offerAlias(ctx), generate: offerGenerate(ctx) } satisfies MenuData;
+  if (req.type === "inlineList") {
+    const generate = offerGenerate(ctx);
+    // Shown in the row, then filled by it: the user sees what the site gets, as in Chrome's dropdown.
+    const suggested = generate ? await generateFor(ctx, (await generatorPrefs()).options).catch(() => undefined) : undefined;
+    const naming = await privateUsername(ctx);
+    const username = naming ? await coreCall<string>({ op: "generate", options: naming }).catch(() => undefined) : undefined;
+    if ((suggested || username) && epoch === lockEpoch()) await setTabState("suggest", tabId, { nonce: ctx.nonce, ...(suggested ? { password: suggested } : {}), ...(username ? { username } : {}) });
+    return {
+      kind: ctx.kind,
+      locked: false,
+      items: available,
+      passkey,
+      create: offerCreate(ctx, available.length),
+      alias: await offerAlias(ctx),
+      generate,
+      ...(suggested ? { suggested } : {}),
+      ...(username ? { username } : {}),
+    } satisfies MenuData;
+  }
 
   if (req.type === "inlineAlias") {
     const vendor = (await offerAlias(ctx)) ? await aliasVendor() : undefined;

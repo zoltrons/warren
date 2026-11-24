@@ -853,7 +853,7 @@ void stateRequest({ type: "getState" }).then((res) => {
       settings: {
         autoLockMinutes: 15, timeoutAction: "lock", lockOnSystemLock: true, inlineMenu: true, savePrompt: true, neverSave: [], blocked: [],
         defaultManager: false, favicons: false, autoCopyTotp: true, defaultUriMatch: 0, clearClipboardDelay: "oneMinute",
-        autofillOnPageLoad: false, autofillOnPageLoadDefault: true, autosubmit: false, inlineMenuCards: true, inlineMenuIdentities: true, contextMenu: true,
+        autofillOnPageLoad: false, autofillOnPageLoadDefault: true, autosubmit: false, inlineMenuCards: true, inlineMenuIdentities: true, signupUsernames: "private", contextMenu: true,
         showCardsOnTab: true, showIdentitiesOnTab: true, quickActionMenus: false, badgeCounter: true,
       },
     };

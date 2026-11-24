@@ -78,6 +78,15 @@ const error = (name: string, message: string): PasskeyResult => ({ error: { name
 /** Rebuildable cache: the service worker reads the suffix list again after it restarts. */
 let psl: Promise<Psl> | undefined;
 
+/** The suffix list shipped with the extension; a failed read is retried next time. */
+export async function publicSuffixes(): Promise<Psl> {
+  psl ??= fetch(chrome.runtime.getURL("psl.json")).then(async (r) => new Psl((await r.json()) as string[]));
+  return psl.catch((e: unknown) => {
+    psl = undefined;
+    throw e;
+  });
+}
+
 /**
  * Checked before any window opens. An RP ID Warren may not use (another site's, or one the site allows only through
  * Related Origin Requests, which Warren does not implement) goes to the browser, which applies the full rules.
@@ -85,9 +94,8 @@ let psl: Promise<Psl> | undefined;
 async function rpIdUsable(rpId: string, origin: string): Promise<boolean> {
   let list: Psl;
   try {
-    list = await (psl ??= fetch(chrome.runtime.getURL("psl.json")).then(async (r) => new Psl((await r.json()) as string[])));
+    list = await publicSuffixes();
   } catch {
-    psl = undefined;
     return false;
   }
   try {

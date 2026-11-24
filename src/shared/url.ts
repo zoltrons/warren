@@ -10,6 +10,12 @@ export const b64u = (b: Uint8Array): string => b.toBase64({ alphabet: "base64url
  * Loopback hosts. Plain http is tolerated for a server on this machine only (development); every
  * other host must use https, or the master password hash, the tokens and the vault travel in clear.
  */
+/** Where a usable e-mail address splits: its last "@", with text on both sides. The username generator's rule. */
+export function emailAt(email: string): number | undefined {
+  const at = email.lastIndexOf("@");
+  return at < 1 || at === email.length - 1 ? undefined : at;
+}
+
 export function isLoopback(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/\.$/, "");
   return h === "localhost" || h.endsWith(".localhost") || h === "127.0.0.1" || h === "[::1]" || h === "::1";

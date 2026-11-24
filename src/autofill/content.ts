@@ -385,7 +385,7 @@ function report(form?: HTMLFormElement | null) {
     reported = key;
     lastReport = Date.now();
   }
-  void chrome.runtime.sendMessage({ type: "loginSubmitted", username: login.username, password: login.password }).catch(() => undefined);
+  void chrome.runtime.sendMessage({ type: "loginSubmitted", username: login.username, password: login.password, usernames: login.usernames ?? [] }).catch(() => undefined);
 }
 
 // ---------- "Copy custom field name" ----------

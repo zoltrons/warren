@@ -790,6 +790,12 @@
   "barSaveTitle": {
     "message": "Bu giriş Warren'a kaydedilsin mi?"
   },
+  "barSaveGeneratedTitle": {
+    "message": "Üretilen şifre Warren'a kaydedilsin mi?"
+  },
+  "barAddUsernameTitle": {
+    "message": "Kullanıcı adı bu girişe eklensin mi?"
+  },
   "barUpdateTitle": {
     "message": "Kayıtlı parola güncellensin mi?"
   },
@@ -2778,5 +2784,29 @@
         "content": "$1"
       }
     }
+  },
+  "inlinePrivateUsername": {
+    "message": "Gizli bir kullanıcı adı kullan"
+  },
+  "signupUsernames": {
+    "message": "Kayıtta kullanıcı adları"
+  },
+  "signupUsernamesPrivate": {
+    "message": "Gizli"
+  },
+  "signupUsernamesUsual": {
+    "message": "Her zamanki"
+  },
+  "signupUsernamesOff": {
+    "message": "Kapalı"
+  },
+  "signupUsernamesPrivateHint": {
+    "message": "Kayıt formunun kullanıcı adı alanı, kullanıcı adı üreticisinin ayarlarıyla her site için yeni bir ad önerir"
+  },
+  "signupUsernamesUsualHint": {
+    "message": "Kayıt çubuğu en sık kullandığın kullanıcı adlarını da listeler"
+  },
+  "signupUsernamesOffHint": {
+    "message": "Yalnızca formdaki değerler önerilir"
   }
 }

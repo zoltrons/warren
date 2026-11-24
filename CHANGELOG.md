@@ -23,6 +23,27 @@ All notable changes to Warren. Versions match the `v*` release tags.
 - Troy cards show the Troy mark, worked out from the card number (979200-979289 and known Troy BINs in the 65 and
   900 ranges), also when the card is saved as Discover or Other. Nothing new is written to the vault: Troy is not
   in the Bitwarden clients' brand list.
+- The inline menu's "Use a strong password" shows the password it will fill before you pick it.
+- The save bar's username box drops down the form's other values.
+- Usernames on sign-up (Settings → Autofill): Private (the default) has a sign-up's username field offer "Use a
+  private username", a new one for each site from the username generator's settings (an e-mail box gets a plus
+  address of the generator's e-mail, never a plain word); Your usual ones adds the usernames you use most to the save
+  bar's list; Off offers only what the form holds.
+
+### Fixed
+
+- A password from "Use a strong password" is no longer lost when the sign-up page submits in a way Warren does not
+  see: the save bar asks right after the password is filled, with the account name the form already holds (edit it
+  in the bar), and stays for 30 minutes. The page's own submit later keeps that prompt and its account name. A
+  password generated for a login you already have (a change-password page) is offered as an update only once the
+  page is submitted, so a password the site refuses (or a page left unsaved) never replaces the one that works. A
+  second account on a site you already use is offered as a new login, even before its e-mail is typed.
+- Saving a sign-up picks the account field (username, e-mail) as the username, not the nearest filled box before the
+  password (a name or phone field), and finds an e-mail box placed after the password.
+- A login saved without a username is not saved twice: signing in with its password and an account name offers to
+  add the name to it ("Add the username to this login?").
+- After a sign-up redirects to another host of the same site (accounts.example.com to example.com), the save bar
+  still shows there.
 
 ## 0.0.22 — 2026-11-21
 

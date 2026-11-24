@@ -89,7 +89,7 @@ function run(req: CoreRequest): unknown {
     case "prepareShare":
       return vault.prepareShare(req.id, req.organizationId);
     case "preparePassword":
-      return vault.preparePassword(req.id, req.password, req.revisionDate);
+      return vault.preparePassword(req.id, req.password, req.revisionDate, req.username);
     case "totp":
       return vault.totp(req.id);
     case "generate":

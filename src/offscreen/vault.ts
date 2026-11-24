@@ -7,6 +7,7 @@ import { linkedValue } from "../shared/linked-fields.ts";
 import { passwordLevel } from "../shared/strength.ts";
 import { parseRange, sha1Hex } from "../shared/pwned-range.ts";
 import { isInsecureUri } from "../shared/uri-tools.ts";
+import { emailAt } from "../shared/url.ts";
 import { loadTotpSites, offersTotp } from "../shared/totp-sites.ts";
 import { asObject as o, asString as s, ci, ciKey } from "../shared/validate.ts";
 import { MATCH, Psl, uriMatches } from "../autofill/match.ts";
@@ -271,11 +272,11 @@ export const encryptName = (name: string): string => s(o(JSON.parse(core.encrypt
  * Save bar: the item with a new password, encrypted for the server, as of the revision the prompt was made for. A
  * copy that changed since (a sync, an edit elsewhere) is not overwritten, here or on the server (lastKnownRevisionDate).
  */
-export function preparePassword(id: string, password: string, revisionDate: number | undefined): Json {
+export function preparePassword(id: string, password: string, revisionDate: number | undefined, username?: string): Json {
   const item = withoutPasskeyKeys(get(id));
   if (hidesPasswords(item)) throw new Error("Your organization hides this login's password, so it cannot be changed here");
   if (summary(item).revisionDate !== revisionDate) throw new Error("This login changed after the prompt was shown, so nothing was saved");
-  return prepareSave({ ...item, login: { ...o(item.login), password } });
+  return prepareSave({ ...item, login: { ...o(item.login), password, ...(username === undefined ? {} : { username }) } });
 }
 
 /** The current code, and the next one so a code about to expire is not a race. */
@@ -318,14 +319,14 @@ export function generate(o: Json): string {
   if (o.type !== "username") return gen(o);
   if (o.usernameType === "subdomain") {
     const email = s(o.email).trim();
-    const at = email.lastIndexOf("@");
-    if (at < 1 || at === email.length - 1) throw new Error("Enter an email address");
+    const at = emailAt(email);
+    if (at === undefined) throw new Error("Enter an email address");
     return `${email.slice(0, at)}@${randomChars(8)}.${email.slice(at + 1)}`;
   }
   if (o.usernameType === "plus") {
     const email = s(o.email).trim();
-    const at = email.lastIndexOf("@");
-    if (at < 1 || at === email.length - 1) throw new Error("Enter an email address");
+    const at = emailAt(email);
+    if (at === undefined) throw new Error("Enter an email address");
     return `${email.slice(0, at)}+${randomChars(8)}${email.slice(at)}`;
   }
   if (o.usernameType === "catchall") {

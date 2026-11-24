@@ -35,10 +35,18 @@ async function render() {
     : null;
   const create = d.create ? row(icon("plus"), t("createAccount"), t("appName"), () => void ask({ type: "inlineNewLogin", nonce }), t("createAccount"), "option") : null;
   const generate = d.generate
-    ? row(icon("generator"), t("inlineGenerate"), t("inlineGenerateSub"), async () => {
+    ? row(icon("generator"), t("inlineGenerate"), d.suggested ?? t("inlineGenerateSub"), async () => {
         const r = await ask({ type: "inlineGenerate", nonce });
         if (!r.ok) app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), r.error));
-      }, t("inlineGenerate"), "option")
+      }, [t("inlineGenerate"), d.suggested].filter(Boolean).join(", "), "option") // the label replaces the text: it says what fills
+    : null;
+  // The password it fills, in the type that tells 0 from O; the row's name stays "Use a strong password".
+  if (d.suggested) generate?.querySelector(".sub")?.classList.add("mono");
+  const privateName = d.username
+    ? row(icon("user"), t("inlinePrivateUsername"), d.username, async () => {
+        const r = await ask({ type: "inlineUsername", nonce });
+        if (!r.ok) app.replaceChildren(h("div", { class: "note", role: "alert" }, icon("error"), r.error));
+      }, `${t("inlinePrivateUsername")}, ${d.username}`, "option")
     : null;
   const alias = d.alias
     ? row(icon("mail"), t("inlineAlias"), t("appName"), async () => {
@@ -52,6 +60,7 @@ async function render() {
       { class: "group", role: "listbox", "aria-label": t("appName") },
       passkey,
       generate,
+      privateName,
       create,
       alias,
       ...d.items.map((i) => {

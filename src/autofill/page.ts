@@ -6,10 +6,17 @@ import { type CollectMode, collectFrame, isElementVisible } from "./collector/co
 import { deepAll, deepFields } from "./collector/shadow-dom.ts";
 import { extractAriaLabel, extractExplicitLabels } from "./collector/tree-walker.ts";
 import { executeFill } from "./executor/fill.ts";
+import { MAX_PAGE_STRING, MAX_USERNAME_CHOICES } from "../shared/page-limits.ts";
 import type { FillResult, PageLogin } from "./types.ts";
 
 const TEXTISH = ["text", "email", "tel", "number", ""];
 const OTP_HINT = /one.?time|otp|totp|2fa|mfa|verification|confirmation.?code|security.?code|captcha/;
+
+const ACCOUNT_HINT = /user|e-?mail|login|account|identifier|phone|kullan|hesap/;
+const autocompletes = (i: HTMLInputElement, token: string) => i.autocomplete.toLowerCase().split(/\s+/).includes(token);
+/** A box that names itself an account: an e-mail, a username, a login. */
+const accountField = (i: HTMLInputElement) =>
+  i.type === "email" || autocompletes(i, "username") || autocompletes(i, "email") || ACCOUNT_HINT.test([i.name, i.id, extractAriaLabel(i)].join(" ").toLowerCase());
 
 /** The field the user last focused for a login (content.ts); its form is the one they mean. */
 let focused: Element | undefined;
@@ -33,13 +40,20 @@ function readLogin(form?: HTMLFormElement | null): PageLogin | null {
   // On change-password forms (current / new / repeat) take the new password.
   const pass = passwords.find((i) => i.autocomplete.toLowerCase().split(/\s+/).includes("new-password")) ?? passwords.at(-1);
   if (!pass) return null;
-  const before = inputs.slice(0, inputs.indexOf(pass)).filter((i) => TEXTISH.includes(i.type) && i.value && !oneTimeCode(i) && !OTP_HINT.test(hint(i)));
-  // A form is the boundary again; outside one, the nearest filled field before the password is it.
-  const user = pass.form ? before.filter((i) => i.form === pass.form).at(-1) : before.at(-1);
-  return { url: location.href, username: user?.value ?? "", password: pass.value };
+  const texts = inputs.filter((i) => TEXTISH.includes(i.type) && i.value.trim() && !oneTimeCode(i) && !OTP_HINT.test(hint(i)) && (!pass.form || i.form === pass.form));
+  const at = inputs.indexOf(pass);
+  // A form is the boundary again; outside one, the fields before the password. A sign-up asks for more than the
+  // account (name, phone, invite code): the field that says it is the account wins, else the nearest one; a form
+  // that asks for the e-mail after the password still names it.
+  const near = texts.filter((i) => inputs.indexOf(i) < at);
+  const user = near.findLast((i) => autocompletes(i, "username")) ?? near.findLast(accountField) ?? texts.find((i) => inputs.indexOf(i) > at && accountField(i)) ?? near.at(-1);
+  const username = user?.value.trim() ?? "";
+  // Outside a form any box on the page is in `texts` (a search, a newsletter): only the ones that name an account.
+  const others = [...texts.filter(accountField), ...(pass.form ? texts : [])].map((i) => i.value.trim()).filter((v) => v !== username && v.length <= MAX_PAGE_STRING);
+  const accountBox = inputs.some((i) => TEXTISH.includes(i.type) && accountField(i) && (!pass.form || i.form === pass.form));
+  return { url: location.href, username, password: pass.value, usernames: [...new Set(others)].slice(0, MAX_USERNAME_CHOICES), accountBox };
 }
 
-const ACCOUNT_HINT = /user|e-?mail|login|account|identifier|phone|kullan|hesap/;
 
 /**
  * The account name on the first page of a two-step sign-in: a visible filled email / username box, and no password
@@ -48,11 +62,7 @@ const ACCOUNT_HINT = /user|e-?mail|login|account|identifier|phone|kullan|hesap/;
 function readIdentifier(form?: HTMLFormElement | null): PageLogin | null {
   const inputs = deepFields().filter((el): el is HTMLInputElement => el instanceof HTMLInputElement && isElementVisible(el) && (!form || el.form === form));
   if (inputs.some((i) => i.type === "password")) return null;
-  const named = (i: HTMLInputElement) => {
-    const ac = i.autocomplete.toLowerCase().split(/\s+/);
-    return i.type === "email" || ac.includes("username") || ac.includes("email") || ACCOUNT_HINT.test([i.name, i.id, extractAriaLabel(i)].join(" ").toLowerCase());
-  };
-  const user = inputs.filter((i) => TEXTISH.includes(i.type) && i.value.trim() && named(i));
+  const user = inputs.filter((i) => TEXTISH.includes(i.type) && i.value.trim() && accountField(i));
   // One account box only: a form with several (a search, a contact form) says nothing about a sign-in.
   return user.length === 1 ? { url: location.href, username: user[0]!.value.trim(), password: "" } : null;
 }
@@ -70,6 +80,8 @@ export const api = {
   },
   execute: executeFill,
   readLogin,
+  /** The login of the form the inline menu was opened in (setFocused): another form on the page is not read. */
+  readFocusedLogin: () => readLogin(focused instanceof HTMLInputElement && focused.isConnected ? focused.form : undefined),
   readIdentifier,
   hasPasswordField: () => deepAll(document, "input[type=password]").length > 0,
 };

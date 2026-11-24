@@ -2,7 +2,7 @@
 //   popup  --Request-->  service worker  --OffscreenRequest-->  offscreen doc  --postMessage-->  worker
 import { ALIAS_VENDORS, type AliasSettings, type AliasVendor } from "./alias.ts";
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, URI_MATCH_CHOICES } from "./constants.ts";
-import { MAX_BLOCK_PATH, MAX_BUTTONS, MAX_DATA_ATTRS, MAX_FIELDS, MAX_FORM_TEXT, MAX_FORMS, MAX_PAGE_STRING } from "./page-limits.ts";
+import { MAX_BLOCK_PATH, MAX_BUTTONS, MAX_DATA_ATTRS, MAX_FIELDS, MAX_FORM_TEXT, MAX_FORMS, MAX_PAGE_STRING, MAX_USERNAME_CHOICES } from "./page-limits.ts";
 import { arr, bool, literal, num, obj, opt, record, str, u32, unknownValue, type Validator, ValidationError } from "./validate.ts";
 
 // ---------- size caps ----------
@@ -98,6 +98,7 @@ export type Request =
       autosubmit?: boolean;
       inlineMenuCards?: boolean;
       inlineMenuIdentities?: boolean;
+      signupUsernames?: SignupUsernames;
       /** The browser context menu entry ("Fill with Warren"). */
       contextMenu?: boolean;
       showCardsOnTab?: boolean;
@@ -249,6 +250,7 @@ const requestValidators: { [K in Request["type"]]: Validator<Extract<Request, { 
       autosubmit: opt(bool),
       inlineMenuCards: opt(bool),
       inlineMenuIdentities: opt(bool),
+      signupUsernames: opt(literal("private", "usual", "off")),
       contextMenu: opt(bool),
       showCardsOnTab: opt(bool),
       showIdentitiesOnTab: opt(bool),
@@ -397,6 +399,11 @@ export interface Settings {
   autosubmit: boolean;
   inlineMenuCards: boolean;
   inlineMenuIdentities: boolean;
+  /**
+   * Account names Warren offers on a sign-up. private: the inline menu suggests a new one for the site from the
+   * username generator's settings; usual: the save bar also lists the names used most in the vault; off: neither.
+   */
+  signupUsernames: SignupUsernames;
   /** Show the "Fill with Warren" context-menu entry. */
   contextMenu: boolean;
   showCardsOnTab: boolean;
@@ -630,7 +637,8 @@ export type CoreRequest =
   | { op: "prepareShare"; id: string; organizationId: string }
   /** Save bar: the item with a new password, encrypted; the service worker never sees the item. */
   /** `revisionDate`: the item's revision (epoch ms) the save bar asked about; refused if the item changed since. */
-  | { op: "preparePassword"; id: string; password: string; revisionDate?: number }
+  /** `username`: also set (the save bar adding the account name a login lacked). */
+  | { op: "preparePassword"; id: string; password: string; revisionDate?: number; username?: string }
   | { op: "totp"; id: string }
   | { op: "generate"; options: Record<string, unknown> }
   // free text encrypted with the user key (like a folder name)
@@ -740,7 +748,7 @@ const coreValidators: { [K in CoreRequest["op"]]: Validator<Extract<CoreRequest,
   exposedRange: obj({ op: literal("exposedRange"), prefix: hibpPrefix, body: capped(MAX_RANGE_CHARS) }),
   prepareSave: obj({ op: literal("prepareSave"), item: record }),
   prepareShare: obj({ op: literal("prepareShare"), id: str, organizationId: str }),
-  preparePassword: obj({ op: literal("preparePassword"), id: str, password: str, revisionDate: opt(num) }),
+  preparePassword: obj({ op: literal("preparePassword"), id: str, password: str, revisionDate: opt(num), username: opt(str) }),
   totp: obj({ op: literal("totp"), id: str }),
   generate: obj({ op: literal("generate"), options: record }),
   encryptText: obj({ op: literal("encryptText"), values: arr(str) }),
@@ -926,8 +934,11 @@ export type PageRequest =
    * All a page can claim here is a different menu for its own frame.
    */
   | { type: "inlineFocus"; nonce: string; details: CollectedPageDetails }
-  /** `password` empty: the first page of a two-step sign-in, which takes only the username. */
-  | { type: "loginSubmitted"; username: string; password: string }
+  /**
+   * `password` empty: the first page of a two-step sign-in, which takes only the username. `usernames`: the form's
+   * other filled values (account-like first), offered in the save bar to pick the username from.
+   */
+  | { type: "loginSubmitted"; username: string; password: string; usernames?: string[] }
   /** Sent once per document, when the frame has a password field; the worker decides whether to fill. */
   | { type: "pageLoad" }
   /** The user's pick for a picker the worker started in this tab; an empty name is a cancel. */
@@ -942,7 +953,11 @@ export type PageRequest =
 /** A page-controlled form value: big enough for any real credential, small enough to bound storage. */
 const pageValidators: { [K in PageRequest["type"]]: Validator<Extract<PageRequest, { type: K }>> } = {
   inlineFocus: obj({ type: literal("inlineFocus"), nonce: secret, details: collectedPageDetails }),
-  loginSubmitted: obj({ type: literal("loginSubmitted"), username: field, password: field }),
+  loginSubmitted: obj({ type: literal("loginSubmitted"), username: field, password: field, usernames: opt((v, p) => {
+    const l = arr(capped(MAX_PAGE_STRING))(v, p);
+    if (l.length > MAX_USERNAME_CHOICES) throw new ValidationError(`${p}: too many values`);
+    return l;
+  }) }),
   pageLoad: obj({ type: literal("pageLoad") }),
   fieldPicked: obj({ type: literal("fieldPicked"), name: capped(MAX_PAGE_STRING), fieldType: capped(32), label: pageString, details: opt(collectedPageDetails) }),
   inlineRemote: obj({ type: literal("inlineRemote"), op: literal("show", "hide", "focus", "back"), token: opt(capped(32)), rect: opt(obj({ x: num, y: num, w: num, h: num })), height: opt(num) }),
@@ -963,6 +978,8 @@ export type FrameRequest =
   | { type: "inlineNewLogin"; nonce: string }
   /** "Use a strong password" on a registration form. */
   | { type: "inlineGenerate"; nonce: string }
+  /** "Use a private username" on a registration form's account field. */
+  | { type: "inlineUsername"; nonce: string }
   /** "Don't show on this site": the field's site joins the blocked list. */
   | { type: "inlineBlock"; nonce: string }
   /** "New e-mail alias": made by the first configured alias service and filled into the registration field. */
@@ -981,6 +998,7 @@ const frameValidators: { [K in FrameRequest["type"]]: Validator<Extract<FrameReq
   inlineNewLogin: obj({ type: literal("inlineNewLogin"), nonce: secret }),
   inlineBlock: obj({ type: literal("inlineBlock"), nonce: secret }),
   inlineGenerate: obj({ type: literal("inlineGenerate"), nonce: secret }),
+  inlineUsername: obj({ type: literal("inlineUsername"), nonce: secret }),
   barInfo: obj({ type: literal("barInfo"), token: secret }),
   barAction: obj({ type: literal("barAction"), action: literal("save", "never", "close", "unlock"), token: secret, username: opt(field), itemId: opt(secret) }),
 };
@@ -995,6 +1013,8 @@ const parseBy =
 
 export const parsePageRequest = parseBy<PageRequest>(pageValidators);
 export const parseFrameRequest = parseBy<FrameRequest>(frameValidators);
+
+export type SignupUsernames = "private" | "usual" | "off";
 
 export interface MenuItem {
   id: string;
@@ -1015,6 +1035,10 @@ export interface MenuData {
   alias: boolean;
   /** A registration form: offer "Use a strong password" (generated, filled into the new and confirm fields). */
   generate: boolean;
+  /** With `generate`: the password it fills, shown in the row before the user picks it (as Chrome's dropdown does). */
+  suggested?: string;
+  /** A registration form's account field, `signupUsernames` private: "Use a private username", with the one it fills. */
+  username?: string;
 }
 
 export interface BarInfo {
@@ -1023,4 +1047,10 @@ export interface BarInfo {
   username: string;
   /** Update: the logins to choose from, when the page did not say which one changed. */
   choices?: { id: string; name: string; sub: string }[];
+  /** The password is one Warren just generated into the page ("Use a strong password"), not one the user typed. */
+  generated?: true;
+  /** Add: account names to pick from (the form's other values, the user's most used ones in the vault). */
+  usernames?: string[];
+  /** Update: a saved login with this password but no username gets `username` (editable) instead of a duplicate. */
+  addUsername?: true;
 }

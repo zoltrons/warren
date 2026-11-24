@@ -1,7 +1,7 @@
 // Settings tab of the popup / side panel: its rows, search, export and import. The shell (popup.ts) owns the state
 // and the request bus; this module imports them from it (and popup.ts imports settingsTab and row from here).
 import { AUTO_LOCK_CHOICES, CLEAR_CLIPBOARD_CHOICES, type ClearClipboardDelay, EXPORT_FORMATS, URI_MATCH, URI_MATCH_ADVANCED } from "../shared/constants.ts";
-import type { ExportFormat, Request, State } from "../shared/messages.ts";
+import type { ExportFormat, Request, SignupUsernames, State } from "../shared/messages.ts";
 import { applyTheme, type Child, h, inPanel, leave, plural, rowOf, savedTheme, send, sessionNow, setUiPref, switchOf, t, THEMES, uiPref, when, withChevron, WIDTHS, wordsStartWith } from "./dom.ts";
 import { icon } from "./icons.ts";
 import { onePuxToExport } from "../shared/import-1password.ts";
@@ -119,6 +119,17 @@ export function settingsTab(s: State): HTMLElement {
       row(t("enableContextMenu"), undefined, toggle(t("enableContextMenu"), s.settings.contextMenu, (b) => void act({ type: "setSettings", contextMenu: b.checked }))),
       row(t("badgeCounter"), t("badgeCounterHint"), toggle(t("badgeCounter"), s.settings.badgeCounter, (b) => void act({ type: "setSettings", badgeCounter: b.checked }))),
       row(t("savePrompt"), t("savePromptHint"), toggle(t("savePrompt"), s.settings.savePrompt, (b) => void act({ type: "setSettings", savePrompt: b.checked }))),
+      row(
+        t("signupUsernames"),
+        t(s.settings.signupUsernames === "usual" ? "signupUsernamesUsualHint" : s.settings.signupUsernames === "off" ? "signupUsernamesOffHint" : "signupUsernamesPrivateHint"),
+        withChevron(
+          h(
+            "select",
+            { "aria-label": t("signupUsernames"), onchange: (e: Event) => void act({ type: "setSettings", signupUsernames: (e.target as HTMLSelectElement).value as SignupUsernames }) },
+            ...(["private", "usual", "off"] as const).map((v) => h("option", { value: v, selected: v === s.settings.signupUsernames }, t(v === "private" ? "signupUsernamesPrivate" : v === "usual" ? "signupUsernamesUsual" : "signupUsernamesOff"))),
+          ),
+        ),
+      ),
       s.settings.neverSave.length
         ? row(plural("neverSaveSites", s.settings.neverSave.length), s.settings.neverSave.join(", "), h("button", { type: "button", class: "btn text small", onclick: () => void act({ type: "setSettings", clearNeverSave: true }) }, t("clear")))
         : null,

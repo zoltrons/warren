@@ -232,6 +232,8 @@ export const pages: Record<string, string> = {
   "/forge": `${LOGIN_FORM}<script>onload = () => { document.getElementById("u").value = "forged-user"; document.getElementById("p").value = "forged-guess"; document.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); };</script>`,
   "/change": `<form onsubmit="return false"><input id="u" autocomplete="username"><input id="cur" type="password" autocomplete="current-password"><input id="new" type="password" autocomplete="new-password"><input id="rep" type="password"><button>Change</button></form>`,
   "/register": `<form onsubmit="return false"><input id="u" type="email"><input id="p" type="password" autocomplete="new-password"><button>Go</button></form>`,
+  // A sign-up with no <form>, a name box nearest the password, the e-mail after it and a button no submit heuristic knows.
+  "/signup-spa": `<div><input id="name" name="fullname" autocomplete="name"><input id="p" type="password" autocomplete="new-password"><input id="rep" type="password" autocomplete="new-password"><input id="em" type="email" name="email"><div role="button" id="go">Get started</div></div>`,
   "/split-shadow": `<div><x-a></x-a><x-b></x-b></div><script>
     document.querySelector("x-a").attachShadow({ mode: "open" }).innerHTML = '<input id="u" type="email">';
     document.querySelector("x-b").attachShadow({ mode: "open" }).innerHTML = '<input id="p" type="password">';

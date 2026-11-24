@@ -9,6 +9,10 @@ export interface PageLogin {
   url: string;
   username: string;
   password: string;
+  /** The form's other filled values, account-like first: the save bar offers them as the username. */
+  usernames?: string[];
+  /** The form has a box for the account (filled or not): a sign-up, not a password reset that names none. */
+  accountBox?: boolean;
 }
 
 export type ValueFormat = "digits" | "expCompact" | "expLong" | "yearShort";

@@ -90,6 +90,8 @@ interface TabState {
   filled: { origin: string; itemId: string; at: number };
   /** The username a two-step sign-in's first page took (no password yet): its password page names no account. */
   ident: { origin: string; username: string; at: number };
+  /** What the open menu's "Use a strong password" / "Use a private username" rows show and fill, for that document (`nonce`) only. */
+  suggest: { nonce: string; password?: string; username?: string };
 }
 
 export async function getTabState<K extends keyof TabState>(kind: K, tabId: number): Promise<TabState[K] | undefined> {
@@ -100,14 +102,14 @@ export async function getTabState<K extends keyof TabState>(kind: K, tabId: numb
 export const setTabState = <K extends keyof TabState>(kind: K, tabId: number, value: TabState[K] | undefined) =>
   value === undefined ? chrome.storage.session.remove(`${kind}:${tabId}`) : chrome.storage.session.set({ [`${kind}:${tabId}`]: value });
 
-/** Submitted logins waiting in a save bar hold a typed password: they must not outlive the lock. `alsoNames`
+/** Submitted logins waiting in a save bar, and a menu's suggested password, are secrets: they must not outlive the lock. `alsoNames`
  * (logout): the usernames two-step sign-ins took go too, which survive a lock. */
 export async function clearPendingSaves(alsoNames = false): Promise<void> {
-  const keys = Object.keys(await chrome.storage.session.get(null)).filter((k) => k.startsWith("save:") || (alsoNames && k.startsWith("ident:")));
+  const keys = Object.keys(await chrome.storage.session.get(null)).filter((k) => k.startsWith("save:") || k.startsWith("suggest:") || (alsoNames && k.startsWith("ident:")));
   await chrome.storage.session.remove(keys);
 }
 
-export const clearTabState = (tabId: number) => chrome.storage.session.remove([`inline:${tabId}`, `save:${tabId}`, `filled:${tabId}`, `ident:${tabId}`]);
+export const clearTabState = (tabId: number) => chrome.storage.session.remove([`inline:${tabId}`, `save:${tabId}`, `filled:${tabId}`, `ident:${tabId}`, `suggest:${tabId}`]);
 
 /** Biometric unlock: the user key wrapped with a key derived from the authenticator's PRF output. */
 export interface Biometric {
@@ -220,6 +222,7 @@ export async function getSettings(): Promise<Settings> {
     autosubmit: false,
     inlineMenuCards: true,
     inlineMenuIdentities: true,
+    signupUsernames: "private",
     contextMenu: true,
     showCardsOnTab: true,
     showIdentitiesOnTab: true,

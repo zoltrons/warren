@@ -62,7 +62,7 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
         { class: "top" },
         // A key on the brand tint, as Chrome's save bubble leads with a key; the title names Warren.
         h("span", { class: "bar-mark", "aria-hidden": "true" }, icon("key")),
-        h("div", { class: "body" }, h("strong", {}, t(d.kind === "add" ? "barSaveTitle" : "barUpdateTitle")), h("span", { class: "sub" }, d.host)),
+        h("div", { class: "body" }, h("strong", {}, t(d.addUsername ? "barAddUsernameTitle" : d.kind === "update" ? "barUpdateTitle" : d.generated ? "barSaveGeneratedTitle" : "barSaveTitle")), h("span", { class: "sub" }, d.host)),
         h("button", { type: "button", class: "icon-btn sm", "aria-label": t("close"), onclick: () => void act("close") }, icon("close")),
       ),
       // What is saved, as in Chrome's bubble: the username and a masked password (its value stays in the worker).
@@ -76,8 +76,15 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
               h("span", { class: "label" }, t("barWhichLogin")),
               (choiceSelect = h("select", { class: "value" }, ...d.choices.map((c) => h("option", { value: c.id }, c.sub ? `${c.name} (${c.sub})` : c.name))) as HTMLSelectElement),
             )
-          : d.kind === "add"
-          ? h("label", { class: "row" }, h("span", { class: "label" }, t("username")), (usernameInput = h("input", { class: "value", type: "text", value: d.username, autocomplete: "off", spellcheck: false }) as HTMLInputElement))
+          : d.kind === "add" || d.addUsername
+          ? h(
+              "label",
+              { class: "row" },
+              h("span", { class: "label" }, t("username")),
+              // The form's other values and the user's usual account names drop down from the box, as in Chrome's bubble.
+              (usernameInput = h("input", { class: "value", type: "text", value: d.username, autocomplete: "off", spellcheck: false }) as HTMLInputElement),
+              d.usernames?.length ? h("datalist", { id: "usernames" }, ...d.usernames.map((u) => h("option", { value: u }))) : null,
+            )
           : d.username
             ? h("div", { class: "row" }, h("span", { class: "label" }, t("username")), h("span", { class: "value ellipsis" }, d.username))
             : null,
@@ -91,5 +98,7 @@ void ask<BarInfo | null>({ type: "barInfo", token }).then((r) => {
       ),
     ),
   );
+  // `list` is an attribute only (the property is read-only), so h() cannot set it.
+  if (d.usernames?.length) usernameInput?.setAttribute("list", "usernames");
   fit();
 });

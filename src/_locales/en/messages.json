@@ -790,6 +790,12 @@
   "barSaveTitle": {
     "message": "Save this login in Warren?"
   },
+  "barSaveGeneratedTitle": {
+    "message": "Save the generated password in Warren?"
+  },
+  "barAddUsernameTitle": {
+    "message": "Add the username to this login?"
+  },
   "barUpdateTitle": {
     "message": "Update the saved password?"
   },
@@ -2779,5 +2785,29 @@
         "content": "$1"
       }
     }
+  },
+  "inlinePrivateUsername": {
+    "message": "Use a private username"
+  },
+  "signupUsernames": {
+    "message": "Usernames on sign-up"
+  },
+  "signupUsernamesPrivate": {
+    "message": "Private"
+  },
+  "signupUsernamesUsual": {
+    "message": "Your usual ones"
+  },
+  "signupUsernamesOff": {
+    "message": "Off"
+  },
+  "signupUsernamesPrivateHint": {
+    "message": "A sign-up's username field offers a new one for each site, made with the username generator's settings"
+  },
+  "signupUsernamesUsualHint": {
+    "message": "The save bar also lists the usernames you use most"
+  },
+  "signupUsernamesOffHint": {
+    "message": "Only the values the form holds are offered"
   }
 }

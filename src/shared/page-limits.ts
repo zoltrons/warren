@@ -7,3 +7,5 @@ export const MAX_DATA_ATTRS = 16;
 export const MAX_PAGE_STRING = 300;
 export const MAX_FORM_TEXT = 2000;
 export const MAX_BLOCK_PATH = 32;
+/** Other account names a submitted form holds, offered in the save bar. */
+export const MAX_USERNAME_CHOICES = 5;
