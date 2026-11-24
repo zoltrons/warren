@@ -191,7 +191,9 @@ stack, which negotiates them with whatever answers at the server address (usuall
   `POST /api/ciphers/create {cipher (with encryptedFor), collectionIds}`; the extension decrypts both.
 * **Import**: `POST /api/ciphers/import {ciphers[] (each with encryptedFor), folders[{name}],
   folderRelationships[{key: cipherIndex, value: folderIndex}]}`; folder ids the user does not own
-  become new folders. **Export** re-checks the master password with
+  become new folders. The server validates every item first and imports none when one fails: an encrypted
+  `notes` over 10 000 characters (100 000 with `INCREASE_NOTE_SIZE_LIMIT`) answers 400 with
+  `validationErrors{"Ciphers[i].Notes"}`, which Warren turns into the names of those items. **Export** re-checks the master password with
   `POST /api/accounts/verify-password {masterPasswordHash}` (400 when wrong).
 * **PIN**: client-only (bitwarden-crypto `PinKey`: the PIN through the account KDF with the email as
   salt, stretched; wraps the user key). Nothing goes to the server.

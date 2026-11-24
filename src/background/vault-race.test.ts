@@ -92,8 +92,9 @@ local.server = { url: "https://vault.test" };
 local.account = { email: "a@b.test", userId: "user-a", kdf: { type: 0, iterations: 600_000, memory: 0, parallelism: 0 }, protectedUserKey: "2.k|k|k" };
 session.session = { unlocked: true, accessToken: "token", accessExpiresAt: Date.now() + 3_600_000 };
 
-const { breachEmails, ensureLoaded, putCipher, sync } = await import("./vault.ts");
+const { breachEmails, ensureLoaded, longNotesError, putCipher, sync } = await import("./vault.ts");
 const { lockNow } = await import("./lock.ts");
+const { ApiError } = await import("../transport/http.ts");
 const { onPasskeyPort, passkeyDecision, rememberFill } = await import("./passkey.ts");
 
 test("a save a lock overtook while the account and token were read is never sent", async () => {
@@ -355,4 +356,15 @@ test("a save the server refuses as out of date syncs the newer copy and says so"
   await answer("/api/sync", syncBody([{ id: "item-1", revisionDate: "new" }]));
   await assert.rejects(saving, (e: { code?: string }) => e.code === "conflict");
   assert.equal((local.vault as { revision: number }).revision, 9, "the newer copy was synced");
+});
+
+test("an import refused over long notes names those items; any other refusal stays the server's", () => {
+  const long = [{ index: 1, name: "Big note" }, { index: 4, name: "Long too" }];
+  const refused = new ApiError(400, { message: "The model state is invalid.", validationErrors: { "Ciphers[1].Notes": ["too long"], "Ciphers[2].Name": ["required"] } }, "The model state is invalid.");
+  const e = longNotesError(refused, long);
+  assert.ok(e?.message.includes("Big note") && !e.message.includes("Long too"), e?.message);
+  // A server with the raised limit refused something else: no long-note error.
+  assert.equal(longNotesError(new ApiError(400, { validationErrors: { "Ciphers[2].Name": ["required"] } }, "x"), long), undefined);
+  assert.equal(longNotesError(new Error("offline"), long), undefined);
+  assert.equal(longNotesError(refused, []), undefined);
 });

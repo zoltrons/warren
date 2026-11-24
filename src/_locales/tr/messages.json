@@ -2599,6 +2599,14 @@
   "errEnterAFilePassword": {
     "message": "Bir dosya parolası gir"
   },
+  "errImportNotesTooLong": {
+    "message": "Hiçbir şey içe aktarılmadı: sunucu şu öğelerdeki bu uzunluktaki notları kabul etmiyor: $P1$. Bu notları kısaltıp (ya da metni bir eke taşıyıp) yeniden içe aktarın.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "errNothingToImport": {
     "message": "İçe aktarılacak bir şey yok"
   },

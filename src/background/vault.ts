@@ -30,6 +30,7 @@ import {
   verifyPassword,
 } from "../transport/vault.ts";
 import { ApiError } from "../transport/http.ts";
+import { ci } from "../shared/validate.ts";
 import { auth, UserError, verifyMasterPassword } from "./account.ts";
 import { msg } from "./errors.ts";
 import { coreAlive, coreCall } from "./core.ts";
@@ -282,18 +283,30 @@ export async function importVault(text: string, password?: string): Promise<{ im
   const account = await getLocal("account");
   if (!account?.userId) throw new UserError("sessionExpired", msg("errPleaseLogInAgain"));
   await ensureLoaded();
-  const r = await coreCall<{ ciphers: Record<string, unknown>[]; folders: unknown[]; folderRelationships: unknown[]; skipped: number }>({ op: "prepareImport", text, ...(password ? { password } : {}) }).catch((e: unknown) => {
+  const r = await coreCall<{ ciphers: Record<string, unknown>[]; folders: unknown[]; folderRelationships: unknown[]; skipped: number; longNotes: { index: number; name: string }[] }>({ op: "prepareImport", text, ...(password ? { password } : {}) }).catch((e: unknown) => {
     throw new UserError("invalid", (e as Error).message);
   });
   if (!r.ciphers.length) throw new UserError("invalid", msg("errNothingToImport"));
   const ciphers = r.ciphers.map((c) => ({ ...c, encryptedFor: account.userId }));
   const { base, token } = await auth(owner);
   assertEpoch(epoch);
-  await importCiphers(base, token, { ciphers, folders: r.folders, folderRelationships: r.folderRelationships });
+  await importCiphers(base, token, { ciphers, folders: r.folders, folderRelationships: r.folderRelationships }).catch((e: unknown) => {
+    throw longNotesError(e, r.longNotes) ?? e;
+  });
   changes++;
   // Imported is imported: a failed refresh must not invite a second import of the same items.
   await refreshAfter(sync(true));
   return { imported: ciphers.length, skipped: r.skipped };
+}
+
+/** The server refused the import over notes too long (Vaultwarden validates every item first and imports none): the
+ * error names those items, which the server knows only by index. */
+export function longNotesError(e: unknown, longNotes: { index: number; name: string }[]): UserError | undefined {
+  if (!(e instanceof ApiError) || !longNotes.length) return undefined;
+  const errors = ci(e.body, "validationErrors");
+  const refused = new Set(Object.keys(errors && typeof errors === "object" ? errors : {}).flatMap((k) => /^ciphers\[(\d+)\]\.notes$/i.exec(k)?.[1] ?? []).map(Number));
+  const names = longNotes.filter((n) => refused.has(n.index)).map((n) => n.name);
+  return names.length ? new UserError("invalid", msg("errImportNotesTooLong", names.join(", "))) : undefined;
 }
 
 // ---------- Attachments ----------

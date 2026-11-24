@@ -447,6 +447,9 @@ interface ImportRequest {
   folders: { name: string }[];
   folderRelationships: { key: number; value: number }[];
   skipped: number;
+  /** Items whose encrypted note is over Vaultwarden's default limit (10 000; 100 000 when the server raises it), by
+   * index: named only if the server refuses them. */
+  longNotes: { index: number; name: string }[];
 }
 
 /**
@@ -477,7 +480,7 @@ export function prepareImport(text: string, password?: string): ImportRequest {
     throw new Error(data?.encrypted === true ? "Account-encrypted exports cannot be imported here; export with a file password instead" : "This is not a Bitwarden JSON or CSV export");
   const srcFolders = (Array.isArray(data.folders) ? data.folders : []).map(o).filter((f): f is Json => typeof f?.name === "string");
   const folderIndex = new Map(srcFolders.map((f, i) => [s(f.id), i]));
-  const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: encryptName(s(f.name)) })), folderRelationships: [], skipped: csvSkipped };
+  const out: ImportRequest = { ciphers: [], folders: srcFolders.map((f) => ({ name: encryptName(s(f.name)) })), folderRelationships: [], skipped: csvSkipped, longNotes: [] };
   for (const raw of data.items) {
     const item = o(raw);
     const type = Number(item?.type);
@@ -490,7 +493,9 @@ export function prepareImport(text: string, password?: string): ImportRequest {
     const { id: _id, folderId, organizationId: _org, collectionIds: _coll, revisionDate: _rev, creationDate: _cr, deletedDate: _del, attachments: _att, key: _key, ...rest } = item;
     const fi = folderIndex.get(s(folderId));
     if (fi !== undefined) out.folderRelationships.push({ key: out.ciphers.length, value: fi });
-    out.ciphers.push(JSON.parse(core.encryptCipher(JSON.stringify({ ...rest, type }), true)) as Json);
+    const enc = JSON.parse(core.encryptCipher(JSON.stringify({ ...rest, type }), true)) as Json;
+    if (s(enc.notes).length > 10_000) out.longNotes.push({ index: out.ciphers.length, name: s(item.name) });
+    out.ciphers.push(enc);
   }
   return out;
 }

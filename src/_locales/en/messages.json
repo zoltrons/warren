@@ -2599,6 +2599,14 @@
   "errEnterAFilePassword": {
     "message": "Enter a file password"
   },
+  "errImportNotesTooLong": {
+    "message": "Nothing was imported: the server refuses notes this long in $P1$. Shorten those notes (or move the text to an attachment) and import again.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "errNothingToImport": {
     "message": "Nothing to import"
   },
