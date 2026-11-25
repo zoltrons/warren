@@ -570,7 +570,8 @@ div.logo > svg.i { width: 1.75rem; height: 1.75rem; }
 }
 /* Segmented button (Material): one choice of a few, joined pills; the chosen segment is tonal. */
 .chips.segmented { flex-wrap: nowrap; gap: 0; }
-.chips.segmented .chip { border-color: var(--outline); flex: 1 1 0; min-width: 0; justify-content: center; padding: 0 8px; border-radius: 0; margin-inline-start: -1px; white-space: nowrap; overflow: hidden; }
+/* Long labels (four username types, Turkish) wrap to two lines instead of clipping mid-word. */
+.chips.segmented .chip { border-color: var(--outline); flex: 1 1 0; min-width: 0; justify-content: center; padding: 4px 8px; height: auto; min-height: 32px; line-height: 1.2; text-align: center; border-radius: 0; margin-inline-start: -1px; overflow-wrap: anywhere; }
 .chips.segmented .chip:first-child { border-radius: var(--corner-full) 0 0 var(--corner-full); margin-inline-start: 0; }
 .chips.segmented .chip:last-child { border-radius: 0 var(--corner-full) var(--corner-full) 0; }
 .chips.segmented .chip[aria-pressed="true"] { border-color: var(--outline); position: relative; }
@@ -1088,7 +1089,7 @@ h1[tabindex="-1"]:focus-visible { box-shadow: none; }
   background: var(--surface);
   border-top: 1px solid var(--outline-variant);
 }
-.editor-footer { display: flex; justify-content: flex-end; gap: 8px; }
+.editor-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .editor-footer .btn { height: 36px; }
 .editor-footer .btn.wide { width: auto; min-width: 96px; }
 

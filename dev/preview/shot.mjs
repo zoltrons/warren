@@ -78,6 +78,12 @@ const scenes = {
     await page.getByRole("searchbox").waitFor();
     await page.getByRole("navigation").getByRole("button", { name: "Generator" }).click();
   },
+  pickUsername: async (page) => {
+    await page.getByRole("searchbox").waitFor();
+    await page.getByRole("listitem").filter({ hasText: "GitHub" }).first().locator(".row-main").click();
+    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Generate username" }).click();
+  },
   alias: async (page) => {
     await page.getByRole("searchbox").waitFor();
     await page.getByRole("navigation").getByRole("button", { name: "Generator" }).click();

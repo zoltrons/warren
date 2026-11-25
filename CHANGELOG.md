@@ -25,6 +25,8 @@ All notable changes to Warren. Versions match the `v*` release tags.
   failing with "attachment has no key".
 - Generator: a password fills its lines edge to edge instead of leaving a wide gap on the right; up to 32
   characters fit on one line.
+- Generator: the username types wrap to two lines instead of being cut off mid-word, and the "Use this" and "Add
+  as a custom field" buttons stack when they don't fit side by side instead of overlapping.
 
 ## 0.0.23 — 2026-11-24
 
