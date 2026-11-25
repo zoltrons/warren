@@ -2,7 +2,7 @@
 // menu.html / bar.html (extension pages framed into the site) ask for data and act. Matching always
 // uses the URL of the frame the field is in, as reported by the browser (sender.url).
 import type { FillResult, PageLogin } from "../autofill/types.ts";
-import { type BarInfo, type FieldKind, type FrameRequest, type MenuData, type MenuItem, type PageRequest, parsePageRequest, type VaultItem } from "../shared/messages.ts";
+import { type BarInfo, type FieldKind, type FrameRequest, type MenuData, type MenuItem, type PageRequest, parsePageRequest, type VaultItem, type VaultList } from "../shared/messages.ts";
 import { emailAt, httpUrl } from "../shared/url.ts";
 import { type PasswordConstraints, ruleOptions } from "../shared/password-rules.ts";
 import { coreCall } from "./core.ts";
@@ -13,11 +13,10 @@ import { pageLoadFill, rememberLockedFill } from "./autofill.ts";
 import { finishFieldPicker } from "./picker.ts";
 import { conditionalReady, openConditional, publicSuffixes, rememberFill } from "./passkey.ts";
 import { getLocal, getSettings, getTabState, setLocal, setTabState, updateSession } from "./store.ts";
-import { ALIAS_VENDORS, missingAliasFields, type AliasVendor } from "../shared/alias.ts";
-import { generateAlias, getAliasSettings } from "./alias.ts";
+import { generateAlias, readyAliasVendor } from "./alias.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
 import { addGeneratorHistory, copyToClipboard, ensureLoaded, isUnlocked, list, markUsed, save, saveEncrypted } from "./vault.ts";
-import { type GeneratorPrefs, generatorPrefs, hostOf, isBlocked, readPrivate, updatePrivate, withWordlist } from "./private.ts";
+import { type GeneratorPrefs, generatorPrefs, isBlocked, pageHost, readPrivate, updatePrivate, withWordlist } from "./private.ts";
 
 export interface InlineContext {
   frameId: number;
@@ -76,7 +75,9 @@ async function items(kind: FieldKind, url: string): Promise<MenuItem[]> {
   if (kind === "card" && !settings.inlineMenuCards) return [];
   if (kind === "identity" && !settings.inlineMenuIdentities) return [];
   const type = kind === "card" ? 3 : 4;
-  return (await list()).items.filter((i) => i.type === type && !i.failed).map(pick);
+  // The bare list, as pageMatches takes it: list() would also decrypt the usage data, which is not needed here.
+  await ensureLoaded();
+  return (await coreCall<VaultList>({ op: "listVault" })).items.filter((i) => i.type === type && !i.failed).map(pick);
 }
 
 
@@ -149,11 +150,6 @@ async function closeMenu(tabId: number, ctx: InlineContext) {
 
 const offerCreate = (ctx: InlineContext, logins: number) => ctx.kind === "login" && (ctx.signup || !logins);
 
-/** The first alias service that is set up (key and, where needed, domain). */
-async function aliasVendor(): Promise<AliasVendor | undefined> {
-  for (const v of ALIAS_VENDORS) if (!missingAliasFields(await getAliasSettings(v)).length) return v;
-  return undefined;
-}
 
 /**
  * The user's own password or passphrase settings, unless the form limits what it accepts: then a password of the
@@ -171,7 +167,7 @@ async function generateFor(ctx: InlineContext, options: GeneratorPrefs["options"
 
 /** A new alias is offered on a registration form's fields, once a service is set up. */
 const offerGenerate = (ctx: InlineContext) => ctx.kind === "login" && ctx.signup;
-const offerAlias = async (ctx: InlineContext) => ctx.kind === "login" && ctx.signup && !!(await aliasVendor());
+const offerAlias = async (ctx: InlineContext) => ctx.kind === "login" && ctx.signup && !!(await readyAliasVendor());
 
 /**
  * "Use a private username": the username generator's own settings, for a registration form's account field when the
@@ -228,7 +224,7 @@ async function frequentUsernames(n: number): Promise<string[]> {
 async function loginSubmitted(tabId: number, url: string, username: string, password: string, { resumed = false, generated = false, beforeSubmit = false, usernames = [], accountBox = false }: Submitted = {}) {
   const epoch = lockEpoch();
   const settings = await getSettings();
-  const host = new URL(url).hostname.replace(/\.$/, ""); // no port or trailing dot: the form hostOf gives the settings list
+  const host = pageHost(url) ?? ""; // the form the site lists hold (private.ts)
   if (!settings.savePrompt) return;
   const origin = new URL(url).origin;
   // The first page of a two-step sign-in (Google, Microsoft, Okta): only an account name. Its password page,
@@ -420,8 +416,8 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
     }
     if (p.kind === "locked" && req.action !== "close") return null; // nothing to save or block before the vault is open
     if (req.action === "never") {
-      const host = new URL(p.url).hostname.replace(/\.$/, "");
-      await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
+      const host = pageHost(p.url);
+      if (host) await updatePrivate((d) => (d.neverSave = [...d.neverSave.filter((h) => h !== host), host]));
     } else if (req.action === "save") {
       if (p.kind === "update") {
         // One of the logins this prompt offered, never an id the bar makes up.
@@ -460,7 +456,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
   }
   if (!(await isUnlocked())) return { kind: ctx.kind, locked: true, items: [], passkey: false, create: false, alias: false, generate: false } satisfies MenuData;
   if (req.type === "inlineBlock") {
-    const host = hostOf(ctx.url);
+    const host = pageHost(ctx.url);
     if (host) await updatePrivate((d) => (d.blocked = [...d.blocked.filter((h) => h !== host), host]));
     await closeMenu(tabId, ctx);
     return null;
@@ -530,7 +526,7 @@ export async function handleFrame(req: FrameRequest, tabId: number): Promise<unk
   }
 
   if (req.type === "inlineAlias") {
-    const vendor = (await offerAlias(ctx)) ? await aliasVendor() : undefined;
+    const vendor = (await offerAlias(ctx)) ? await readyAliasVendor() : undefined;
     if (!vendor) throw new Error("no e-mail alias service is set up");
     await touchAutoLock();
     // The service is asked for the tab's site (generateAlias reads the active tab), never for a URL from the page.

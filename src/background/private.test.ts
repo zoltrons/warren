@@ -62,9 +62,17 @@ test("damaged entries are dropped", () => {
 test("never-save hosts have one form, whatever the port: settings, save bar and older builds' entries", async () => {
   const { hostOf } = await import("./private.ts");
   const page = "https://nas.example:5001/login";
-  // The settings list (hostOf) and the save bar's check (inline.ts: URL hostname) must agree.
+  // The settings list (hostOf) and a page's host (pageHost) must agree.
   assert.equal(hostOf("nas.example:5001"), new URL(page).hostname);
   assert.equal(hostOf(page), "nas.example");
+  // A page's host (block / never-save from the menu and the bar) keeps hosts without a dot, which typed input refuses.
+  const { pageHost, blockedHost } = await import("./private.ts");
+  assert.equal(pageHost(page), "nas.example");
+  assert.equal(pageHost("http://nas:5000/login"), "nas");
+  assert.equal(pageHost("http://[fd00::5]:8080/"), "[fd00::5]");
+  assert.equal(pageHost("https://example.com./"), "example.com");
+  assert.equal(pageHost("chrome://settings"), undefined);
+  assert.ok(blockedHost(pageHost("http://nas:5000/")!, ["nas"]));
   // Older save bars stored the host with its port.
   assert.deepEqual(sanitize({ neverSave: ["nas.example:5001", "nas.example", "[::1]:8080", "plain.example"] }).neverSave, ["nas.example", "[::1]", "plain.example"]);
 });

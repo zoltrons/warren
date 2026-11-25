@@ -92,7 +92,8 @@ local.server = { url: "https://vault.test" };
 local.account = { email: "a@b.test", userId: "user-a", kdf: { type: 0, iterations: 600_000, memory: 0, parallelism: 0 }, protectedUserKey: "2.k|k|k" };
 session.session = { unlocked: true, accessToken: "token", accessExpiresAt: Date.now() + 3_600_000 };
 
-const { breachEmails, ensureLoaded, longNotesError, putCipher, sync } = await import("./vault.ts");
+const { breachEmails, clearClipboard, ensureLoaded, longNotesError, putCipher, sync } = await import("./vault.ts");
+const { coreCall } = await import("./core.ts");
 const { lockNow } = await import("./lock.ts");
 const { ApiError } = await import("../transport/http.ts");
 const { onPasskeyPort, passkeyDecision, rememberFill } = await import("./passkey.ts");
@@ -367,4 +368,40 @@ test("an import refused over long notes names those items; any other refusal sta
   assert.equal(longNotesError(new ApiError(400, { validationErrors: { "Ciphers[2].Name": ["required"] } }, "x"), long), undefined);
   assert.equal(longNotesError(new Error("offline"), long), undefined);
   assert.equal(longNotesError(refused, []), undefined);
+});
+
+test("a clipboard clear while locked closes its document, unless an unlock began on it meanwhile", async () => {
+  const before = session.session;
+  session.session = { unlocked: false }; // locked, no login waiting: the earlier tests leave an unlocked one
+  offscreen = false;
+  await clearClipboard();
+  assert.equal(offscreen, false, "the clear closes the document it opened");
+  // The unlock's first call lands while the clear is still out: the clear must leave the document to it.
+  let release!: () => void;
+  hold.clearClipboard = new Promise<void>((r) => (release = r));
+  const clearing = clearClipboard();
+  await new Promise((r) => setTimeout(r, 0));
+  const unlocking = coreCall({ op: "vaultLoaded" });
+  release();
+  await Promise.all([clearing, unlocking]);
+  delete hold.clearClipboard;
+  assert.equal(offscreen, true, "the clear closed the document under an unlock");
+  // An unlock that began first, while the document was still being created (hasDocument false): still running.
+  offscreen = false;
+  let finish!: () => void;
+  hold.vaultLoaded = new Promise<void>((r) => (finish = r));
+  const early = coreCall({ op: "vaultLoaded" });
+  await clearClipboard();
+  assert.equal(offscreen, true, "the clear closed the document under an unlock that began before it");
+  finish();
+  await early;
+  delete hold.vaultLoaded;
+  // One that already finished holds the keys: the session says unlocked.
+  offscreen = false;
+  const saved = session.session;
+  session.session = { unlocked: true };
+  await clearClipboard();
+  session.session = saved;
+  assert.equal(offscreen, true, "the clear closed the document of an unlocked vault");
+  session.session = before;
 });

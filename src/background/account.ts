@@ -57,7 +57,7 @@ const rememberKey = async (serverUrl: string, email: string) =>
   // Hashed: the token outlives a logout, and the account's email address should not stay on disk with it.
   new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${serverUrl}|${email}`))).toHex();
 
-async function requireServer(): Promise<string> {
+export async function requireServer(): Promise<string> {
   const server = await getLocal("server");
   if (!server) throw new UserError("wrongPhase", msg("errNoServerConfigured"));
   return server.url;

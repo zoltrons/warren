@@ -5,6 +5,7 @@
 // request only ever leaves after an explicit click in the generator.
 import {
   ALIAS_INFO,
+  ALIAS_VENDORS,
   type AliasContext,
   AliasError,
   aliasAccountId,
@@ -14,11 +15,14 @@ import {
   aliasGeneratedBy,
   aliasResult,
   defaultAliasSettings,
+  missingAliasFields,
   normalizeAliasBaseUrl,
   type AliasSettings,
   type AliasVendor,
 } from "../shared/alias.ts";
 import { readBytes } from "../transport/http.ts";
+import { httpUrl } from "../shared/url.ts";
+import { activeTab } from "./autofill.ts";
 import { ci } from "../shared/validate.ts";
 import { UserError } from "./account.ts";
 import { msg } from "./errors.ts";
@@ -46,9 +50,17 @@ async function readAliasStore(): Promise<AliasStore> {
 }
 
 /** Settings for one service, with defaults filled in. */
-export async function getAliasSettings(vendor: AliasVendor): Promise<AliasSettings> {
-  const saved = (await readAliasStore())[vendor];
+export const getAliasSettings = async (vendor: AliasVendor): Promise<AliasSettings> => withDefaults(vendor, await readAliasStore());
+
+const withDefaults = (vendor: AliasVendor, store: AliasStore): AliasSettings => {
+  const saved = store[vendor];
   return saved ? { ...defaultAliasSettings(vendor), ...saved, vendor } : defaultAliasSettings(vendor);
+};
+
+/** The first service that is set up (key and, where needed, domain), from one read of the encrypted store. */
+export async function readyAliasVendor(): Promise<AliasVendor | undefined> {
+  const store = await readAliasStore();
+  return ALIAS_VENDORS.find((v) => !missingAliasFields(withDefaults(v, store)).length);
 }
 
 export async function saveAliasSettings(settings: AliasSettings): Promise<void> {
@@ -66,15 +78,7 @@ export async function saveAliasSettings(settings: AliasSettings): Promise<void> 
 }
 
 /** The site the alias is being made for: the active tab, never a URL from the message. Only its origin leaves: paths carry reset tokens and account ids too. */
-async function activeWebsite(): Promise<string> {
-  const tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
-  try {
-    const url = new URL(tab?.url ?? "");
-    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
-  } catch {
-    return "";
-  }
-}
+const activeWebsite = async (): Promise<string> => httpUrl(await activeTab())?.origin ?? "";
 
 /** First readable message out of a service's error body (JSON or plain text). */
 function serviceMessage(body: unknown, status: number): string {

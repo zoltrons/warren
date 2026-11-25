@@ -131,6 +131,15 @@ export function hostOf(input: string): string | undefined {
   }
 }
 
+/**
+ * A page's host as the site lists hold it (no port, no trailing dot). Unlike hostOf (typed input) it takes hosts
+ * without a dot: an intranet page (`http://nas:5000`, `http://[fd00::5]`) can be blocked and never-saved too.
+ */
+export function pageHost(url: string): string | undefined {
+  const u = URL.parse(url);
+  return u && /^https?:$/.test(u.protocol) ? u.hostname.replace(/\.$/, "") || undefined : undefined;
+}
+
 /** Blocked hosts cover their subdomains. */
 export const blockedHost = (host: string, blocked: string[]) => blocked.some((b) => host === b || host.endsWith(`.${b}`));
 
@@ -140,7 +149,7 @@ export const blockedHost = (host: string, blocked: string[]) => blocked.some((b)
  */
 export async function isBlocked(url: string, unlocked: boolean): Promise<boolean> {
   if (!unlocked) return false;
-  const host = hostOf(url);
+  const host = pageHost(url);
   return !!host && blockedHost(host, await readPrivate().then((d) => d.blocked, () => []));
 }
 

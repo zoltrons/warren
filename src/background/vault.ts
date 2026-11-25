@@ -31,9 +31,9 @@ import {
 } from "../transport/vault.ts";
 import { ApiError } from "../transport/http.ts";
 import { ci } from "../shared/validate.ts";
-import { auth, UserError, verifyMasterPassword } from "./account.ts";
+import { auth, requireServer, UserError, verifyMasterPassword } from "./account.ts";
 import { msg } from "./errors.ts";
-import { coreAlive, coreCall } from "./core.ts";
+import { coreAlive, coreCall, coreCalls, coreInflight } from "./core.ts";
 import { assertEpoch, lockEpoch, ownerEpoch } from "./lock.ts";
 import { readPrivate, updatePrivate } from "./private.ts";
 import { REPROMPT_MESSAGE, repromptPending } from "./reprompt.ts";
@@ -46,12 +46,6 @@ export const isUnlocked = async (): Promise<boolean> => (await getSession()).unl
 
 export async function requireUnlocked(): Promise<void> {
   if (!(await isUnlocked())) throw new UserError("wrongPhase", msg("errTheVaultIsLocked"));
-}
-
-async function server(): Promise<string> {
-  const s = await getLocal("server");
-  if (!s) throw new UserError("wrongPhase", msg("errNoServerConfigured"));
-  return s.url;
 }
 
 /** Into the worker, only while `epoch` holds: after a lock it would land in a new, keyless worker as undecryptable items. */
@@ -259,9 +253,14 @@ export async function clearClipboard(): Promise<void> {
   const wasAlive = await coreAlive();
   // Only what we copied: something the user copied since stays. Without a hash (session gone) it clears as before.
   const { clipboardHash } = await getSession();
-  await coreCall({ op: "clearClipboard", ...(clipboardHash ? { hash: clipboardHash } : {}) });
-  await updateSession({ clipboardHash: undefined });
-  if (!wasAlive) await chrome.offscreen.closeDocument().catch(() => undefined);
+  const clearing = coreCall({ op: "clearClipboard", ...(clipboardHash ? { hash: clipboardHash } : {}) });
+  const mine = coreCalls; // taken as the request starts: any call after it is someone else's
+  await clearing;
+  const s = await updateSession({ clipboardHash: undefined });
+  // An unlock or login uses the document too, whether it began before this call (while the document was still being
+  // created), during it, or already finished (keys held, a pending login): then it stays.
+  const shared = coreInflight > 0 || coreCalls !== mine || s.unlocked || !!s.pending || !!s.deviceLogin;
+  if (!wasAlive && !shared) await chrome.offscreen.closeDocument().catch(() => undefined);
 }
 
 // ---------- Import / export ----------
@@ -356,7 +355,7 @@ export const MAX_SEND_FILE_BYTES = 25 * 1024 * 1024;
 
 export async function sendList(): Promise<SendItem[]> {
   await ensureLoaded(); // the vault and its sends
-  const base = await server();
+  const base = await requireServer();
   const entries = await coreCall<(Omit<SendItem, "link"> & { accessId: string; urlKey: string })[]>({ op: "listSends" });
   return entries.map(({ accessId, urlKey, ...e }) => ({ ...e, link: `${base}/#/send/${accessId}/${urlKey}` }));
 }

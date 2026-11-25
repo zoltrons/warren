@@ -22,16 +22,29 @@ async function ensureOffscreen(): Promise<void> {
 }
 
 /**
+ * Requests started so far, and those still running: a caller that opened the document for itself (clearClipboard)
+ * closes it only if no one else used it meanwhile.
+ */
+export let coreCalls = 0;
+export let coreInflight = 0;
+
+/**
  * `guard` runs once the document is up, right before the request goes out, and throws to call it off: a lock
  * that closed the document meanwhile would otherwise get the request (a draft, a vault) into a new, empty worker.
  */
 export async function coreCall<T>(req: CoreRequest, guard?: () => void): Promise<T> {
-  await ensureOffscreen();
-  guard?.();
-  const r = (await chrome.runtime.sendMessage({ target: OFFSCREEN_TARGET, req })) as CoreResult | undefined;
-  if (!r) throw new Error("offscreen document did not answer");
-  if (!r.ok) throw new CoreError(r.error);
-  return r.value as T;
+  coreCalls++;
+  coreInflight++;
+  try {
+    await ensureOffscreen();
+    guard?.();
+    const r = (await chrome.runtime.sendMessage({ target: OFFSCREEN_TARGET, req })) as CoreResult | undefined;
+    if (!r) throw new Error("offscreen document did not answer");
+    if (!r.ok) throw new CoreError(r.error);
+    return r.value as T;
+  } finally {
+    coreInflight--;
+  }
 }
 
 export class CoreError extends Error {

@@ -21,6 +21,11 @@ All notable changes to Warren. Versions match the `v*` release tags.
 
 ### Fixed
 
+- "Don't show on this site" in the inline menu works on intranet addresses without a dot (`http://nas:5000`) and on
+  IPv6 addresses; before, the menu came back on the next focus.
+- An unlock that ran while a copied password was being cleared from the clipboard no longer fails or locks again
+  right away.
+- The inline menu opens a little faster on sign-up, card and identity fields.
 - Attachments from very old vaults, saved before each attachment got its own key, download and open instead of
   failing with "attachment has no key".
 - Generator: a password fills its lines edge to edge instead of leaving a wide gap on the right; up to 32
