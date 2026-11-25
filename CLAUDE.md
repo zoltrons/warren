@@ -9,17 +9,26 @@ change must update, commit/changelog/version rules): **`docs/AGENT_MAP.md`**, re
 ## Commands
 
 Every check goes through **`node tools/verify.mjs`** (CI runs the same stages). It picks the rustup toolchain and
-Helium itself, fetches the PSL once and the test vectors once per sdk-internal rev, times each task and stops at the first failure.
+Helium itself, fetches the PSL once and the test vectors once per sdk-internal rev, skips a wasm build whose sources
+are unchanged, times each task and stops at the first failure. CI on a push or PR runs only the jobs its changed files
+need (`tools/scope.mjs`: docs need none, TypeScript skips the Rust job); the nightly run and a release run every job.
 
 | Task | Command |
 |---|---|
-| After every change: types, unit tests (`src/**/*.test.ts`), contrast (~10 s) | `npm run check` (= `node tools/verify.mjs`) |
-| Before every push: all CI gates (wasm, rust, build, size, smoke tests, workflow/secret lint) | `node tools/verify.mjs push` |
-| e2e vs. Vaultwarden **testing** (main, the next release: development target) + mock IdP; `VW_TAG=latest` for the supported release, CI runs both | `bash dev/vaultwarden/up.sh` (docker or Apple `container`), then `node tools/verify.mjs e2e [--only vault,inline]` |
+| After every change: types, unit tests (`src/**/*.test.ts`, `tools/*.test.mjs`), contrast (~10 s) | `npm run check` (= `node tools/verify.mjs`) |
+| Before every push: what CI runs for this change but e2e (scope from the files that differ from origin/main) | `node tools/verify.mjs push` |
+| Every check but e2e (wasm, rust, build, size, smoke tests, workflow/secret lint), before a version commit | `node tools/verify.mjs full` |
+| e2e vs. Vaultwarden **testing** (main, the next release: development target) + mock IdP; `VW_TAG=latest` for the supported release, CI runs both | `bash dev/vaultwarden/up.sh` (docker or Apple `container`), then `node tools/verify.mjs e2e --only vault,inline` |
 | One task | `node tools/verify.mjs <task>`: `fmt clippy vectors autofill wasm build size fill biometric passkeys lint e2e` |
-| Release, once the `Version X.Y.Z` commit is on main | `bash tools/release.sh X.Y.Z` (waits for green ci, signs, pushes the tag) |
+| Release, once the `Version X.Y.Z` commit is on main | `bash tools/release.sh X.Y.Z` (starts a full ci run and waits for it, signs, pushes the tag) |
 | UI screenshots, stubbed worker | `node dev/preview/build.mjs && node dev/preview/shot.mjs [dir] [--only list,menu]` |
 | Icons from `brand/icon.svg` + `brand/wordmark.svg` | `node tools/icons.mjs [--sheet out.png]` |
+
+Run the smallest proof for the change: the one task or `--only <group>` that covers it while iterating; `push` once
+before pushing, not after every edit. The full e2e suite is CI's: locally `e2e` needs `--only` (it refuses without;
+`--all` overrides), never a full run before a push or to double-check. Do not rerun a passing stage on unchanged code
+or loop a flaky test in the foreground. A stage that can take over 2 min (`push`, `e2e`, `gh run watch`, `release.sh`) runs in the background
+(`run_in_background`), never as a foreground `sleep`/`until` poll.
 
 e2e groups (`tests/e2e/<group>.ts`, in order): `auth webauthn send vault autofill inline passkeys vectors sso`; a group
 imports the groups it builds on, so `--only inline` also runs `vault` and `autofill`.

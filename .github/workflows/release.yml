@@ -11,15 +11,17 @@ on:
 permissions: {}
 
 jobs:
-  # Installed copies update themselves, so a tag must never ship a commit that is not on main with a green CI run.
+  # Installed copies update themselves, so a tag must never ship a commit that is not on main with a green, full CI run.
   # Not a check named "ci": a pull request's run posts one on its own commits, and so can anything allowed to write
-  # checks. The tagged commit must be on main, and the ci workflow's run for its push to main must have passed.
+  # checks. The tagged commit must be on main, and a full run of the ci workflow on main must have passed on it: a
+  # dispatched one (tools/release.sh starts it) or the nightly one. A push's run does not count: it runs only the jobs
+  # its change needs (ci.yml `changes`), while a full run's fan-in fails on any skipped job.
   ci-passed:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions: { actions: read, contents: read }
     steps:
-      - name: the commit is on main and the ci workflow passed for its push there
+      - name: the commit is on main and a full ci run passed on it there
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           # main ahead of (or at) the commit: it is in main's history.
@@ -29,10 +31,11 @@ jobs:
             *) echo "::error::$GITHUB_SHA is not on main ($status)"; exit 1 ;;
           esac
           while :; do
-            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&branch=main&head_sha=$GITHUB_SHA" --jq '.workflow_runs[0].conclusion // "pending"')"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&head_sha=$GITHUB_SHA" --jq '[.workflow_runs[] | select(.event == "workflow_dispatch" or .event == "schedule")][0] | if . == null then "none" else (.conclusion // "pending") end')"
             case "$conclusion" in
               success) exit 0 ;;
               pending) sleep 30 ;;
+              none) echo "::error::no full ci run on $GITHUB_SHA: start one with gh workflow run ci.yml --ref main"; exit 1 ;;
               *) echo "::error::ci finished as '$conclusion' on $GITHUB_SHA"; exit 1 ;;
             esac
           done

@@ -6,9 +6,7 @@
 # wasm-opt (binaryen). Override binaries with WASM_BINDGEN / WASM_OPT.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# A Homebrew cargo/rustc earlier on PATH has no wasm target: use the rustup toolchain rust-toolchain.toml names.
-if command -v rustup >/dev/null; then PATH="$(dirname "$(rustup which cargo)"):${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"; fi
-
+ARGS="$*"
 FEATURES=""
 OUT="dist/wasm"
 RUSTFLAGS_EXTRA=""
@@ -20,6 +18,23 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+# Nothing to do when $OUT holds a build of the same sources (every file the build reads, the pins included) and
+# flags: CI restores one from its cache, and a local run after a TypeScript-only change reuses the last. Outside a git
+# checkout the sources cannot be listed, so it always builds. Keep the file list equal to ci.yml's wasm cache key.
+STAMP="$OUT/inputs.sha256"
+stamp=""
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  stamp=$({ echo "$ARGS"; git ls-files -z -co --exclude-standard -- crates Cargo.toml Cargo.lock rust-toolchain.toml upstream.lock .cargo/config.toml tools/build-wasm.sh package-lock.json | xargs -0 shasum -a 256 2>/dev/null || true; } | shasum -a 256 | cut -d' ' -f1)
+fi
+if [[ -n "$stamp" && -f "$STAMP" && "$(cat "$STAMP")" == "$stamp" && -f "$OUT/core_wasm_bg.wasm" && -f "$OUT/autofill_core_bg.wasm" ]]; then
+  echo "$OUT is up to date"
+  exit 0
+fi
+rm -f "$STAMP"
+
+# A Homebrew cargo/rustc earlier on PATH has no wasm target: use the rustup toolchain rust-toolchain.toml names.
+if command -v rustup >/dev/null; then PATH="$(dirname "$(rustup which cargo)"):${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"; fi
 
 WASM_BINDGEN="${WASM_BINDGEN:-wasm-bindgen}"
 WASM_OPT="${WASM_OPT:-wasm-opt}"
@@ -46,4 +61,5 @@ RUSTFLAGS="$BASE_RUSTFLAGS" cargo build --locked --release --target wasm32-unkno
   --target web --out-dir "$OUT" --out-name autofill_core
 "$WASM_OPT" -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
   --enable-mutable-globals "$OUT/autofill_core_bg.wasm" -o "$OUT/autofill_core_bg.wasm"
+[[ -z "$stamp" ]] || echo "$stamp" > "$STAMP"
 ls -l "$OUT"

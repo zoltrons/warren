@@ -1,5 +1,5 @@
 // End-to-end suite: the real extension in a Chromium-based browser against a local Vaultwarden (`testing` or `latest`, VW_TAG).
-// Run it through `node tools/verify.mjs e2e [--only <group,...>]`, which builds dist/ext-e2e, checks the server and
+// Run it through `node tools/verify.mjs e2e [--only|--except <group,...>]`, which builds dist/ext-e2e, checks the server and
 // picks the browser. By hand: node --experimental-strip-types tests/e2e/run.ts [--only vault,inline]
 //
 // Each group is a module of `await step("…")` blocks, run in the order below. A group imports the groups whose fixtures
@@ -8,9 +8,14 @@
 import { rmSync } from "node:fs";
 
 const GROUPS = ["auth", "webauthn", "send", "vault", "autofill", "inline", "passkeys", "vectors", "sso"];
-const at = process.argv.indexOf("--only");
-const only = at > 0 ? (process.argv[at + 1] ?? "").split(",").filter(Boolean) : GROUPS;
-const unknown = only.filter((g) => !GROUPS.includes(g));
+const list = (flag: string) => {
+  const at = process.argv.indexOf(flag);
+  return at > 0 ? (process.argv[at + 1] ?? "").split(",").filter(Boolean) : undefined;
+};
+// --except: every other group, as CI's second e2e job runs them (a new group lands there without a ci.yml change).
+const except = list("--except") ?? [];
+const only = (list("--only") ?? GROUPS).filter((g) => !except.includes(g));
+const unknown = [...only, ...except].filter((g) => !GROUPS.includes(g));
 if (!only.length || unknown.length) {
   console.error(`unknown e2e group: ${unknown.join(",") || "(none given)"}; groups: ${GROUPS.join(", ")}`);
   process.exit(2);

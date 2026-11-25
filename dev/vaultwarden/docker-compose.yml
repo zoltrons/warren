@@ -30,6 +30,9 @@ services:
       SSO_CLIENT_SECRET: "test-only-secret"
     volumes:
       - vw-data:/data
+    # The image checks once a minute, so `up --wait` sat a minute on a server that answers within a second.
+    healthcheck:
+      interval: 1s
 
   mock-idp:
     image: node:24-alpine

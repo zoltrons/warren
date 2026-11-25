@@ -5,9 +5,10 @@ The tag must be annotated: its message, the version's `CHANGELOG.md` section, be
 (`git tag -s vX.Y.Z --cleanup=verbatim -F notes.md`; without `verbatim` git drops the `###` headings). It must also
 be **signed** with a key listed in `.github/allowed_signers` (SSH, principal `warren-release`): the `tag-signed` job
 refuses any other tag before anything is built, so write access to the repository alone cannot ship a release. The
-tagged commit must also be on `main` with a green run of the `ci` workflow for its push there (the `ci-passed` job,
-which runs first: the signer list is only read from a commit it accepted). `bash tools/release.sh X.Y.Z` does all of this in order: it waits for that
-`ci` run, signs the tag with the CHANGELOG section, checks it with `tools/verify-tag.sh` and pushes it. To add or replace a signing key, change
+tagged commit must also be on `main` with a green full run of the `ci` workflow on it, dispatched or nightly (the
+`ci-passed` job, which runs first: the signer list is only read from a commit it accepted). A push's own run does not
+count: it runs only the jobs its change needs, while a full run's fan-in fails on a skipped job. `bash tools/release.sh
+X.Y.Z` does all of this in order: it starts a full `ci` run (or reuses one that passed) and waits for it, signs the tag with the CHANGELOG section, checks it with `tools/verify-tag.sh` and pushes it. To add or replace a signing key, change
 `.github/allowed_signers` on `main` first.
 The build job also runs `node tools/totp-sites.mjs` first, so every release carries the current list of sites that offer
 authenticator-app codes (read from 2fa.directory's public API; the extension itself never contacts it). The tool

@@ -114,10 +114,11 @@ file over 8 KiB gets a ceiling from its role.
 
 | Path | What |
 |---|---|
-| `tools/verify.mjs` | **The one entry point for every check**, locally and in CI: stages `quick` (default), `rust`, `ext`, `lint`, `e2e`, `push`, `all`, or single tasks. Puts the rustup toolchain and Helium (`CHROME_PATH`) in front for every child, fetches the PSL once and the test vectors once per sdk-internal rev. |
-| `tools/release.sh` | `bash tools/release.sh X.Y.Z`: waits for green `ci` on main's HEAD, signs the tag with the CHANGELOG section, verifies and pushes it. |
+| `tools/verify.mjs` | **The one entry point for every check**, locally and in CI: stages `quick` (default), `rust`, `ext`, `lint`, `e2e`, `push` (the change's CI scope), `full`, `all`, or single tasks. Puts the rustup toolchain and Helium (`CHROME_PATH`) in front for every child, fetches the PSL once and the test vectors once per sdk-internal rev. |
+| `tools/scope.mjs` | Which CI jobs a change needs (`rust`, `ext`, `e2e`) from its paths; ci.yml's `changes` job and `verify push` both use it. Unknown paths count as code. Test: `tools/scope.test.mjs`. |
+| `tools/release.sh` | `bash tools/release.sh X.Y.Z`: starts a full `ci` run on main's HEAD (or reuses a passed one) and waits for it, signs the tag with the CHANGELOG section, verifies and pushes it. |
 | `tools/build.mjs` | Extension bundle → `dist/ext`; `--e2e` (test hooks, optional permissions granted) builds into `dist/ext-e2e`, so `dist/ext` is always a real build; `--watch`. |
-| `tools/build-wasm.sh` | Both WASM modules → `dist/wasm` (`--simd`; `--features register --out dist/wasm-register` for the biometric smoke and e2e). Uses the rustup toolchain even when a Homebrew cargo is first on PATH. |
+| `tools/build-wasm.sh` | Both WASM modules → `dist/wasm` (`--simd`; `--features register --out dist/wasm-register` for the biometric smoke and e2e). Uses the rustup toolchain even when a Homebrew cargo is first on PATH. Skips the build when `<out>/inputs.sha256` matches its sources and flags (ci.yml's wasm cache key names the same files). |
 | `tools/fetch-psl.mjs` | Downloads the Public Suffix List once (needed before typecheck and build). |
 | `tools/fetch-test-vectors.sh` | sdk-internal test vectors → `target/test-vectors` (GNU tar or macOS bsdtar). Used by `crates/core-wasm/tests/vectors.rs` and the e2e `vectors` group. |
 | `tools/size-report.mjs`, `size-budget.json` | Size report; fails over budget and says by how much. |
@@ -238,7 +239,13 @@ Write `docker run … image:tag@sha256:<digest>`. Renovate's regex only updates 
 ## 4. Which proof to run
 
 Every row is a `node tools/verify.mjs …` call; CI runs the same tasks (`ci.yml`: `rust`, `wasm quick ext`, `e2e`, and
-the container lint that `lint` runs locally). Before a push, `node tools/verify.mjs push` runs everything CI gates.
+the container lint that `lint` runs locally). A push or PR runs only the jobs its files need (`tools/scope.mjs`: docs,
+site, brand and non-ci workflows need only the lint; TypeScript skips `rust`; unit tests and smoke tools skip `e2e`); the
+nightly run and the dispatched run a release requires run every job. Before a push, `node tools/verify.mjs push` runs
+what CI will run for the change, except e2e (`full` runs every check but e2e). The e2e suite is CI's job (both Vaultwarden
+tags, split in two halves each, on every push that changes code): locally run only the groups the change touches, `verify e2e` refuses without `--only` (`--all` overrides, for a change that really spans every group). Not for:
+a push, a rebase, "one more run to be sure", or a flake (rerun that one group once). Popup-only UI needs no e2e; the inline
+menu and save bar (`menu.html`, `bar.html`, and the `popup.css` rules they share) run `--only inline`.
 
 | Changed | Run |
 |---|---|
@@ -248,7 +255,8 @@ the container lint that `lint` runs locally). Before a push, `node tools/verify.
 | `crates/core-wasm` | `verify wasm vectors size`, plus `e2e --only vectors` |
 | Passkeys | `verify passkeys` (+ `fido2.test.ts`), `e2e --only passkeys` |
 | Biometric unlock | `verify biometric` |
-| Transport, account, sync, server behavior | `bash dev/vaultwarden/up.sh`, then `verify e2e --only <group>`; the whole suite before a push that touches them |
+| Transport, account, sync, server behavior | `bash dev/vaultwarden/up.sh`, then `verify e2e --only <group>` (login/2FA/unlock: `auth`; sync/save/import/export: `vault`; Send: `send`; SSO: `sso`) |
+| Inline menu, save bar, picker | `e2e --only inline` (runs `vault`, `autofill` first) |
 | A security check | its unit test + `node tools/mutate.mjs <id>` |
 | Anything that grows a bundle | `verify build size` |
 | Rust style | `verify fmt clippy` |
@@ -286,8 +294,8 @@ file and function that enforces a claim. No marketing words. Do not invent claim
 
 **Commits.** One subject line in the form `Area: what changed, in user terms`, for example
 `Passkeys: an abort before the request is registered cancels it` or `CSV export: defuse a formula in the username`.
-Areas used so far: `Security`, `Core`, `Parity`, `Docs`, `CI`, `Release`, `README`, a feature name. Add `[skip ci]` only for
-README-only commits. Commit only when the owner asks; end with the attribution lines the session gives.
+Areas used so far: `Security`, `Core`, `Parity`, `Docs`, `CI`, `Release`, `README`, a feature name. Docs-only commits need no `[skip ci]`:
+CI runs only the lint for them. Commit only when the owner asks; end with the attribution lines the session gives.
 
 **CHANGELOG.md.** Changes go in under the next version, with the headings `### Security`, `### Added`, `### Changed`,
 `### Fixed` (in that order, only those that apply). One bullet per change, written for users, naming the visible
@@ -298,9 +306,10 @@ effect; mention a new permission or dependency explicitly.
 `CHANGELOG.md`.
 
 **Release.** Only when the owner asks. After the `Version X.Y.Z` commit is pushed to `main`:
-`bash tools/release.sh X.Y.Z`. It waits for that commit's `ci` run, stops if it is red, then makes the signed,
-annotated tag whose message is the version's CHANGELOG section, checks it with `tools/verify-tag.sh` and pushes it.
-Run `node tools/verify.mjs push` before pushing the version commit, so the wait does not end red. Never touch
+`bash tools/release.sh X.Y.Z`. It starts a full `ci` run on that commit (every job, whatever the change; a passed
+one is reused), stops if it is red, then makes the signed, annotated tag whose message is the version's CHANGELOG
+section, checks it with `tools/verify-tag.sh` and pushes it. Run `node tools/verify.mjs full` before pushing the version
+commit, so the wait does not end red. Never touch
 `CRX_KEY` or the extension id. Details in `docs/UPDATES.md`.
 
 ## 7. Never

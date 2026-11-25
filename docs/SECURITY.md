@@ -374,8 +374,9 @@ short on purpose. Either way the reason is given here or in Known gaps.
   extension's key, so a build signed with another key is refused, but anyone who can push a `v*` tag and read
   `CRX_KEY` could ship code to every installed copy, so a release also needs a tag signed by a key in
   `.github/allowed_signers` (`tools/verify-tag.sh`, the `tag-signed` job). That file is read from the tagged commit
-  only after `ci-passed` showed the commit is in `main`'s history and the `ci` workflow's run for its push to `main`
-  passed (a check merely named `ci` would not do: a pull request's run posts one on its own commits): whoever can
+  only after `ci-passed` showed the commit is in `main`'s history and a full run of the `ci` workflow on it, dispatched
+  or nightly on `main`, passed (a check merely named `ci` would not do: a pull request's run posts one on its own commits;
+  a push's run may skip the jobs its change does not need, a full run's fan-in fails on any skipped job): whoever can
   change `main` can still add a key, but not without a visible commit. Keep that secret and the repository's write access tight.
   What the pipeline can do about it: every action is pinned by commit SHA and linted by `zizmor`, build tools
   come from lockfiles, the job that holds `CRX_KEY` installs nothing and runs no package code or browser (the CRX is
